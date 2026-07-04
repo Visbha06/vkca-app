@@ -1,0 +1,81 @@
+# ==========================================
+# 1. OS & Editor Specific
+# ==========================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ==========================================
+# 2. Python Backend (FastAPI & uv)
+# ==========================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments & Dependencies
+.venv/
+venv/
+ENV/
+env/
+# uv cache directory
+.uv/
+
+# Testing & Linting
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ==========================================
+# 3. Frontend (React + npm/pnpm)
+# ==========================================
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Build outputs
+dist/
+build/
+
+# Package manager logs & local speeds
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+
+# Vite/Next.js caches if applicable
+.vite/
+.next/
+
+# ==========================================
+# 4. Infrastructure & Database (Docker / Postgres)
+# ==========================================
+# Local database storage directory (NEVER commit your raw DB files)
+postgres_data/
+pgdata/
+
+# Docker logs
+*.log
+
+# ==========================================
+# 5. Security & Environment Secrets
+# ==========================================
+# Absolutely keep secret tokens, keys, and database passwords out of source control
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ==========================================
+# 5. Security & Environment Secrets
+# ==========================================
+# Ignore local agent execution logs and runtime states
+.agents/
