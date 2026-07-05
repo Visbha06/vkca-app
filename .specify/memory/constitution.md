@@ -1,29 +1,16 @@
 <!--
   Sync Impact Report
   ==================
-  Version change: (none) → 1.0.0 (initial ratification)
-  Modified principles: N/A (all new)
+  Version change: 1.0.0 → 1.1.0 (MINOR — new principle added)
+  Modified principles: N/A
   Added sections:
-    - I. Clean Code
-    - II. Simple UX
-    - III. Responsive Design
-    - IV. Minimal Dependencies
-    - V. Testing Discipline
-    - VI. MCP Server Priority
-    - VII. Database Schema Migrations
-    - VIII. UX Completeness in Specs
-    - IX. Optimistic Concurrency Control
-    - X. Strongly-Typed API Boundaries
-    - XI. Frontend State & Component Discipline
-    - Technical Standards
-    - Governance
+    - XII. Documentation (new principle — per-feature docs in docs/)
   Removed sections: N/A
   Templates requiring updates:
     - .specify/templates/plan-template.md: ✅ aligned (Constitution Check defers to this file)
-    - .specify/templates/spec-template.md: ⚠ pending — no dedicated UI/UX section; Principle VIII
-      relies on /clarify and /analyze workflows to catch gaps dynamically
-    - .specify/templates/tasks-template.md: ⚠ pending — tests currently marked "OPTIONAL";
-      constitution makes unit tests mandatory and requires one E2E Playwright test per spec
+    - .specify/templates/spec-template.md: ✅ aligned (no documentation-section requirement)
+    - .specify/templates/tasks-template.md: ⚠ pending — Polish phase doc task needs
+      strengthening to reflect mandatory per-feature doc file
   Follow-up TODOs: None
 -->
 
@@ -165,6 +152,20 @@ React components MUST be small and modular.
   `w-[17px]`) are FORBIDDEN. Use the standard scale or extend the theme
   configuration for project-specific values.
 
+### XII. Documentation
+
+Every new feature MUST include its own documentation markdown file in `docs/`.
+
+- The document MUST be a concise version of the feature spec, capturing the
+  feature's purpose, key user flows, API surface (if any), and any
+  configuration or environment changes.
+- Documentation MUST be written after implementation is complete and verified
+  — it reflects what was built, not what was planned.
+- The file MUST be named after the feature (e.g., `docs/user-auth.md`,
+  `docs/search-indexing.md`).
+- Documentation MUST be kept up to date when the feature is significantly
+  modified in subsequent work.
+
 ## Technical Standards
 
 **Technology Stack**: React 18+ with TypeScript (frontend), Python 3.12+ with
@@ -207,4 +208,4 @@ applicable principles. The Constitution Check gate in each implementation
 plan MUST reference this document. Complexity or principle violations MUST be
 documented and justified in the plan's Complexity Tracking table.
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-05 | **Last Amended**: 2026-07-05
+**Version**: 1.1.0 | **Ratified**: 2026-07-05 | **Last Amended**: 2026-07-05
