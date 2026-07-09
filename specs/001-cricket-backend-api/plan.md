@@ -85,4 +85,6 @@ backend/
 
 ## Complexity Tracking
 
-> No constitution violations. This section intentionally empty.
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| E2E Playwright test waived (Principle V) | Backend-only API; no browser-renderable frontend exists in this feature. Primary user journeys are exercised through httpx async integration tests (see T053 atomic transaction, T067 OCC conflict, T067a performance timing). | Adding a Playwright-based browser test for a JSON API would test HTTP/JSON parsing rather than user-facing UI behavior, adding false coverage without genuine user-journey validation. The quickstart.md validation flow (T068) plus integration tests serve as the equivalent end-to-end verification. |
