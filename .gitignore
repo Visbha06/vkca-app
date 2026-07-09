@@ -76,7 +76,9 @@ pgdata/
 !.env.example
 
 # ==========================================
-# 5. Security & Environment Secrets
+# 6. Agents and skills
 # ==========================================
 # Ignore local agent execution logs and runtime states
 .agents/
+.codex/
+.impeccable/
