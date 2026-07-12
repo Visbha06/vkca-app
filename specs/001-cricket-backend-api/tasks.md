@@ -77,17 +77,17 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T018 [P] [US1] Unit tests for Player Pydantic schemas (create/update/response) in `backend/tests/unit/test_player_schemas.py`
-- [ ] T019 [P] [US1] Unit tests for Player routes (create, list, update with OCC) in `backend/tests/unit/test_player_routes.py`
+- [X] T018 [P] [US1] Unit tests for Player Pydantic schemas (create/update/response) in `backend/tests/unit/test_player_schemas.py`
+- [X] T019 [P] [US1] Unit tests for Player routes (create, list, update with OCC) in `backend/tests/unit/test_player_routes.py`
 
 ### Implementation for User Story 1
 
-- [ ] T020 [P] [US1] Create Player SQLAlchemy model in `backend/src/models/player.py` with all columns: id, first_name, last_name, date_of_birth, bio, batting_style, bowling_style, player_type, player_metadata (JSONB), is_active, plus TimestampMixin and VersionMixin
-- [ ] T021 [P] [US1] Create Player Pydantic schemas in `backend/src/schemas/player.py`: `PlayerCreate`, `PlayerUpdate`, `PlayerResponse`
-- [ ] T022 [US1] Create PlayerService in `backend/src/services/player_service.py`: `create_player()`, `list_players()` (active only), `get_player_by_id()`, `update_player()` — with OCC check and duplicate detection (SELECT before INSERT for composite unique)
-- [ ] T023 [US1] Create Players router in `backend/src/routes/players.py`: `POST /api/v1/players`, `GET /api/v1/players`
-- [ ] T024 [US1] Register Players router in `backend/src/main.py` under `/api/v1`
-- [ ] T025 Create Alembic migration for Players table in `backend/src/migrations/versions/` with UNIQUE constraint on (first_name, last_name, date_of_birth) and apply it
+- [X] T020 [P] [US1] Create Player SQLAlchemy model in `backend/src/models/player.py` with all columns: id, first_name, last_name, date_of_birth, bio, batting_style, bowling_style, player_type, player_metadata (JSONB), is_active, plus TimestampMixin and VersionMixin
+- [X] T021 [P] [US1] Create Player Pydantic schemas in `backend/src/schemas/player.py`: `PlayerCreate`, `PlayerUpdate`, `PlayerResponse`
+- [X] T022 [US1] Create PlayerService in `backend/src/services/player_service.py`: `create_player()`, `list_players()` (active only), `get_player_by_id()`, `update_player()` — with OCC check and duplicate detection (SELECT before INSERT for composite unique)
+- [X] T023 [US1] Create Players router in `backend/src/routes/players.py`: `POST /api/v1/players`, `GET /api/v1/players`
+- [X] T024 [US1] Register Players router in `backend/src/main.py` under `/api/v1`
+- [X] T025 Create Alembic migration for Players table in `backend/src/migrations/versions/` with UNIQUE constraint on (first_name, last_name, date_of_birth) and apply it
 
 **Checkpoint**: Players CRUD working — create, list, update with OCC, duplicate detection. Ready for MVP demonstration.
 
@@ -101,17 +101,17 @@
 
 ### Tests for User Story 6 (MANDATORY unit tests) ⚠️
 
-- [ ] T026 [P] [US6] Unit tests for User Pydantic schemas (create/response, password exclusion) in `backend/tests/unit/test_user_schemas.py`
-- [ ] T027 [P] [US6] Unit tests for User routes (create, list, duplicate detection) in `backend/tests/unit/test_user_routes.py`
+- [X] T026 [P] [US6] Unit tests for User Pydantic schemas (create/response, password exclusion) in `backend/tests/unit/test_user_schemas.py`
+- [X] T027 [P] [US6] Unit tests for User routes (create, list, duplicate detection) in `backend/tests/unit/test_user_routes.py`
 
 ### Implementation for User Story 6
 
-- [ ] T028 [P] [US6] Create User SQLAlchemy model in `backend/src/models/user.py` with all columns: id, first_name, last_name, email (UNIQUE), hashed_password, role, is_active, plus TimestampMixin and VersionMixin
-- [ ] T029 [P] [US6] Create User Pydantic schemas in `backend/src/schemas/user.py`: `UserCreate`, `UserResponse` (excludes hashed_password)
-- [ ] T030 [US6] Create UserService in `backend/src/services/user_service.py`: `create_user()`, `list_users()` — with email duplicate detection (SELECT before INSERT; DB UNIQUE constraint as final guard)
-- [ ] T031 [US6] Create Users router in `backend/src/routes/users.py`: `POST /api/v1/users`, `GET /api/v1/users`
-- [ ] T032 [US6] Register Users router in `backend/src/main.py` under `/api/v1`
-- [ ] T033 Create Alembic migration for Users table in `backend/src/migrations/versions/` with UNIQUE constraint on email and apply it
+- [X] T028 [P] [US6] Create User SQLAlchemy model in `backend/src/models/user.py` with all columns: id, first_name, last_name, email (UNIQUE), hashed_password, role, is_active, plus TimestampMixin and VersionMixin
+- [X] T029 [P] [US6] Create User Pydantic schemas in `backend/src/schemas/user.py`: `UserCreate`, `UserResponse` (excludes hashed_password)
+- [X] T030 [US6] Create UserService in `backend/src/services/user_service.py`: `create_user()`, `list_users()` — with email duplicate detection (SELECT before INSERT; DB UNIQUE constraint as final guard)
+- [X] T031 [US6] Create Users router in `backend/src/routes/users.py`: `POST /api/v1/users`, `GET /api/v1/users`
+- [X] T032 [US6] Register Users router in `backend/src/main.py` under `/api/v1`
+- [X] T033 Create Alembic migration for Users table in `backend/src/migrations/versions/` with UNIQUE constraint on email and apply it
 
 **Checkpoint**: User account CRUD working — create, list, password excluded from responses, email duplicate detection.
 
