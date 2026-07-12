@@ -8,10 +8,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from src.models.base import Base, TimestampMixin, UUIDMixin, VersionMixin
+from src.models.base import Base, UUIDMixin, VersionMixin
 
 
-class AuthSession(UUIDMixin, TimestampMixin, VersionMixin, Base):
+class AuthSession(UUIDMixin, VersionMixin, Base):
     """An independently revocable login and refresh-token rotation chain."""
 
     __tablename__ = "auth_sessions"
@@ -44,6 +44,11 @@ class AuthSession(UUIDMixin, TimestampMixin, VersionMixin, Base):
         nullable=False,
         default=list,
         server_default=text("'[]'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
     )
     last_used_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

@@ -1,9 +1,12 @@
 """Pydantic request and response schemas for authentication operations."""
 
+from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from src.enums import UserRole
 from src.schemas.user import EMAIL_PATTERN
 
 
@@ -47,3 +50,26 @@ class CSRFTokenResponse(AuthSchema):
     """Double-submit CSRF token value exposed to a browser client."""
 
     csrf_token: str = Field(min_length=1)
+
+
+class CurrentSessionResponse(AuthSchema):
+    """Public metadata for the session serving the current request."""
+
+    session_id: UUID
+    created_at: datetime
+    last_used_at: datetime
+    expires_at: datetime
+
+
+class CurrentUserResponse(AuthSchema):
+    """Authenticated account profile plus its current session metadata."""
+
+    id: UUID
+    first_name: str
+    last_name: str
+    email: str
+    role: UserRole
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    session: CurrentSessionResponse

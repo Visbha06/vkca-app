@@ -79,22 +79,22 @@
 
 ### Tests for User Story 1 (MANDATORY unit tests) ⚠️
 
-- [ ] T019 [P] [US1] Write unit tests for login route: test_login_success_returns_tokens_and_cookies, test_login_wrong_password_returns_401_generic, test_login_nonexistent_email_returns_401_generic, test_login_disabled_user_returns_401_generic, test_responses_byte_identical_across_failure_modes in `backend/tests/unit/test_auth_routes.py`
-- [ ] T020 [P] [US1] Write unit tests for /me route: test_me_returns_profile_with_session, test_me_without_token_returns_401, test_me_with_expired_token_returns_401, test_me_with_malformed_token_returns_401, test_me_with_wrong_signature_returns_401 in `backend/tests/unit/test_auth_routes.py`
-- [ ] T021 [P] [US1] Write unit tests for logout route: test_logout_revokes_session, test_logout_clears_cookies, test_access_token_rejected_after_logout in `backend/tests/unit/test_auth_routes.py`
+- [X] T019 [P] [US1] Write unit tests for login route: test_login_success_returns_tokens_and_cookies, test_login_wrong_password_returns_401_generic, test_login_nonexistent_email_returns_401_generic, test_login_disabled_user_returns_401_generic, test_responses_byte_identical_across_failure_modes in `backend/tests/unit/test_auth_routes.py`
+- [X] T020 [P] [US1] Write unit tests for /me route: test_me_returns_profile_with_session, test_me_without_token_returns_401, test_me_with_expired_token_returns_401, test_me_with_malformed_token_returns_401, test_me_with_wrong_signature_returns_401 in `backend/tests/unit/test_auth_routes.py`
+- [X] T021 [P] [US1] Write unit tests for logout route: test_logout_revokes_session, test_logout_clears_cookies, test_access_token_rejected_after_logout in `backend/tests/unit/test_auth_routes.py`
 
 ### Implementation for User Story 1
 
-- [ ] T022 [US1] Implement AuthService: login(session, email, password, ip, user_agent) → (User, AuthSession, access_token, refresh_token, csrf_token), verify user exists (lowercased email lookup), verify password via PasswordService, verify user is_active, create AuthSession row with token hashes, issue JWT and refresh token, record audit event in `backend/src/services/auth_service.py`
-- [ ] T023 [US1] Implement get_current_user FastAPI dependency: extract Bearer token from Authorization header, decode and verify JWT via TokenService, verify session is active (not revoked, not expired) via AuthSession lookup, verify user is_active, return User + AuthSession, raise HTTP 401 with generic message on any failure in `backend/src/middleware/auth.py`
-- [ ] T024 [US1] Implement POST /api/v1/auth/login endpoint: accepts LoginRequest, calls AuthService.login, returns TokenResponse, sets refresh_token and csrf_token cookies (HttpOnly, SameSite=Lax, Path=/api/v1/auth; Secure in production), handles rate-limited and disabled accounts with generic 401, in `backend/src/routes/auth.py`
-- [ ] T025 [US1] Implement GET /api/v1/auth/me endpoint: depends on get_current_user, returns user profile (id, first_name, last_name, email, role, is_active, created_at, updated_at) plus current session info (session_id, created_at, last_used_at, expires_at), in `backend/src/routes/auth.py`
-- [ ] T026 [US1] Implement POST /api/v1/auth/logout endpoint: depends on get_current_user (uses refresh_token cookie for session lookup when access token expired), sets revoked_at + revocation_reason='logout' on AuthSession, clears refresh_token and csrf_token cookies (Max-Age=0), records audit event, returns 204, in `backend/src/routes/auth.py`
-- [ ] T027 [US1] Register auth router (prefix=/api/v1/auth, tags=["auth"]) and include in api_router in `backend/src/main.py`
+- [X] T022 [US1] Implement AuthService: login(session, email, password, ip, user_agent) → (User, AuthSession, access_token, refresh_token, csrf_token), verify user exists (lowercased email lookup), verify password via PasswordService, verify user is_active, create AuthSession row with token hashes, issue JWT and refresh token, record audit event in `backend/src/services/auth_service.py`
+- [X] T023 [US1] Implement get_current_user FastAPI dependency: extract Bearer token from Authorization header, decode and verify JWT via TokenService, verify session is active (not revoked, not expired) via AuthSession lookup, verify user is_active, return User + AuthSession, raise HTTP 401 with generic message on any failure in `backend/src/middleware/auth.py`
+- [X] T024 [US1] Implement POST /api/v1/auth/login endpoint: accepts LoginRequest, calls AuthService.login, returns TokenResponse, sets refresh_token and csrf_token cookies (HttpOnly, SameSite=Lax, Path=/api/v1/auth; Secure in production), handles rate-limited and disabled accounts with generic 401, in `backend/src/routes/auth.py`
+- [X] T025 [US1] Implement GET /api/v1/auth/me endpoint: depends on get_current_user, returns user profile (id, first_name, last_name, email, role, is_active, created_at, updated_at) plus current session info (session_id, created_at, last_used_at, expires_at), in `backend/src/routes/auth.py`
+- [X] T026 [US1] Implement POST /api/v1/auth/logout endpoint: depends on get_current_user (uses refresh_token cookie for session lookup when access token expired), sets revoked_at + revocation_reason='logout' on AuthSession, clears refresh_token and csrf_token cookies (Max-Age=0), records audit event, returns 204, in `backend/src/routes/auth.py`
+- [X] T027 [US1] Register auth router (prefix=/api/v1/auth, tags=["auth"]) and include in api_router in `backend/src/main.py`
 
 ### Integration tests for User Story 1
 
-- [ ] T028 [US1] Write integration test: full login → access protected resource → logout → verify token rejected flow in `backend/tests/integration/test_auth_flow.py`
+- [X] T028 [US1] Write integration test: full login → access protected resource → logout → verify token rejected flow in `backend/tests/integration/test_auth_flow.py`
 
 **Checkpoint**: Users can log in, receive tokens, access protected endpoints, and log out. Generic error responses are byte-identical across failure modes. MVP is functional.
 
