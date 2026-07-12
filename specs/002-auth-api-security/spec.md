@@ -15,6 +15,7 @@
 - Q: Which JWT signing algorithm should be used? → A: HS256 (HMAC-SHA256) symmetric algorithm.
 - Q: How should the AuthSession data model distinguish token states? → A: The model must distinguish (a) the current valid refresh token hash, (b) previously used (rotated) token hashes for reuse detection, and (c) the token-family identifier linking the rotation chain.
 - Q: Where should SameSite, cookie names, paths, and CSRF header/cookie names be settled? → A: These are plan-level operational decisions; the planning phase will settle specific values.
+- Q: Does FR-018 (browser clients keep access tokens in memory) need a backend task? → A: No. FR-018 is a client-side security requirement validated by frontend review, not backend testing. The backend enforces token expiry and session revocation; the frontend is responsible for in-memory storage.
 
 ## User Scenarios & Testing *(mandatory)*
 
