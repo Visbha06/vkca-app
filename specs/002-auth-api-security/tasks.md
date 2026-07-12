@@ -40,32 +40,32 @@
 
 ### Models
 
-- [ ] T005 [P] Create AuthSession SQLAlchemy model (id, user_id FK, token_family_id, current_token_hash, rotated_token_hashes JSONB, last_used_at, expires_at, revoked_at, revocation_reason, ip_address, user_agent, version_number) with UUIDMixin, TimestampMixin, VersionMixin in `backend/src/models/auth_session.py`
-- [ ] T006 [P] Create AuthAuditLog SQLAlchemy model (id, event_type, user_id FK nullable, session_id FK nullable, result, reason, ip_address, user_agent, target_resource, event_timestamp) with UUIDMixin in `backend/src/models/auth_audit_log.py`
-- [ ] T007 Register AuthSession and AuthAuditLog models in `backend/src/models/__init__.py`
-- [ ] T008 Modify User model: update docstring for hashed_password column (now stores Argon2id output), add email lowercasing note in `backend/src/models/user.py`
+- [X] T005 [P] Create AuthSession SQLAlchemy model (id, user_id FK, token_family_id, current_token_hash, rotated_token_hashes JSONB, last_used_at, expires_at, revoked_at, revocation_reason, ip_address, user_agent, version_number) with UUIDMixin, TimestampMixin, VersionMixin in `backend/src/models/auth_session.py`
+- [X] T006 [P] Create AuthAuditLog SQLAlchemy model (id, event_type, user_id FK nullable, session_id FK nullable, result, reason, ip_address, user_agent, target_resource, event_timestamp) with UUIDMixin in `backend/src/models/auth_audit_log.py`
+- [X] T007 Register AuthSession and AuthAuditLog models in `backend/src/models/__init__.py`
+- [X] T008 Modify User model: update docstring for hashed_password column (now stores Argon2id output), add email lowercasing note in `backend/src/models/user.py`
 
 ### Schema updates
 
-- [ ] T009 Modify UserCreate schema: replace `hashed_password` field with `password` field (plaintext str, min_length=12, max_length=128), add password policy `@field_validator` (uppercase, lowercase, digit, special char check) in `backend/src/schemas/user.py`
-- [ ] T010 [P] Create auth request/response schemas (LoginRequest, TokenResponse, RefreshRequest, CSRFTokenResponse) in `backend/src/schemas/auth.py`
+- [X] T009 Modify UserCreate schema: replace `hashed_password` field with `password` field (plaintext str, min_length=12, max_length=128), add password policy `@field_validator` (uppercase, lowercase, digit, special char check) in `backend/src/schemas/user.py`
+- [X] T010 [P] Create auth request/response schemas (LoginRequest, TokenResponse, RefreshRequest, CSRFTokenResponse) in `backend/src/schemas/auth.py`
 
 ### Core services
 
-- [ ] T011 [P] Implement PasswordService: Argon2id hash_password(plaintext) → str, verify_password(plaintext, hash) → bool, validate_password_policy(password) → None|ValueError, using argon2-cffi with time_cost=3, memory_cost=65536, parallelism=4 in `backend/src/services/password_service.py`
-- [ ] T012 [P] Implement TokenService: create_access_token(user_id, session_id, role) → JWT str (HS256, 30min expiry, claims: sub, sid, role, jti, iat, exp), decode_and_verify_access_token(token) → dict (raises on invalid/expired), generate_refresh_token() → str (secrets.token_urlsafe(32)), hash_token(token) → str (SHA-256 hex), verify_csrf_token(header_value, cookie_value) → bool in `backend/src/services/token_service.py`
-- [ ] T013 Implement AuditService: log_event(session, event_type, user_id=None, session_id=None, result, reason=None, ip_address=None, user_agent=None, target_resource=None) → None, in `backend/src/services/audit_service.py`
+- [X] T011 [P] Implement PasswordService: Argon2id hash_password(plaintext) → str, verify_password(plaintext, hash) → bool, validate_password_policy(password) → None|ValueError, using argon2-cffi with time_cost=3, memory_cost=65536, parallelism=4 in `backend/src/services/password_service.py`
+- [X] T012 [P] Implement TokenService: create_access_token(user_id, session_id, role) → JWT str (HS256, 30min expiry, claims: sub, sid, role, jti, iat, exp), decode_and_verify_access_token(token) → dict (raises on invalid/expired), generate_refresh_token() → str (secrets.token_urlsafe(32)), hash_token(token) → str (SHA-256 hex), verify_csrf_token(header_value, cookie_value) → bool in `backend/src/services/token_service.py`
+- [X] T013 Implement AuditService: log_event(session, event_type, user_id=None, session_id=None, result, reason=None, ip_address=None, user_agent=None, target_resource=None) → None, in `backend/src/services/audit_service.py`
 
 ### Unit tests for foundational services
 
-- [ ] T014 [P] Write unit tests for PasswordService: test_hash_password_different_salts, test_verify_correct_password, test_verify_wrong_password, test_policy_validation_too_short, test_policy_validation_no_uppercase, test_policy_validation_no_lowercase, test_policy_validation_no_digit, test_policy_validation_no_special, test_policy_validation_too_long, test_no_truncation_129_chars, test_argon2id_format in `backend/tests/unit/test_password_service.py`
-- [ ] T015 [P] Write unit tests for TokenService: test_create_access_token_has_required_claims, test_decode_valid_token, test_reject_expired_token, test_reject_malformed_token, test_reject_wrong_signature, test_refresh_token_length_43, test_refresh_token_uniqueness, test_hash_token_deterministic, test_hash_token_not_reversible in `backend/tests/unit/test_token_service.py`
-- [ ] T016 [P] Write unit tests for AuditService: test_log_event_creates_record, test_log_event_no_sensitive_fields in `backend/tests/unit/test_audit_service.py`
+- [X] T014 [P] Write unit tests for PasswordService: test_hash_password_different_salts, test_verify_correct_password, test_verify_wrong_password, test_policy_validation_too_short, test_policy_validation_no_uppercase, test_policy_validation_no_lowercase, test_policy_validation_no_digit, test_policy_validation_no_special, test_policy_validation_too_long, test_no_truncation_129_chars, test_argon2id_format in `backend/tests/unit/test_password_service.py`
+- [X] T015 [P] Write unit tests for TokenService: test_create_access_token_has_required_claims, test_decode_valid_token, test_reject_expired_token, test_reject_malformed_token, test_reject_wrong_signature, test_refresh_token_length_43, test_refresh_token_uniqueness, test_hash_token_deterministic, test_hash_token_not_reversible in `backend/tests/unit/test_token_service.py`
+- [X] T016 [P] Write unit tests for AuditService: test_log_event_creates_record, test_log_event_no_sensitive_fields in `backend/tests/unit/test_audit_service.py`
 
 ### Unit tests for schemas
 
-- [ ] T017 [P] Write unit tests for auth schemas: test_login_request_validation, test_login_request_missing_fields, test_token_response_structure in `backend/tests/unit/test_auth_schemas.py`
-- [ ] T018 Write unit tests for UserCreate schema changes: test_password_field_accepted, test_hashed_password_field_rejected, test_password_policy_enforced in `backend/tests/unit/test_user_schemas.py`
+- [X] T017 [P] Write unit tests for auth schemas: test_login_request_validation, test_login_request_missing_fields, test_token_response_structure in `backend/tests/unit/test_auth_schemas.py`
+- [X] T018 Write unit tests for UserCreate schema changes: test_password_field_accepted, test_hashed_password_field_rejected, test_password_policy_enforced in `backend/tests/unit/test_user_schemas.py`
 
 **Checkpoint**: Foundation ready — all core models, services, and schemas exist with passing unit tests. User story implementation can now begin.
 

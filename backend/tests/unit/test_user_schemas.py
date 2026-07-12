@@ -15,7 +15,7 @@ def test_user_create_validates_fields_and_ignores_server_managed_values() -> Non
         "first_name": "John",
         "last_name": "Doe",
         "email": "john.doe@example.com",
-        "hashed_password": "$2b$12$prehashed",
+        "password": "SecureP@ssword1",
         "role": "head coach",
         "created_at": "2020-01-01T00:00:00Z",
         "updated_at": "2020-01-01T00:00:00Z",
@@ -40,7 +40,7 @@ def test_user_create_validates_fields_and_ignores_server_managed_values() -> Non
         ("first_name", ""),
         ("last_name", ""),
         ("email", "not-an-email"),
-        ("hashed_password", ""),
+        ("password", ""),
     ],
 )
 def test_user_create_rejects_invalid_required_fields(field: str, value: str) -> None:
@@ -48,13 +48,65 @@ def test_user_create_rejects_invalid_required_fields(field: str, value: str) -> 
         "first_name": "John",
         "last_name": "Doe",
         "email": "john.doe@example.com",
-        "hashed_password": "$2b$12$prehashed",
+        "password": "SecureP@ssword1",
         "role": "staff",
     }
     payload[field] = value
 
     with pytest.raises(ValidationError):
         UserCreate.model_validate(payload)
+
+
+def test_password_field_accepted() -> None:
+    user = UserCreate.model_validate(
+        {
+            "first_name": "John",
+            "last_name": "Doe",
+            "email": "john.doe@example.com",
+            "password": "SecureP@ssword1",
+            "role": "staff",
+        }
+    )
+
+    assert user.password == "SecureP@ssword1"
+    assert "hashed_password" not in UserCreate.model_fields
+
+
+def test_hashed_password_field_rejected() -> None:
+    with pytest.raises(ValidationError, match="hashed_password must not be submitted"):
+        UserCreate.model_validate(
+            {
+                "first_name": "John",
+                "last_name": "Doe",
+                "email": "john.doe@example.com",
+                "password": "SecureP@ssword1",
+                "hashed_password": "$argon2id$client-supplied",
+                "role": "staff",
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    "password",
+    [
+        "Short1!",
+        "lowercase123!",
+        "UPPERCASE123!",
+        "NoDigitsHere!",
+        "NoSpecial1234",
+    ],
+)
+def test_password_policy_enforced(password: str) -> None:
+    with pytest.raises(ValidationError):
+        UserCreate.model_validate(
+            {
+                "first_name": "John",
+                "last_name": "Doe",
+                "email": "john.doe@example.com",
+                "password": password,
+                "role": "staff",
+            }
+        )
 
 
 def test_user_response_never_exposes_hashed_password() -> None:

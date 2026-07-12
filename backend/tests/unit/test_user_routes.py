@@ -68,7 +68,7 @@ async def test_create_user_returns_account_without_password(
             "first_name": "John",
             "last_name": "Doe",
             "email": "john.doe@example.com",
-            "hashed_password": "$2b$12$prehashed",
+            "password": "SecureP@ssword1",
             "role": "head coach",
         },
     )
@@ -108,7 +108,7 @@ async def test_create_user_returns_conflict_for_duplicate_email(
             "first_name": "Jane",
             "last_name": "Doe",
             "email": "john.doe@example.com",
-            "hashed_password": "$2b$12$prehashed",
+            "password": "SecureP@ssword1",
             "role": "staff",
         },
     )
