@@ -42,26 +42,26 @@
 
 ### Database & Migrations
 
-- [ ] T007 Setup async SQLAlchemy engine and session factory in `backend/src/database.py` using DATABASE_URL from config
-- [ ] T008 Initialize Alembic in `backend/src/migrations/` with async template (`alembic init -t async`)
-- [ ] T009 Configure Alembic `env.py` to use async SQLAlchemy engine and auto-detect models from `backend/src/models/`
+- [X] T007 Setup async SQLAlchemy engine and session factory in `backend/src/database.py` using DATABASE_URL from config
+- [X] T008 Initialize Alembic in `backend/src/migrations/` with async template (`alembic init -t async`)
+- [X] T009 Configure Alembic `env.py` to use async SQLAlchemy engine and auto-detect models from `backend/src/models/`
 
 ### Enums
 
-- [ ] T010 [P] Create `backend/src/enums.py` with all Python `StrEnum` classes: `UserRole`, `BattingStyle`, `BowlingStyle`, `PlayerType`, `MatchFormat`, `DismissalType`
+- [X] T010 [P] Create `backend/src/enums.py` with all Python `StrEnum` classes: `UserRole`, `BattingStyle`, `BowlingStyle`, `PlayerType`, `MatchFormat`, `DismissalType`
 
 ### Base Model & Mixins
 
-- [ ] T011 Create SQLAlchemy declarative base and mixin classes in `backend/src/models/base.py` with `TimestampMixin` (created_at, updated_at with server_default), `VersionMixin` (version_number), and `UUIDMixin` (id with gen_random_uuid)
+- [X] T011 Create SQLAlchemy declarative base and mixin classes in `backend/src/models/base.py` with `TimestampMixin` (created_at, updated_at with server_default), `VersionMixin` (version_number), and `UUIDMixin` (id with gen_random_uuid)
 
 ### Middleware & Cross-Cutting
 
-- [ ] T012 [P] Create OCC version check helper in `backend/src/services/occ.py` — function `check_and_increment_version(session, model, entity_id, incoming_version)` that runs UPDATE with WHERE version=:incoming, returns new version or raises `StaleVersionError`
-- [ ] T013 [P] Create DataSyncLogs model in `backend/src/models/data_sync_log.py` (standalone, no FKs)
-- [ ] T014 [P] Create DataSyncLogs Pydantic create schema in `backend/src/schemas/data_sync_log.py`
-- [ ] T015 [P] Create global error handlers in `backend/src/middleware/error_handlers.py` — map `StaleVersionError` to HTTP 409, SQLAlchemy `IntegrityError` to HTTP 409, generic exceptions to HTTP 500
-- [ ] T016 [P] Create Pydantic `BaseRequestSchema` mixin in `backend/src/schemas/base.py` that excludes `created_at`, `updated_at`, and `version_number` from request models — ensures client-supplied timestamps and version numbers are silently dropped by FastAPI. All entity request schemas MUST inherit from this mixin.
-- [ ] T017 Create Alembic initial migration for DataSyncLogs table in `backend/src/migrations/versions/` and apply it (`alembic upgrade head`)
+- [X] T012 [P] Create OCC version check helper in `backend/src/services/occ.py` — function `check_and_increment_version(session, model, entity_id, incoming_version)` that runs UPDATE with WHERE version=:incoming, returns new version or raises `StaleVersionError`
+- [X] T013 [P] Create DataSyncLogs model in `backend/src/models/data_sync_log.py` (standalone, no FKs)
+- [X] T014 [P] Create DataSyncLogs Pydantic create schema in `backend/src/schemas/data_sync_log.py`
+- [X] T015 [P] Create global error handlers in `backend/src/middleware/error_handlers.py` — map `StaleVersionError` to HTTP 409, SQLAlchemy `IntegrityError` to HTTP 409, generic exceptions to HTTP 500
+- [X] T016 [P] Create Pydantic `BaseRequestSchema` mixin in `backend/src/schemas/base.py` that excludes `created_at`, `updated_at`, and `version_number` from request models — ensures client-supplied timestamps and version numbers are silently dropped by FastAPI. All entity request schemas MUST inherit from this mixin.
+- [X] T017 Create Alembic initial migration for DataSyncLogs table in `backend/src/migrations/versions/` and apply it (`alembic upgrade head`)
 
 **Checkpoint**: Foundation ready — database connected, migrations running, enums defined, base model with timestamps and versioning ready, OCC helper and error handlers in place. User story implementation can now begin.
 

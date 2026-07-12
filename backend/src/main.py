@@ -3,6 +3,8 @@
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.middleware.error_handlers import register_error_handlers
+
 api_router = APIRouter(prefix="/api/v1")
 
 
@@ -14,6 +16,7 @@ async def health_check() -> dict[str, str]:
 
 
 app = FastAPI(title="VKCA Cricket Team Management API")
+register_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
