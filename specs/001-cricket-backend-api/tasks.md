@@ -125,18 +125,18 @@
 
 ### Tests for User Story 2 (MANDATORY unit tests) ⚠️
 
-- [ ] T034 [P] [US2] Unit tests for Team and TeamPlayer Pydantic schemas in `backend/tests/unit/test_team_schemas.py`
-- [ ] T035 [P] [US2] Unit tests for Team routes (create, list, add player) in `backend/tests/unit/test_team_routes.py`
+- [X] T034 [P] [US2] Unit tests for Team and TeamPlayer Pydantic schemas in `backend/tests/unit/test_team_schemas.py`
+- [X] T035 [P] [US2] Unit tests for Team routes (create, list, add player) in `backend/tests/unit/test_team_routes.py`
 
 ### Implementation for User Story 2
 
-- [ ] T036 [P] [US2] Create Team SQLAlchemy model in `backend/src/models/team.py` with columns: id, name, age_group, plus TimestampMixin and VersionMixin
-- [ ] T037 [P] [US2] Create TeamPlayer SQLAlchemy model in `backend/src/models/team_player.py` with composite PK (team_id, player_id), joined_at, plus TimestampMixin and VersionMixin
-- [ ] T038 [P] [US2] Create Team Pydantic schemas in `backend/src/schemas/team.py`: `TeamCreate`, `TeamResponse`, `TeamPlayerResponse`
-- [ ] T039 [US2] Create TeamService in `backend/src/services/team_service.py`: `create_team()`, `list_teams()`, `add_player_to_team()` — with duplicate membership check
-- [ ] T040 [US2] Create Teams router in `backend/src/routes/teams.py`: `POST /api/v1/teams`, `GET /api/v1/teams`, `POST /api/v1/teams/{team_id}/players/{player_id}`
-- [ ] T041 [US2] Register Teams router in `backend/src/main.py` under `/api/v1`
-- [ ] T042 Create Alembic migration for Teams and TeamPlayers tables in `backend/src/migrations/versions/` with FK constraints and apply it
+- [X] T036 [P] [US2] Create Team SQLAlchemy model in `backend/src/models/team.py` with columns: id, name, age_group, plus TimestampMixin and VersionMixin
+- [X] T037 [P] [US2] Create TeamPlayer SQLAlchemy model in `backend/src/models/team_player.py` with composite PK (team_id, player_id), joined_at, plus TimestampMixin and VersionMixin
+- [X] T038 [P] [US2] Create Team Pydantic schemas in `backend/src/schemas/team.py`: `TeamCreate`, `TeamResponse`, `TeamPlayerResponse`
+- [X] T039 [US2] Create TeamService in `backend/src/services/team_service.py`: `create_team()`, `list_teams()`, `add_player_to_team()` — with duplicate membership check
+- [X] T040 [US2] Create Teams router in `backend/src/routes/teams.py`: `POST /api/v1/teams`, `GET /api/v1/teams`, `POST /api/v1/teams/{team_id}/players/{player_id}`
+- [X] T041 [US2] Register Teams router in `backend/src/main.py` under `/api/v1`
+- [X] T042 Create Alembic migration for Teams and TeamPlayers tables in `backend/src/migrations/versions/` with FK constraints and apply it
 
 **Checkpoint**: Teams working — create squads, list teams, add players to squads with duplicate prevention.
 
@@ -174,19 +174,19 @@
 
 ### Tests for User Story 4 & 5 (MANDATORY unit tests) ⚠️
 
-- [ ] T051 [P] [US4] Unit tests for performance Pydantic schemas (batch payload, optional sub-objects) in `backend/tests/unit/test_performance_schemas.py`
-- [ ] T052 [P] [US5] Unit tests for stats Pydantic schemas in `backend/tests/unit/test_stats_schemas.py`
-- [ ] T053 [US4] Integration test for atomic transaction: submit valid batch → verify all 3 performance tables + aggregate stats updated; submit invalid batch → verify full rollback in `backend/tests/integration/test_atomic_performance.py`
+- [X] T051 [P] [US4] Unit tests for performance Pydantic schemas (batch payload, optional sub-objects) in `backend/tests/unit/test_performance_schemas.py`
+- [X] T052 [P] [US5] Unit tests for stats Pydantic schemas in `backend/tests/unit/test_stats_schemas.py`
+- [X] T053 [US4] Integration test for atomic transaction: submit valid batch → verify all 3 performance tables + aggregate stats updated; submit invalid batch → verify full rollback in `backend/tests/integration/test_atomic_performance.py`
 
 ### Implementation for User Story 4 (Match Performances)
 
-- [ ] T054 [P] [US4] Create MatchBattingPerformance SQLAlchemy model in `backend/src/models/match_batting_performance.py` with UNIQUE(player_id, match_id), FK to players and matches, plus TimestampMixin and VersionMixin
-- [ ] T055 [P] [US4] Create MatchBowlingPerformance SQLAlchemy model in `backend/src/models/match_bowling_performance.py` with UNIQUE(player_id, match_id), FK to players and matches, plus TimestampMixin and VersionMixin
-- [ ] T056 [P] [US4] Create MatchFieldingPerformance SQLAlchemy model in `backend/src/models/match_fielding_performance.py` with UNIQUE(player_id, match_id), FK to players and matches, plus TimestampMixin and VersionMixin
-- [ ] T057 [P] [US4] Create PlayerBattingStats SQLAlchemy model in `backend/src/models/player_batting_stats.py` with UNIQUE(player_id, format), FK to players, all aggregate columns, plus TimestampMixin and VersionMixin
-- [ ] T058 [P] [US4] Create PlayerBowlingStats SQLAlchemy model in `backend/src/models/player_bowling_stats.py` with UNIQUE(player_id, format), FK to players, all aggregate columns, plus TimestampMixin and VersionMixin
-- [ ] T059 [P] [US4] Create performance Pydantic schemas in `backend/src/schemas/performance.py`: `BattingPerformance`, `BowlingPerformance`, `FieldingPerformance` (all with defaults), `PlayerPerformance` (with optional sub-objects), `BatchPerformanceRequest`, `BatchPerformanceResponse`
-- [ ] T060 [US4] Create PerformanceService in `backend/src/services/performance_service.py` with `submit_batch_performance(match_id, performances)` using `async with session.begin()` for atomic transaction:
+- [X] T054 [P] [US4] Create MatchBattingPerformance SQLAlchemy model in `backend/src/models/match_batting_performance.py` with UNIQUE(player_id, match_id), FK to players and matches, plus TimestampMixin and VersionMixin
+- [X] T055 [P] [US4] Create MatchBowlingPerformance SQLAlchemy model in `backend/src/models/match_bowling_performance.py` with UNIQUE(player_id, match_id), FK to players and matches, plus TimestampMixin and VersionMixin
+- [X] T056 [P] [US4] Create MatchFieldingPerformance SQLAlchemy model in `backend/src/models/match_fielding_performance.py` with UNIQUE(player_id, match_id), FK to players and matches, plus TimestampMixin and VersionMixin
+- [X] T057 [P] [US4] Create PlayerBattingStats SQLAlchemy model in `backend/src/models/player_batting_stats.py` with UNIQUE(player_id, format), FK to players, all aggregate columns, plus TimestampMixin and VersionMixin
+- [X] T058 [P] [US4] Create PlayerBowlingStats SQLAlchemy model in `backend/src/models/player_bowling_stats.py` with UNIQUE(player_id, format), FK to players, all aggregate columns, plus TimestampMixin and VersionMixin
+- [X] T059 [P] [US4] Create performance Pydantic schemas in `backend/src/schemas/performance.py`: `BattingPerformance`, `BowlingPerformance`, `FieldingPerformance` (all with defaults), `PlayerPerformance` (with optional sub-objects), `BatchPerformanceRequest`, `BatchPerformanceResponse`
+- [X] T060 [US4] Create PerformanceService in `backend/src/services/performance_service.py` with `submit_batch_performance(match_id, performances)` using `async with session.begin()` for atomic transaction:
   - Validate all player_ids and match_id exist (abort if any missing)
   - Insert MatchBattingPerformance rows where batting sub-object present
   - Insert MatchBowlingPerformance rows where bowling sub-object present
@@ -197,15 +197,15 @@
 
 ### Implementation for User Story 5 (Career Statistics — Read-Only)
 
-- [ ] T061 [P] [US5] Create stats Pydantic schemas in `backend/src/schemas/stats.py`: `BattingStatsResponse`, `BowlingStatsResponse`
-- [ ] T062 [US5] Create StatsService in `backend/src/services/stats_service.py`: `get_batting_stats(player_id, format)`, `get_bowling_stats(player_id, format)` — query aggregate tables, return empty array if no data
-- [ ] T063 [US5] Create Stats router in `backend/src/routes/stats.py`: `GET /api/v1/players/{player_id}/stats/batting`, `GET /api/v1/players/{player_id}/stats/bowling` — with optional `format` query parameter
+- [X] T061 [P] [US5] Create stats Pydantic schemas in `backend/src/schemas/stats.py`: `BattingStatsResponse`, `BowlingStatsResponse`
+- [X] T062 [US5] Create StatsService in `backend/src/services/stats_service.py`: `get_batting_stats(player_id, format)`, `get_bowling_stats(player_id, format)` — query aggregate tables, return empty array if no data
+- [X] T063 [US5] Create Stats router in `backend/src/routes/stats.py`: `GET /api/v1/players/{player_id}/stats/batting`, `GET /api/v1/players/{player_id}/stats/bowling` — with optional `format` query parameter
 
 ### Integration for US4 & US5
 
-- [ ] T064 [US4] Create Performances router in `backend/src/routes/performances.py`: `POST /api/v1/matches/{match_id}/performances`
-- [ ] T065 Register Performances and Stats routers in `backend/src/main.py` under `/api/v1`
-- [ ] T066 Create Alembic migration for all 5 new tables (MatchBattingPerformance, MatchBowlingPerformance, MatchFieldingPerformance, PlayerBattingStats, PlayerBowlingStats) with FK constraints, UNIQUE constraints, and indexes in `backend/src/migrations/versions/` and apply it
+- [X] T064 [US4] Create Performances router in `backend/src/routes/performances.py`: `POST /api/v1/matches/{match_id}/performances`
+- [X] T065 Register Performances and Stats routers in `backend/src/main.py` under `/api/v1`
+- [X] T066 Create Alembic migration for all 5 new tables (MatchBattingPerformance, MatchBowlingPerformance, MatchFieldingPerformance, PlayerBattingStats, PlayerBowlingStats) with FK constraints, UNIQUE constraints, and indexes in `backend/src/migrations/versions/` and apply it
 
 **Checkpoint**: Full match data pipeline working — submit performances atomically, aggregate stats auto-calculated, career stats queryable by format.
 

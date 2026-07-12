@@ -5,12 +5,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.middleware.error_handlers import register_error_handlers
 from src.routes.matches import router as matches_router
+from src.routes.performances import router as performances_router
 from src.routes.players import router as players_router
+from src.routes.stats import router as stats_router
+from src.routes.teams import router as teams_router
 from src.routes.users import router as users_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(matches_router)
+api_router.include_router(performances_router)
 api_router.include_router(players_router)
+api_router.include_router(stats_router)
+api_router.include_router(teams_router)
 api_router.include_router(users_router)
 
 
