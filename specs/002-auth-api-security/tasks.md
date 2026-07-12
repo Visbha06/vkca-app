@@ -25,10 +25,10 @@
 
 **Purpose**: Add dependencies, configure environment, apply database migration
 
-- [ ] T001 Add python-jose and argon2-cffi dependencies via `uv add python-jose[cryptography] argon2-cffi` in `backend/pyproject.toml`
-- [ ] T002 [P] Add JWT and auth configuration fields (JWT_SECRET, JWT_ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=30, REFRESH_TOKEN_EXPIRE_DAYS=30, REFRESH_INACTIVITY_DAYS=7, PASSWORD_MIN_LENGTH=12, PASSWORD_MAX_LENGTH=128) to Settings class in `backend/src/config.py`
-- [ ] T003 [P] Create Alembic migration 007 for auth_sessions and auth_audit_log tables in `backend/src/migrations/versions/007_create_auth_tables.py`
-- [ ] T004 Run `uv run alembic upgrade head` to apply migration and verify tables exist in PostgreSQL
+- [X] T001 Add python-jose and argon2-cffi dependencies via `uv add python-jose[cryptography] argon2-cffi` in `backend/pyproject.toml`
+- [X] T002 [P] Add JWT and auth configuration fields (JWT_SECRET, JWT_ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=30, REFRESH_TOKEN_EXPIRE_DAYS=30, REFRESH_INACTIVITY_DAYS=7, PASSWORD_MIN_LENGTH=12, PASSWORD_MAX_LENGTH=128) to Settings class in `backend/src/config.py`
+- [X] T003 [P] Create Alembic migration 007 for auth_sessions and auth_audit_log tables in `backend/src/migrations/versions/007_create_auth_tables.py`
+- [X] T004 Run `uv run alembic upgrade head` to apply migration and verify tables exist in PostgreSQL
 
 ---
 
