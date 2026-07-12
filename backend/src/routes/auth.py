@@ -16,7 +16,12 @@ from src.schemas.auth import (
     TokenResponse,
 )
 from src.services.audit_service import AuditService
-from src.services.auth_service import AuthService, InvalidCredentialsError
+from src.services.auth_service import (
+    AuthService,
+    InvalidCredentialsError,
+    InvalidSessionError,
+)
+from src.services.token_service import TokenService
 
 AUTH_COOKIE_PATH = "/api/v1/auth"
 SECONDS_PER_DAY = 24 * 60 * 60
@@ -86,6 +91,28 @@ def _clear_auth_cookies(response: Response, request: Request) -> None:
     )
 
 
+def _validate_csrf_token(request: Request) -> None:
+    """Reject cookie-authenticated mutations without a matching CSRF token."""
+
+    if not TokenService.verify_csrf_token(
+        request.headers.get("X-CSRF-Token"),
+        request.cookies.get("csrf_token"),
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="CSRF token missing or invalid",
+        )
+
+
+def _invalid_session_error() -> HTTPException:
+    """Build the generic refresh-session authentication response."""
+
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired session",
+    )
+
+
 @router.post("/login", response_model=TokenResponse)
 async def login(
     payload: LoginRequest,
@@ -112,6 +139,40 @@ async def login(
         ) from exc
 
     _set_auth_cookies(response, request, refresh_token, csrf_token)
+    return TokenResponse(access_token=access_token)
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh(
+    request: Request,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> TokenResponse:
+    """Rotate a valid refresh session and issue a new access token."""
+
+    _validate_csrf_token(request)
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise _invalid_session_error()
+
+    ip_address, user_agent = _request_metadata(request)
+    try:
+        access_token, new_refresh_token, new_csrf_token = await AuthService(
+            session
+        ).refresh(
+            refresh_token,
+            ip_address,
+            user_agent,
+        )
+    except InvalidSessionError as exc:
+        raise _invalid_session_error() from exc
+
+    _set_auth_cookies(
+        response,
+        request,
+        new_refresh_token,
+        new_csrf_token,
+    )
     return TokenResponse(access_token=access_token)
 
 
@@ -149,6 +210,7 @@ async def logout(
 ) -> None:
     """Revoke only the current server-side session and clear its cookies."""
 
+    _validate_csrf_token(request)
     user, auth_session = current
     ip_address, user_agent = _request_metadata(request)
     auth_session.revoked_at = datetime.now(UTC)

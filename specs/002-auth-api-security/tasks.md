@@ -108,15 +108,15 @@
 
 ### Tests for User Story 2 (MANDATORY unit tests) ⚠️
 
-- [ ] T029 [P] [US2] Write unit tests for refresh route: test_refresh_returns_new_access_token, test_refresh_rotates_refresh_token, test_refresh_rotates_csrf_token, test_refresh_updates_last_used_at, test_refresh_rejects_expired_session_inactivity, test_refresh_rejects_expired_session_absolute, test_refresh_rejects_revoked_session, test_refresh_rejects_disabled_user in `backend/tests/unit/test_auth_routes.py`
-- [ ] T030 [P] [US2] Write unit tests for token reuse detection: test_reuse_rotated_token_revokes_family, test_reuse_returns_401, test_reuse_logs_audit_event, test_valid_token_still_works_after_rotation in `backend/tests/unit/test_auth_routes.py`
-- [ ] T031 [P] [US2] Write unit tests for CSRF protection: test_refresh_without_csrf_header_returns_403, test_refresh_with_mismatched_csrf_returns_403, test_logout_without_csrf_header_returns_403, test_csrf_token_set_on_login in `backend/tests/unit/test_auth_routes.py`
+- [X] T029 [P] [US2] Write unit tests for refresh route: test_refresh_returns_new_access_token, test_refresh_rotates_refresh_token, test_refresh_rotates_csrf_token, test_refresh_updates_last_used_at, test_refresh_rejects_expired_session_inactivity, test_refresh_rejects_expired_session_absolute, test_refresh_rejects_revoked_session, test_refresh_rejects_disabled_user in `backend/tests/unit/test_auth_routes.py`
+- [X] T030 [P] [US2] Write unit tests for token reuse detection: test_reuse_rotated_token_revokes_family, test_reuse_returns_401, test_reuse_logs_audit_event, test_valid_token_still_works_after_rotation in `backend/tests/unit/test_auth_routes.py`
+- [X] T031 [P] [US2] Write unit tests for CSRF protection: test_refresh_without_csrf_header_returns_403, test_refresh_with_mismatched_csrf_returns_403, test_logout_without_csrf_header_returns_403, test_csrf_token_set_on_login in `backend/tests/unit/test_auth_routes.py`
 
 ### Implementation for User Story 2
 
-- [ ] T032 [US2] Extend AuthService.refresh: read refresh_token from cookie, hash it, look up AuthSession by current_token_hash OR by rotated_token_hashes containment (via JSONB @>), if found in rotated_token_hashes → revoke entire token family (all sessions with same token_family_id), audit token_reuse, raise 401; if found in current_token_hash → verify session active (not revoked, not expired, user active), push current_token_hash to rotated_token_hashes, generate new refresh token + hash, bump last_used_at and version_number (OCC), issue new access JWT, rotate csrf_token cookie, audit token_refresh, return TokenResponse in `backend/src/services/auth_service.py`
-- [ ] T033 [US2] Implement POST /api/v1/auth/refresh endpoint: reads refresh_token cookie (no body), verifies X-CSRF-Token header matches csrf_token cookie, calls AuthService.refresh, sets new cookies, returns TokenResponse, in `backend/src/routes/auth.py`
-- [ ] T034 [US2] Add CSRF token validation to POST /logout: reject with 403 if X-CSRF-Token header missing or mismatched, in `backend/src/routes/auth.py`
+- [X] T032 [US2] Extend AuthService.refresh: read refresh_token from cookie, hash it, look up AuthSession by current_token_hash OR by rotated_token_hashes containment (via JSONB @>), if found in rotated_token_hashes → revoke entire token family (all sessions with same token_family_id), audit token_reuse, raise 401; if found in current_token_hash → verify session active (not revoked, not expired, user active), push current_token_hash to rotated_token_hashes, generate new refresh token + hash, bump last_used_at and version_number (OCC), issue new access JWT, rotate csrf_token cookie, audit token_refresh, return TokenResponse in `backend/src/services/auth_service.py`
+- [X] T033 [US2] Implement POST /api/v1/auth/refresh endpoint: reads refresh_token cookie (no body), verifies X-CSRF-Token header matches csrf_token cookie, calls AuthService.refresh, sets new cookies, returns TokenResponse, in `backend/src/routes/auth.py`
+- [X] T034 [US2] Add CSRF token validation to POST /logout: reject with 403 if X-CSRF-Token header missing or mismatched, in `backend/src/routes/auth.py`
 
 **Checkpoint**: Token refresh works with rotation, reuse detection revokes token families, CSRF protection enforced on both /refresh and /logout.
 

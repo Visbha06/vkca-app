@@ -14,10 +14,17 @@ from src.main import app
 from src.middleware.auth import get_current_user, get_logout_user
 from src.models.auth_session import AuthSession
 from src.models.user import User
-from src.services.auth_service import InvalidCredentialsError
+from src.services.auth_service import (
+    AuthService,
+    InvalidCredentialsError,
+    InvalidSessionError,
+)
 from src.services.token_service import TokenService
 
 TEST_JWT_SECRET = "pytest-only-jwt-secret-never-use-in-production"
+CURRENT_REFRESH_TOKEN = "current-refresh-token"
+ROTATED_REFRESH_TOKEN = "rotated-refresh-token"
+CSRF_TOKEN = "csrf-value"
 
 
 def make_user(*, is_active: bool = True) -> User:
@@ -38,7 +45,15 @@ def make_user(*, is_active: bool = True) -> User:
     )
 
 
-def make_auth_session(user: User, *, revoked: bool = False) -> AuthSession:
+def make_auth_session(
+    user: User,
+    *,
+    refresh_token: str = CURRENT_REFRESH_TOKEN,
+    rotated_refresh_tokens: tuple[str, ...] = (),
+    last_used_at: datetime | None = None,
+    expires_at: datetime | None = None,
+    revoked: bool = False,
+) -> AuthSession:
     """Build a persisted-looking authentication session."""
 
     now = datetime.now(UTC)
@@ -46,10 +61,12 @@ def make_auth_session(user: User, *, revoked: bool = False) -> AuthSession:
         id=uuid4(),
         user_id=user.id,
         token_family_id=uuid4(),
-        current_token_hash="a" * 64,
-        rotated_token_hashes=[],
-        last_used_at=now,
-        expires_at=now + timedelta(days=30),
+        current_token_hash=TokenService.hash_token(refresh_token),
+        rotated_token_hashes=[
+            TokenService.hash_token(token) for token in rotated_refresh_tokens
+        ],
+        last_used_at=last_used_at or now,
+        expires_at=expires_at or now + timedelta(days=30),
         revoked_at=now if revoked else None,
         revocation_reason="logout" if revoked else None,
         ip_address="127.0.0.1",
@@ -57,6 +74,46 @@ def make_auth_session(user: User, *, revoked: bool = False) -> AuthSession:
         created_at=now,
         version_number=1,
     )
+
+
+def set_auth_cookies(
+    client: httpx.AsyncClient,
+    *,
+    refresh_token: str = CURRENT_REFRESH_TOKEN,
+    csrf_token: str = CSRF_TOKEN,
+) -> None:
+    """Set the double-submit cookies sent by cookie-authenticated endpoints."""
+
+    client.cookies.set("refresh_token", refresh_token, path="/api/v1/auth")
+    client.cookies.set("csrf_token", csrf_token, path="/api/v1/auth")
+
+
+def csrf_headers(csrf_token: str = CSRF_TOKEN) -> dict[str, str]:
+    """Return a matching CSRF request header."""
+
+    return {"X-CSRF-Token": csrf_token}
+
+
+def make_token_service(
+    *,
+    refresh_tokens: tuple[str, ...],
+    access_tokens: tuple[str, ...],
+) -> Mock:
+    """Build a deterministic TokenService mock for rotation state tests."""
+
+    service = Mock(spec=TokenService)
+    service.hash_token.side_effect = TokenService.hash_token
+    service.generate_refresh_token.side_effect = list(refresh_tokens)
+    service.create_access_token.side_effect = list(access_tokens)
+    return service
+
+
+def occ_result(version_number: int) -> Mock:
+    """Return a SQLAlchemy-looking result for a successful OCC update."""
+
+    result = Mock()
+    result.scalar_one_or_none.return_value = version_number
+    return result
 
 
 @pytest.fixture
@@ -75,6 +132,7 @@ def db_session() -> AsyncMock:
 def auth_service_mock(mocker):
     service = mocker.Mock()
     service.login = AsyncMock()
+    service.refresh = AsyncMock()
     mocker.patch("src.routes.auth.AuthService", return_value=service)
     return service
 
@@ -304,8 +362,12 @@ async def test_logout_revokes_session(
         return user, auth_session
 
     app.dependency_overrides[get_logout_user] = override_get_logout_user
+    set_auth_cookies(client)
 
-    response = await client.post("/api/v1/auth/logout")
+    response = await client.post(
+        "/api/v1/auth/logout",
+        headers=csrf_headers(),
+    )
 
     assert response.status_code == 204
     assert auth_session.revoked_at is not None
@@ -322,10 +384,12 @@ async def test_logout_clears_cookies(client: httpx.AsyncClient) -> None:
         return user, auth_session
 
     app.dependency_overrides[get_logout_user] = override_get_logout_user
-    client.cookies.set("refresh_token", "opaque-refresh-token", path="/api/v1/auth")
-    client.cookies.set("csrf_token", "csrf-value", path="/api/v1/auth")
+    set_auth_cookies(client)
 
-    response = await client.post("/api/v1/auth/logout")
+    response = await client.post(
+        "/api/v1/auth/logout",
+        headers=csrf_headers(),
+    )
 
     assert response.status_code == 204
     cookie_headers = response.headers.get_list("set-cookie")
@@ -354,7 +418,11 @@ async def test_access_token_rejected_after_logout(
         return user, auth_session
 
     app.dependency_overrides[get_logout_user] = override_get_logout_user
-    logout = await client.post("/api/v1/auth/logout")
+    set_auth_cookies(client)
+    logout = await client.post(
+        "/api/v1/auth/logout",
+        headers=csrf_headers(),
+    )
     assert logout.status_code == 204
 
     app.dependency_overrides.pop(get_logout_user)
@@ -366,3 +434,447 @@ async def test_access_token_rejected_after_logout(
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Not authenticated"}
+
+
+@pytest.mark.asyncio
+async def test_refresh_returns_new_access_token(
+    client: httpx.AsyncClient,
+    auth_service_mock,
+) -> None:
+    auth_service_mock.refresh.return_value = (
+        "new-access-token",
+        "new-refresh-token",
+        "new-csrf-token",
+    )
+    set_auth_cookies(client)
+
+    response = await client.post(
+        "/api/v1/auth/refresh",
+        headers=csrf_headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "access_token": "new-access-token",
+        "token_type": "bearer",
+    }
+    auth_service_mock.refresh.assert_awaited_once()
+    assert auth_service_mock.refresh.await_args.args[0] == CURRENT_REFRESH_TOKEN
+
+
+@pytest.mark.asyncio
+async def test_refresh_rotates_refresh_token(
+    client: httpx.AsyncClient,
+    auth_service_mock,
+) -> None:
+    auth_service_mock.refresh.return_value = (
+        "new-access-token",
+        "new-refresh-token",
+        "new-csrf-token",
+    )
+    set_auth_cookies(client)
+
+    response = await client.post(
+        "/api/v1/auth/refresh",
+        headers=csrf_headers(),
+    )
+
+    assert response.status_code == 200
+    cookie_headers = response.headers.get_list("set-cookie")
+    refresh_cookie = next(
+        value for value in cookie_headers if value.startswith("refresh_token=")
+    )
+    assert "refresh_token=new-refresh-token" in refresh_cookie
+    assert CURRENT_REFRESH_TOKEN not in refresh_cookie
+    assert "HttpOnly" in refresh_cookie
+    assert "Path=/api/v1/auth" in refresh_cookie
+
+
+@pytest.mark.asyncio
+async def test_refresh_rotates_csrf_token(
+    client: httpx.AsyncClient,
+    auth_service_mock,
+) -> None:
+    auth_service_mock.refresh.return_value = (
+        "new-access-token",
+        "new-refresh-token",
+        "new-csrf-token",
+    )
+    set_auth_cookies(client)
+
+    response = await client.post(
+        "/api/v1/auth/refresh",
+        headers=csrf_headers(),
+    )
+
+    assert response.status_code == 200
+    cookie_headers = response.headers.get_list("set-cookie")
+    csrf_cookie = next(
+        value for value in cookie_headers if value.startswith("csrf_token=")
+    )
+    assert "csrf_token=new-csrf-token" in csrf_cookie
+    assert CSRF_TOKEN not in csrf_cookie
+    assert "HttpOnly" not in csrf_cookie
+    assert "Path=/api/v1/auth" in csrf_cookie
+
+
+@pytest.mark.asyncio
+async def test_refresh_updates_last_used_at(
+    db_session: AsyncMock,
+    mocker,
+) -> None:
+    user = make_user()
+    previous_last_used_at = datetime.now(UTC) - timedelta(hours=1)
+    auth_session = make_auth_session(
+        user,
+        last_used_at=previous_last_used_at,
+    )
+    db_session.scalar.side_effect = [auth_session, user]
+    db_session.execute.return_value = occ_result(2)
+    token_service = make_token_service(
+        refresh_tokens=("new-refresh-token", "new-csrf-token"),
+        access_tokens=("new-access-token",),
+    )
+    audit_log = AsyncMock()
+    mocker.patch(
+        "src.services.auth_service.AuditService.log_event",
+        new=audit_log,
+    )
+
+    await AuthService(db_session, token_service=token_service).refresh(
+        CURRENT_REFRESH_TOKEN,
+        "127.0.0.1",
+        "pytest",
+    )
+
+    assert auth_session.last_used_at > previous_last_used_at
+    assert auth_session.version_number == 2
+    rotation_statement = db_session.execute.await_args.args[0]
+    rotation_sql = str(rotation_statement)
+    assert "auth_sessions.revoked_at IS NULL" in rotation_sql
+    assert "auth_sessions.expires_at >" in rotation_sql
+    assert "auth_sessions.last_used_at >" in rotation_sql
+    audit_log.assert_awaited_once_with(
+        db_session,
+        "token_refresh",
+        user_id=user.id,
+        session_id=auth_session.id,
+        result="success",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        target_resource="/api/v1/auth/refresh",
+    )
+    db_session.commit.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_expired_session_inactivity(
+    client: httpx.AsyncClient,
+    db_session: AsyncMock,
+) -> None:
+    user = make_user()
+    auth_session = make_auth_session(
+        user,
+        last_used_at=datetime.now(UTC) - timedelta(days=8),
+    )
+    db_session.scalar.return_value = auth_session
+    set_auth_cookies(client)
+
+    response = await client.post(
+        "/api/v1/auth/refresh",
+        headers=csrf_headers(),
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid or expired session"}
+    db_session.execute.assert_not_awaited()
+    db_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_expired_session_absolute(
+    client: httpx.AsyncClient,
+    db_session: AsyncMock,
+) -> None:
+    user = make_user()
+    auth_session = make_auth_session(
+        user,
+        expires_at=datetime.now(UTC) - timedelta(seconds=1),
+    )
+    db_session.scalar.return_value = auth_session
+    set_auth_cookies(client)
+
+    response = await client.post(
+        "/api/v1/auth/refresh",
+        headers=csrf_headers(),
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid or expired session"}
+    db_session.execute.assert_not_awaited()
+    db_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_revoked_session(
+    client: httpx.AsyncClient,
+    db_session: AsyncMock,
+) -> None:
+    user = make_user()
+    auth_session = make_auth_session(user, revoked=True)
+    db_session.scalar.return_value = auth_session
+    set_auth_cookies(client)
+
+    response = await client.post(
+        "/api/v1/auth/refresh",
+        headers=csrf_headers(),
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid or expired session"}
+    db_session.execute.assert_not_awaited()
+    db_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_disabled_user(
+    client: httpx.AsyncClient,
+    db_session: AsyncMock,
+) -> None:
+    user = make_user(is_active=False)
+    auth_session = make_auth_session(user)
+    db_session.scalar.side_effect = [auth_session, user]
+    set_auth_cookies(client)
+
+    response = await client.post(
+        "/api/v1/auth/refresh",
+        headers=csrf_headers(),
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid or expired session"}
+    db_session.execute.assert_not_awaited()
+    db_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reuse_rotated_token_revokes_family(db_session: AsyncMock) -> None:
+    user = make_user()
+    auth_session = make_auth_session(
+        user,
+        rotated_refresh_tokens=(ROTATED_REFRESH_TOKEN,),
+    )
+    db_session.scalar.return_value = auth_session
+
+    with pytest.raises(InvalidSessionError):
+        await AuthService(db_session).refresh(
+            ROTATED_REFRESH_TOKEN,
+            "127.0.0.1",
+            "pytest",
+        )
+
+    statement = db_session.execute.await_args.args[0]
+    statement_text = str(statement)
+    statement_parameters = statement.compile().params
+    assert "auth_sessions.token_family_id" in statement_text
+    assert auth_session.token_family_id in statement_parameters.values()
+    assert auth_session.revoked_at is not None
+    assert auth_session.revocation_reason == "token_reuse"
+    db_session.commit.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_reuse_returns_401(
+    client: httpx.AsyncClient,
+    db_session: AsyncMock,
+) -> None:
+    user = make_user()
+    auth_session = make_auth_session(
+        user,
+        rotated_refresh_tokens=(ROTATED_REFRESH_TOKEN,),
+    )
+    db_session.scalar.return_value = auth_session
+    set_auth_cookies(client, refresh_token=ROTATED_REFRESH_TOKEN)
+
+    response = await client.post(
+        "/api/v1/auth/refresh",
+        headers=csrf_headers(),
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid or expired session"}
+    db_session.commit.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_reuse_logs_audit_event(
+    db_session: AsyncMock,
+    mocker,
+) -> None:
+    user = make_user()
+    auth_session = make_auth_session(
+        user,
+        rotated_refresh_tokens=(ROTATED_REFRESH_TOKEN,),
+    )
+    db_session.scalar.return_value = auth_session
+    audit_log = AsyncMock()
+    mocker.patch(
+        "src.services.auth_service.AuditService.log_event",
+        new=audit_log,
+    )
+
+    with pytest.raises(InvalidSessionError):
+        await AuthService(db_session).refresh(
+            ROTATED_REFRESH_TOKEN,
+            "203.0.113.10",
+            "reuse-test-agent",
+        )
+
+    audit_log.assert_awaited_once_with(
+        db_session,
+        "token_reuse",
+        user_id=user.id,
+        session_id=auth_session.id,
+        result="failure",
+        reason="rotated_token_reuse",
+        ip_address="203.0.113.10",
+        user_agent="reuse-test-agent",
+        target_resource="/api/v1/auth/refresh",
+    )
+    db_session.commit.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_valid_token_still_works_after_rotation(
+    db_session: AsyncMock,
+) -> None:
+    user = make_user()
+    auth_session = make_auth_session(user)
+    db_session.scalar.side_effect = [auth_session, user, auth_session, user]
+    db_session.execute.side_effect = [occ_result(2), occ_result(3)]
+    token_service = make_token_service(
+        refresh_tokens=(
+            "first-new-refresh-token",
+            "first-new-csrf-token",
+            "second-new-refresh-token",
+            "second-new-csrf-token",
+        ),
+        access_tokens=("first-access-token", "second-access-token"),
+    )
+    service = AuthService(db_session, token_service=token_service)
+
+    first_result = await service.refresh(
+        CURRENT_REFRESH_TOKEN,
+        "127.0.0.1",
+        "pytest",
+    )
+    second_result = await service.refresh(
+        "first-new-refresh-token",
+        "127.0.0.1",
+        "pytest",
+    )
+
+    assert first_result == (
+        "first-access-token",
+        "first-new-refresh-token",
+        "first-new-csrf-token",
+    )
+    assert second_result == (
+        "second-access-token",
+        "second-new-refresh-token",
+        "second-new-csrf-token",
+    )
+    assert auth_session.current_token_hash == TokenService.hash_token(
+        "second-new-refresh-token"
+    )
+    assert auth_session.rotated_token_hashes == [
+        TokenService.hash_token(CURRENT_REFRESH_TOKEN),
+        TokenService.hash_token("first-new-refresh-token"),
+    ]
+    assert auth_session.version_number == 3
+    assert db_session.commit.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_refresh_without_csrf_header_returns_403(
+    client: httpx.AsyncClient,
+    auth_service_mock,
+) -> None:
+    set_auth_cookies(client)
+
+    response = await client.post("/api/v1/auth/refresh")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "CSRF token missing or invalid"}
+    auth_service_mock.refresh.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_refresh_with_mismatched_csrf_returns_403(
+    client: httpx.AsyncClient,
+    auth_service_mock,
+) -> None:
+    set_auth_cookies(client)
+
+    response = await client.post(
+        "/api/v1/auth/refresh",
+        headers=csrf_headers("different-csrf-value"),
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "CSRF token missing or invalid"}
+    auth_service_mock.refresh.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_logout_without_csrf_header_returns_403(
+    client: httpx.AsyncClient,
+    db_session: AsyncMock,
+) -> None:
+    user = make_user()
+    auth_session = make_auth_session(user)
+
+    async def override_get_logout_user():
+        return user, auth_session
+
+    app.dependency_overrides[get_logout_user] = override_get_logout_user
+    set_auth_cookies(client)
+
+    response = await client.post("/api/v1/auth/logout")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "CSRF token missing or invalid"}
+    assert auth_session.revoked_at is None
+    db_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_csrf_token_set_on_login(
+    client: httpx.AsyncClient,
+    auth_service_mock,
+) -> None:
+    user = make_user()
+    auth_session = make_auth_session(user)
+    auth_service_mock.login.return_value = (
+        user,
+        auth_session,
+        "signed-access-token",
+        CURRENT_REFRESH_TOKEN,
+        CSRF_TOKEN,
+    )
+
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": user.email, "password": "SecureP@ssword1"},
+    )
+
+    assert response.status_code == 200
+    csrf_cookie = next(
+        value
+        for value in response.headers.get_list("set-cookie")
+        if value.startswith("csrf_token=")
+    )
+    assert f"csrf_token={CSRF_TOKEN}" in csrf_cookie
+    assert "HttpOnly" not in csrf_cookie
+    assert "SameSite=lax" in csrf_cookie
+    assert "Path=/api/v1/auth" in csrf_cookie

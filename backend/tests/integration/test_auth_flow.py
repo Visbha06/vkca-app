@@ -73,7 +73,11 @@ async def test_login_access_logout_rejects_revoked_token(
         assert protected.json()["id"] == str(user_id)
         session_id = protected.json()["session"]["session_id"]
 
-        logout = await client.post("/api/v1/auth/logout", headers=authorization)
+        logout_headers = {
+            **authorization,
+            "X-CSRF-Token": client.cookies["csrf_token"],
+        }
+        logout = await client.post("/api/v1/auth/logout", headers=logout_headers)
         assert logout.status_code == 204, logout.text
 
         rejected = await client.get("/api/v1/auth/me", headers=authorization)
