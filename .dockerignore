@@ -1,0 +1,31 @@
+# Git
+.git/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Node (frontend)
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# Environment
+.env
+.env.*
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+htmlcov/

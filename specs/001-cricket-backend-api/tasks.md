@@ -25,12 +25,12 @@
 
 **Purpose**: Project initialization, dependency management, and basic structure
 
-- [ ] T001 Create backend source directory structure: `backend/src/models/`, `backend/src/schemas/`, `backend/src/routes/`, `backend/src/services/`, `backend/src/middleware/`, `backend/tests/unit/`, `backend/tests/integration/`
-- [ ] T002 [P] Add FastAPI, Pydantic v2, SQLAlchemy 2.0, asyncpg, Alembic dependencies to `backend/pyproject.toml` via `uv add`
-- [ ] T003 [P] Add pytest, pytest-asyncio, httpx, pytest-mock dev dependencies to `backend/pyproject.toml` via `uv add --dev`
-- [ ] T004 [P] Configure environment management: create `backend/.env.example` with DATABASE_URL, ensure `backend/src/config.py` loads settings via Pydantic `BaseSettings`
-- [ ] T005 [P] Configure Ruff linting settings in `backend/pyproject.toml` (extend existing config)
-- [ ] T006 Scaffold FastAPI app entry point in `backend/src/main.py` with `/api/v1` prefix router, health check endpoint, and CORS middleware
+- [X] T001 Create backend source directory structure: `backend/src/models/`, `backend/src/schemas/`, `backend/src/routes/`, `backend/src/services/`, `backend/src/middleware/`, `backend/tests/unit/`, `backend/tests/integration/`
+- [X] T002 [P] Add FastAPI, Pydantic v2, SQLAlchemy 2.0, asyncpg, Alembic dependencies to `backend/pyproject.toml` via `uv add`
+- [X] T003 [P] Add pytest, pytest-asyncio, httpx, pytest-mock dev dependencies to `backend/pyproject.toml` via `uv add --dev`
+- [X] T004 [P] Configure environment management: create `backend/.env.example` with DATABASE_URL, ensure `backend/src/config.py` loads settings via Pydantic `BaseSettings`
+- [X] T005 [P] Configure Ruff linting settings in `backend/pyproject.toml` (extend existing config)
+- [X] T006 Scaffold FastAPI app entry point in `backend/src/main.py` with `/api/v1` prefix router, health check endpoint, and CORS middleware
 
 ---
 

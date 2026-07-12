@@ -1,0 +1,1 @@
+"""VKCA backend application package."""
