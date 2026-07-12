@@ -150,17 +150,17 @@
 
 ### Tests for User Story 3 (MANDATORY unit tests) ⚠️
 
-- [ ] T043 [P] [US3] Unit tests for Match Pydantic schemas in `backend/tests/unit/test_match_schemas.py`
-- [ ] T044 [P] [US3] Unit tests for Match routes (create, list) in `backend/tests/unit/test_match_routes.py`
+- [X] T043 [P] [US3] Unit tests for Match Pydantic schemas in `backend/tests/unit/test_match_schemas.py`
+- [X] T044 [P] [US3] Unit tests for Match routes (create, list) in `backend/tests/unit/test_match_routes.py`
 
 ### Implementation for User Story 3
 
-- [ ] T045 [P] [US3] Create Match SQLAlchemy model in `backend/src/models/match.py` with columns: id, match_date, format, opponent_name, venue, result, plus TimestampMixin and VersionMixin
-- [ ] T046 [P] [US3] Create Match Pydantic schemas in `backend/src/schemas/match.py`: `MatchCreate`, `MatchResponse`
-- [ ] T047 [US3] Create MatchService in `backend/src/services/match_service.py`: `create_match()`, `list_matches()`
-- [ ] T048 [US3] Create Matches router in `backend/src/routes/matches.py`: `POST /api/v1/matches`, `GET /api/v1/matches`
-- [ ] T049 [US3] Register Matches router in `backend/src/main.py` under `/api/v1`
-- [ ] T050 Create Alembic migration for Matches table in `backend/src/migrations/versions/` and apply it
+- [X] T045 [P] [US3] Create Match SQLAlchemy model in `backend/src/models/match.py` with columns: id, match_date, format, opponent_name, venue, result, plus TimestampMixin and VersionMixin
+- [X] T046 [P] [US3] Create Match Pydantic schemas in `backend/src/schemas/match.py`: `MatchCreate`, `MatchResponse`
+- [X] T047 [US3] Create MatchService in `backend/src/services/match_service.py`: `create_match()`, `list_matches()`
+- [X] T048 [US3] Create Matches router in `backend/src/routes/matches.py`: `POST /api/v1/matches`, `GET /api/v1/matches`
+- [X] T049 [US3] Register Matches router in `backend/src/main.py` under `/api/v1`
+- [X] T050 Create Alembic migration for Matches table in `backend/src/migrations/versions/` and apply it
 
 **Checkpoint**: Matches working — create match events, list all matches.
 
