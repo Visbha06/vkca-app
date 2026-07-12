@@ -247,10 +247,11 @@ curl -s http://localhost:8000/api/v1/players/$PLAYER_ID
 | Criterion | How to Verify | Expected |
 |-----------|---------------|----------|
 | SC-001: Player creation <2s | Time step 1 with `time` | Elapsed <2s |
+| SC-002: Batch submission <3s | Automated 11-player timing integration test | Elapsed <3s |
 | SC-003: OCC 409 <1s | Time step 11 (stale update) with `time` | Elapsed <1s |
 | SC-004: Stats retrieval <1s | Time step 9 with `time` | Elapsed <1s |
-| SC-005: Zero partial writes | Step 8 with invalid player_id | 404, no orphaned records in DB |
-| SC-006: Aggregate stats accuracy | Manual sum of step 8 + step 10 | runs = 82 + 45 = 127 |
+| SC-005: Zero partial writes | Atomic rollback integration test with invalid player_id | 404, no orphaned records in DB |
+| SC-006: Aggregate stats accuracy | Step 9; step 10 is rejected as a duplicate | runs remain 82 |
 | SC-007: No client timestamp leakage | Step 2 | Server timestamp used, not "2020-01-01" |
 | SC-008: Duplicate team membership | Step 6 | HTTP 409 |
 

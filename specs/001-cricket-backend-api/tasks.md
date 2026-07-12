@@ -215,12 +215,12 @@
 
 **Purpose**: Improvements that affect multiple user stories and final validation
 
-- [ ] T067 [P] Integration test for OCC end-to-end flow (update player → stale version → 409 + DataSyncLogs entry) in `backend/tests/integration/test_occ_conflict.py`
-- [ ] T067a [P] Automated performance assertions: verify SC-002 (batch submission for 11 players <3s) and SC-003 (OCC 409 response <1s) using `time.monotonic()` bounds in `backend/tests/integration/test_performance_timing.py`
-- [ ] T068 Run full quickstart.md validation flow from `specs/001-cricket-backend-api/quickstart.md` — execute all 12 steps and verify all 8 success criteria pass
-- [ ] T069 [P] Write feature documentation in `docs/cricket-backend-api.md` (MANDATORY per constitution Principle XII — concise version of spec reflecting what was built)
-- [ ] T070 [P] Code cleanup: remove dead code, ensure consistent naming, verify all Ruff linting passes
-- [ ] T071 Run all unit and integration tests, verify 100% pass
+- [X] T067 [P] Integration test for OCC end-to-end flow (update player → stale version → 409 + DataSyncLogs entry) in `backend/tests/integration/test_occ_conflict.py`
+- [X] T067a [P] Automated performance assertions: verify SC-002 (batch submission for 11 players <3s) and SC-003 (OCC 409 response <1s) using `time.monotonic()` bounds in `backend/tests/integration/test_performance_timing.py`
+- [X] T068 Run full quickstart.md validation flow from `specs/001-cricket-backend-api/quickstart.md` — execute all 12 steps and verify all 8 success criteria pass
+- [X] T069 [P] Write feature documentation in `docs/cricket-backend-api.md` (MANDATORY per constitution Principle XII — concise version of spec reflecting what was built)
+- [X] T070 [P] Code cleanup: remove dead code, ensure consistent naming, verify all Ruff linting passes
+- [X] T071 Run all unit and integration tests, verify 100% pass
 
 ---
 
