@@ -1,5 +1,6 @@
 """FastAPI dependencies for access-token and session authentication."""
 
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
@@ -11,11 +12,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
+from src.enums import UserRole
 from src.models.auth_session import AuthSession
 from src.models.user import User
 from src.services.token_service import TokenService
 
 AuthenticatedUser = tuple[User, AuthSession]
+RoleDependency = Callable[[AuthenticatedUser], Awaitable[None]]
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -78,6 +81,27 @@ async def get_current_user(
     """Authenticate a request from its bearer JWT and active session row."""
 
     return await _authenticate_access_token(credentials, session)
+
+
+def require_role(*roles: UserRole) -> RoleDependency:
+    """Require the database-loaded user to hold one of the allowed roles.
+
+    An empty role set intentionally denies access, keeping authorization rules
+    default-deny. The JWT role claim is not consulted because role changes must
+    take effect on the next request without issuing a new token.
+    """
+
+    async def role_dependency(
+        authenticated: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    ) -> None:
+        user, _ = authenticated
+        if user.role not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized",
+            )
+
+    return role_dependency
 
 
 async def get_logout_user(

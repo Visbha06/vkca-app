@@ -53,62 +53,79 @@ class PerformanceService:
         fielding_records = 0
         stats_players: set[UUID] = set()
 
-        async with self.session.begin():
-            match = await self.session.get(Match, match_id)
-            if match is None:
-                raise MatchNotFoundError
+        transaction = (
+            self.session.begin_nested()
+            if self.session.in_transaction()
+            else self.session.begin()
+        )
+        try:
+            async with transaction:
+                match = await self.session.get(Match, match_id)
+                if match is None:
+                    raise MatchNotFoundError
 
-            requested_player_ids = {item.player_id for item in performances}
-            existing_player_ids = set(
-                (
-                    await self.session.scalars(
-                        select(Player.id).where(Player.id.in_(requested_player_ids))
-                    )
-                ).all()
-            )
-            missing_player_ids = requested_player_ids - existing_player_ids
-            if missing_player_ids:
-                missing_id = min(missing_player_ids, key=str)
-                raise PlayerNotFoundError(missing_id)
-
-            for item in performances:
-                if item.batting is not None:
-                    self.session.add(
-                        MatchBattingPerformance(
-                            player_id=item.player_id,
-                            match_id=match_id,
-                            **item.batting.model_dump(),
+                requested_player_ids = {item.player_id for item in performances}
+                existing_player_ids = set(
+                    (
+                        await self.session.scalars(
+                            select(Player.id).where(Player.id.in_(requested_player_ids))
                         )
-                    )
-                    batting_records += 1
-                if item.bowling is not None:
-                    self.session.add(
-                        MatchBowlingPerformance(
-                            player_id=item.player_id,
-                            match_id=match_id,
-                            **item.bowling.model_dump(),
-                        )
-                    )
-                    bowling_records += 1
-                if item.fielding is not None:
-                    self.session.add(
-                        MatchFieldingPerformance(
-                            player_id=item.player_id,
-                            match_id=match_id,
-                            **item.fielding.model_dump(),
-                        )
-                    )
-                    fielding_records += 1
+                    ).all()
+                )
+                missing_player_ids = requested_player_ids - existing_player_ids
+                if missing_player_ids:
+                    missing_id = min(missing_player_ids, key=str)
+                    raise PlayerNotFoundError(missing_id)
 
-            await self.session.flush()
+                for item in performances:
+                    if item.batting is not None:
+                        self.session.add(
+                            MatchBattingPerformance(
+                                player_id=item.player_id,
+                                match_id=match_id,
+                                **item.batting.model_dump(),
+                            )
+                        )
+                        batting_records += 1
+                    if item.bowling is not None:
+                        self.session.add(
+                            MatchBowlingPerformance(
+                                player_id=item.player_id,
+                                match_id=match_id,
+                                **item.bowling.model_dump(),
+                            )
+                        )
+                        bowling_records += 1
+                    if item.fielding is not None:
+                        self.session.add(
+                            MatchFieldingPerformance(
+                                player_id=item.player_id,
+                                match_id=match_id,
+                                **item.fielding.model_dump(),
+                            )
+                        )
+                        fielding_records += 1
 
-            for item in performances:
-                if item.batting is not None:
-                    await self._recalculate_batting_stats(item.player_id, match.format)
-                    stats_players.add(item.player_id)
-                if item.bowling is not None or item.fielding is not None:
-                    await self._recalculate_bowling_stats(item.player_id, match.format)
-                    stats_players.add(item.player_id)
+                await self.session.flush()
+
+                for item in performances:
+                    if item.batting is not None:
+                        await self._recalculate_batting_stats(
+                            item.player_id,
+                            match.format,
+                        )
+                        stats_players.add(item.player_id)
+                    if item.bowling is not None or item.fielding is not None:
+                        await self._recalculate_bowling_stats(
+                            item.player_id,
+                            match.format,
+                        )
+                        stats_players.add(item.player_id)
+            if self.session.in_transaction():
+                await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
 
         return BatchPerformanceResponse(
             match_id=match_id,

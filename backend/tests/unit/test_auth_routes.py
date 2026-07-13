@@ -7,11 +7,12 @@ from uuid import uuid4
 import httpx
 import pytest
 import pytest_asyncio
+from fastapi import HTTPException
 
 from src.database import get_db
 from src.enums import UserRole
 from src.main import app
-from src.middleware.auth import get_current_user, get_logout_user
+from src.middleware.auth import get_current_user, get_logout_user, require_role
 from src.models.auth_session import AuthSession
 from src.models.user import User
 from src.services.auth_service import (
@@ -27,7 +28,11 @@ ROTATED_REFRESH_TOKEN = "rotated-refresh-token"
 CSRF_TOKEN = "csrf-value"
 
 
-def make_user(*, is_active: bool = True) -> User:
+def make_user(
+    *,
+    is_active: bool = True,
+    role: UserRole = UserRole.HEAD_COACH,
+) -> User:
     """Build a persisted-looking user for route dependency overrides."""
 
     now = datetime.now(UTC)
@@ -37,7 +42,7 @@ def make_user(*, is_active: bool = True) -> User:
         last_name="Doe",
         email="john.doe@example.com",
         hashed_password="$argon2id$unit-test-only",
-        role=UserRole.HEAD_COACH,
+        role=role,
         is_active=is_active,
         created_at=now,
         updated_at=now,
@@ -878,3 +883,190 @@ async def test_csrf_token_set_on_login(
     assert "HttpOnly" not in csrf_cookie
     assert "SameSite=lax" in csrf_cookie
     assert "Path=/api/v1/auth" in csrf_cookie
+
+
+@pytest.mark.asyncio
+async def test_head_coach_access_to_admin_operations() -> None:
+    user = make_user(role=UserRole.HEAD_COACH)
+    auth_session = make_auth_session(user)
+
+    result = await require_role(UserRole.HEAD_COACH)((user, auth_session))
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_assistant_coach_denied_admin_operations() -> None:
+    user = make_user(role=UserRole.ASSISTANT_COACH)
+    auth_session = make_auth_session(user)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await require_role(UserRole.HEAD_COACH)((user, auth_session))
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "Not authorized"
+
+
+@pytest.mark.asyncio
+async def test_staff_read_only_enforcement() -> None:
+    user = make_user(role=UserRole.STAFF)
+    auth_session = make_auth_session(user)
+
+    read_result = await require_role(
+        UserRole.HEAD_COACH,
+        UserRole.ASSISTANT_COACH,
+        UserRole.STAFF,
+    )((user, auth_session))
+    with pytest.raises(HTTPException) as exc_info:
+        await require_role(
+            UserRole.HEAD_COACH,
+            UserRole.ASSISTANT_COACH,
+        )((user, auth_session))
+
+    assert read_result is None
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_default_deny_no_rule() -> None:
+    user = make_user()
+    auth_session = make_auth_session(user)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await require_role()((user, auth_session))
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "Not authorized"
+
+
+@pytest.mark.asyncio
+async def test_role_from_jwt_not_trusted(
+    client: httpx.AsyncClient,
+    db_session: AsyncMock,
+) -> None:
+    user = make_user(role=UserRole.STAFF)
+    auth_session = make_auth_session(user)
+    token = TokenService(
+        jwt_secret=TEST_JWT_SECRET,
+        jwt_algorithm="HS256",
+        access_token_expire_minutes=30,
+    ).create_access_token(user.id, auth_session.id, UserRole.HEAD_COACH)
+    db_session.scalar.side_effect = [auth_session, user]
+
+    response = await client.post(
+        "/api/v1/players",
+        headers={"Authorization": f"Bearer {token}"},
+        json={},
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Not authorized"}
+
+
+@pytest.mark.asyncio
+async def test_role_change_takes_effect_next_request() -> None:
+    user = make_user(role=UserRole.STAFF)
+    auth_session = make_auth_session(user)
+    cricket_data_access = require_role(
+        UserRole.HEAD_COACH,
+        UserRole.ASSISTANT_COACH,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await cricket_data_access((user, auth_session))
+    user.role = UserRole.ASSISTANT_COACH
+    result = await cricket_data_access((user, auth_session))
+
+    assert exc_info.value.status_code == 403
+    assert result is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("role", list(UserRole))
+async def test_players_get_all_roles(
+    client: httpx.AsyncClient,
+    mocker,
+    role: UserRole,
+) -> None:
+    user = make_user(role=role)
+    auth_session = make_auth_session(user)
+
+    async def override_get_current_user():
+        return user, auth_session
+
+    service = mocker.Mock()
+    service.list_players = AsyncMock(return_value=[])
+    mocker.patch("src.routes.players.PlayerService", return_value=service)
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    response = await client.get("/api/v1/players")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@pytest.mark.asyncio
+async def test_players_post_staff_denied(client: httpx.AsyncClient) -> None:
+    await _assert_staff_write_denied(client, "/api/v1/players", json={})
+
+
+@pytest.mark.asyncio
+async def test_teams_post_staff_denied(client: httpx.AsyncClient) -> None:
+    await _assert_staff_write_denied(client, "/api/v1/teams", json={})
+
+
+@pytest.mark.asyncio
+async def test_matches_post_staff_denied(client: httpx.AsyncClient) -> None:
+    await _assert_staff_write_denied(client, "/api/v1/matches", json={})
+
+
+@pytest.mark.asyncio
+async def test_performances_post_staff_denied(client: httpx.AsyncClient) -> None:
+    await _assert_staff_write_denied(
+        client,
+        f"/api/v1/matches/{uuid4()}/performances",
+        json={"performances": []},
+    )
+
+
+async def _assert_staff_write_denied(
+    client: httpx.AsyncClient,
+    path: str,
+    **request_kwargs,
+) -> None:
+    user = make_user(role=UserRole.STAFF)
+    auth_session = make_auth_session(user)
+
+    async def override_get_current_user():
+        return user, auth_session
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    response = await client.post(path, **request_kwargs)
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Not authorized"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("role", list(UserRole))
+async def test_stats_get_all_roles(
+    client: httpx.AsyncClient,
+    mocker,
+    role: UserRole,
+) -> None:
+    user = make_user(role=role)
+    auth_session = make_auth_session(user)
+
+    async def override_get_current_user():
+        return user, auth_session
+
+    service = mocker.Mock()
+    service.get_batting_stats = AsyncMock(return_value=[])
+    mocker.patch("src.routes.stats.StatsService", return_value=service)
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    response = await client.get(f"/api/v1/players/{uuid4()}/stats/batting")
+
+    assert response.status_code == 200
+    assert response.json() == []

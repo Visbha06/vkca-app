@@ -86,6 +86,7 @@ async def delete_performance_data(
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("authenticated_client")
 async def test_eleven_player_batch_completes_within_three_seconds(
     client: httpx.AsyncClient,
     db_session: AsyncSession,
@@ -151,6 +152,7 @@ async def test_eleven_player_batch_completes_within_three_seconds(
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("authenticated_client")
 async def test_occ_conflict_response_completes_within_one_second(
     client: httpx.AsyncClient,
     db_session: AsyncSession,

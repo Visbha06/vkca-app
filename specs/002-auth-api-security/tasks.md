@@ -130,18 +130,18 @@
 
 ### Tests for User Story 3 (MANDATORY unit tests) ⚠️
 
-- [ ] T035 [P] [US3] Write unit tests for require_role dependency: test_head_coach_access_to_admin_operations, test_assistant_coach_denied_admin_operations, test_staff_read_only_enforcement, test_default_deny_no_rule, test_role_from_jwt_not_trusted, test_role_change_takes_effect_next_request in `backend/tests/unit/test_auth_routes.py`
-- [ ] T036 [P] [US3] Write unit tests for retrofitted routes: test_players_get_all_roles, test_players_post_staff_denied, test_teams_post_staff_denied, test_matches_post_staff_denied, test_performances_post_staff_denied, test_stats_get_all_roles in `backend/tests/unit/test_auth_routes.py`
+- [X] T035 [P] [US3] Write unit tests for require_role dependency: test_head_coach_access_to_admin_operations, test_assistant_coach_denied_admin_operations, test_staff_read_only_enforcement, test_default_deny_no_rule, test_role_from_jwt_not_trusted, test_role_change_takes_effect_next_request in `backend/tests/unit/test_auth_routes.py`
+- [X] T036 [P] [US3] Write unit tests for retrofitted routes: test_players_get_all_roles, test_players_post_staff_denied, test_teams_post_staff_denied, test_matches_post_staff_denied, test_performances_post_staff_denied, test_stats_get_all_roles in `backend/tests/unit/test_auth_routes.py`
 
 ### Implementation for User Story 3
 
-- [ ] T037 [US3] Implement require_role(*roles) dependency factory: calls get_current_user, checks user.role in roles, raises HTTP 403 with generic message if not authorized, in `backend/src/middleware/auth.py`
-- [ ] T038 [P] [US3] Add `current_user: Annotated[User, Depends(get_current_user)]` to all existing route handlers in `backend/src/routes/players.py`
-- [ ] T039 [P] [US3] Add `current_user: Annotated[User, Depends(get_current_user)]` to all existing route handlers in `backend/src/routes/teams.py`
-- [ ] T040 [P] [US3] Add `current_user: Annotated[User, Depends(get_current_user)]` to all existing route handlers in `backend/src/routes/matches.py`
-- [ ] T041 [P] [US3] Add `current_user: Annotated[User, Depends(get_current_user)]` to all existing route handlers in `backend/src/routes/performances.py`
-- [ ] T042 [P] [US3] Add `current_user: Annotated[User, Depends(get_current_user)]` to all existing route handlers in `backend/src/routes/stats.py`
-- [ ] T043 [US3] Add role-based restrictions: POST/PUT operations on players/teams/matches/performances require `require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)` (Staff denied); GET operations on stats/players/teams/matches require authenticated user only, in each route file
+- [X] T037 [US3] Implement require_role(*roles) dependency factory: calls get_current_user, checks user.role in roles, raises HTTP 403 with generic message if not authorized, in `backend/src/middleware/auth.py`
+- [X] T038 [P] [US3] Add `current_user: Annotated[User, Depends(get_current_user)]` to all existing route handlers in `backend/src/routes/players.py`
+- [X] T039 [P] [US3] Add `current_user: Annotated[User, Depends(get_current_user)]` to all existing route handlers in `backend/src/routes/teams.py`
+- [X] T040 [P] [US3] Add `current_user: Annotated[User, Depends(get_current_user)]` to all existing route handlers in `backend/src/routes/matches.py`
+- [X] T041 [P] [US3] Add `current_user: Annotated[User, Depends(get_current_user)]` to all existing route handlers in `backend/src/routes/performances.py`
+- [X] T042 [P] [US3] Add `current_user: Annotated[User, Depends(get_current_user)]` to all existing route handlers in `backend/src/routes/stats.py`
+- [X] T043 [US3] Add role-based restrictions: POST/PUT operations on players/teams/matches/performances require `require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)` (Staff denied); GET operations on stats/players/teams/matches require authenticated user only, in each route file
 
 **Checkpoint**: Role-based access control enforced on all existing routes. Each role has correct permissions per spec.
 

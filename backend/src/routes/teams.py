@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
+from src.enums import UserRole
+from src.middleware.auth import AuthenticatedUser, get_current_user, require_role
 from src.schemas.team import TeamCreate, TeamPlayerResponse, TeamResponse
 from src.services.team_service import (
     PlayerNotFoundError,
@@ -22,6 +24,11 @@ router = APIRouter(prefix="/teams", tags=["teams"])
 async def create_team(
     payload: TeamCreate,
     session: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _write_access: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
+    ],
 ) -> TeamResponse:
     """Create a cricket team."""
 
@@ -32,6 +39,7 @@ async def create_team(
 @router.get("", response_model=list[TeamResponse])
 async def list_teams(
     session: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
 ) -> list[TeamResponse]:
     """List all cricket teams."""
 
@@ -48,6 +56,11 @@ async def add_player_to_team(
     team_id: UUID,
     player_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _write_access: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
+    ],
 ) -> TeamPlayerResponse:
     """Add a player to a team roster."""
 

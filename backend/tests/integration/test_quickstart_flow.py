@@ -51,6 +51,7 @@ async def client():
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("authenticated_client")
 async def test_full_twelve_step_quickstart_flow(
     client: httpx.AsyncClient,
     db_session: AsyncSession,
