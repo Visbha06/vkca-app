@@ -155,18 +155,18 @@
 
 ### Tests for User Story 4 (MANDATORY unit tests) ⚠️
 
-- [ ] T044 [P] [US4] Write unit tests for user creation: test_create_user_with_password_hashes_correctly, test_reject_client_hash_input, test_password_policy_enforced_on_create, test_non_head_coach_denied, test_duplicate_email_returns_409 in `backend/tests/unit/test_user_routes.py`
-- [ ] T045 [P] [US4] Write unit tests for role change: test_head_coach_can_change_role, test_role_change_audited, test_assistant_coach_cannot_change_role, test_invalid_role_rejected in `backend/tests/unit/test_user_routes.py`
-- [ ] T046 [P] [US4] Write unit tests for user disable: test_disable_user_sets_is_active_false, test_disabled_user_cannot_login, test_disabled_user_sessions_revoked, test_non_head_coach_cannot_disable in `backend/tests/unit/test_user_routes.py`
+- [X] T044 [P] [US4] Write unit tests for user creation: test_create_user_with_password_hashes_correctly, test_reject_client_hash_input, test_password_policy_enforced_on_create, test_non_head_coach_denied, test_duplicate_email_returns_409 in `backend/tests/unit/test_user_routes.py`
+- [X] T045 [P] [US4] Write unit tests for role change: test_head_coach_can_change_role, test_role_change_audited, test_assistant_coach_cannot_change_role, test_invalid_role_rejected in `backend/tests/unit/test_user_routes.py`
+- [X] T046 [P] [US4] Write unit tests for user disable: test_disable_user_sets_is_active_false, test_disabled_user_cannot_login, test_disabled_user_sessions_revoked, test_non_head_coach_cannot_disable in `backend/tests/unit/test_user_routes.py`
 
 ### Implementation for User Story 4
 
-- [ ] T047 [US4] Modify UserService.create_user: hash password via PasswordService.hash_password before storing, normalize email to lowercase, accept password field (not hashed_password), reject hashed_password input in `backend/src/services/user_service.py`
-- [ ] T048 [US4] Modify POST /api/v1/users: add `_require_hc: Annotated[None, Depends(require_role(UserRole.HEAD_COACH))]` dependency, update docstring, in `backend/src/routes/users.py`
-- [ ] T049 [US4] Modify GET /api/v1/users: add `_require_hc: Annotated[None, Depends(require_role(UserRole.HEAD_COACH))]` dependency, in `backend/src/routes/users.py`
-- [ ] T050 [US4] Implement PATCH /api/v1/users/{user_id}/role: head coach only, updates user.role, commits, records role_change audit event, returns UserResponse, in `backend/src/routes/users.py`
-- [ ] T051 [US4] Implement POST /api/v1/users/{user_id}/disable: head coach only, sets user.is_active=False, revokes all active AuthSessions for that user (sets revoked_at, revocation_reason='user_disabled'), records user_disablement audit event + one session_revocation per revoked session, returns UserResponse, in `backend/src/routes/users.py`
-- [ ] T052 [US4] Implement POST /api/v1/users/{user_id}/change-password: authenticated user (self or head coach), validates new password against policy, hashes new password, saves, revokes all active sessions for the user, records password_change audit event, returns 204, in `backend/src/routes/users.py`
+- [X] T047 [US4] Modify UserService.create_user: hash password via PasswordService.hash_password before storing, normalize email to lowercase, accept password field (not hashed_password), reject hashed_password input in `backend/src/services/user_service.py`
+- [X] T048 [US4] Modify POST /api/v1/users: add `_require_hc: Annotated[None, Depends(require_role(UserRole.HEAD_COACH))]` dependency, update docstring, in `backend/src/routes/users.py`
+- [X] T049 [US4] Modify GET /api/v1/users: add `_require_hc: Annotated[None, Depends(require_role(UserRole.HEAD_COACH))]` dependency, in `backend/src/routes/users.py`
+- [X] T050 [US4] Implement PATCH /api/v1/users/{user_id}/role: head coach only, updates user.role, commits, records role_change audit event, returns UserResponse, in `backend/src/routes/users.py`
+- [X] T051 [US4] Implement POST /api/v1/users/{user_id}/disable: head coach only, sets user.is_active=False, revokes all active AuthSessions for that user (sets revoked_at, revocation_reason='user_disabled'), records user_disablement audit event + one session_revocation per revoked session, returns UserResponse, in `backend/src/routes/users.py`
+- [X] T052 [US4] Implement POST /api/v1/users/{user_id}/change-password: authenticated user (self or head coach), validates new password against policy, hashes new password, saves, revokes all active sessions for the user, records password_change audit event, returns 204, in `backend/src/routes/users.py`
 
 **Checkpoint**: Head coaches can fully manage users (create, role change, disable, password change). Password hashing is server-side with Argon2id. Client hash submission is rejected.
 

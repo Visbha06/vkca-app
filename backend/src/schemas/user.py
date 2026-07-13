@@ -51,6 +51,26 @@ class UserCreate(BaseRequestSchema):
         return value
 
 
+class UserRoleUpdate(BaseRequestSchema):
+    """Payload for a head coach changing an account's role."""
+
+    role: UserRole
+
+
+class UserPasswordChange(BaseRequestSchema):
+    """Payload for replacing an account password."""
+
+    new_password: str = Field(min_length=12, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_policy(cls, value: str) -> str:
+        """Apply the same password policy used during account creation."""
+
+        PasswordService.validate_password_policy(value)
+        return value
+
+
 class UserResponse(BaseModel):
     """Public account representation, intentionally excluding the password hash."""
 
