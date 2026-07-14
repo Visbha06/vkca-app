@@ -7,7 +7,7 @@ from uuid import uuid4
 import httpx
 import pytest
 import pytest_asyncio
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 from src.database import get_db
 from src.enums import UserRole
@@ -97,6 +97,27 @@ def csrf_headers(csrf_token: str = CSRF_TOKEN) -> dict[str, str]:
     """Return a matching CSRF request header."""
 
     return {"X-CSRF-Token": csrf_token}
+
+
+def role_dependency_context() -> tuple[Request, AsyncMock]:
+    """Return request and database collaborators for direct RBAC checks."""
+
+    request = Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/api/v1/test-resource",
+            "raw_path": b"/api/v1/test-resource",
+            "query_string": b"",
+            "headers": [(b"user-agent", b"pytest")],
+            "client": ("127.0.0.1", 12345),
+            "server": ("testserver", 80),
+        }
+    )
+    session = AsyncMock()
+    session.add = Mock()
+    return request, session
 
 
 def make_token_service(
@@ -890,7 +911,10 @@ async def test_head_coach_access_to_admin_operations() -> None:
     user = make_user(role=UserRole.HEAD_COACH)
     auth_session = make_auth_session(user)
 
-    result = await require_role(UserRole.HEAD_COACH)((user, auth_session))
+    result = await require_role(UserRole.HEAD_COACH)(
+        (user, auth_session),
+        *role_dependency_context(),
+    )
 
     assert result is None
 
@@ -901,7 +925,10 @@ async def test_assistant_coach_denied_admin_operations() -> None:
     auth_session = make_auth_session(user)
 
     with pytest.raises(HTTPException) as exc_info:
-        await require_role(UserRole.HEAD_COACH)((user, auth_session))
+        await require_role(UserRole.HEAD_COACH)(
+            (user, auth_session),
+            *role_dependency_context(),
+        )
 
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail == "Not authorized"
@@ -916,12 +943,12 @@ async def test_staff_read_only_enforcement() -> None:
         UserRole.HEAD_COACH,
         UserRole.ASSISTANT_COACH,
         UserRole.STAFF,
-    )((user, auth_session))
+    )((user, auth_session), *role_dependency_context())
     with pytest.raises(HTTPException) as exc_info:
         await require_role(
             UserRole.HEAD_COACH,
             UserRole.ASSISTANT_COACH,
-        )((user, auth_session))
+        )((user, auth_session), *role_dependency_context())
 
     assert read_result is None
     assert exc_info.value.status_code == 403
@@ -933,7 +960,7 @@ async def test_default_deny_no_rule() -> None:
     auth_session = make_auth_session(user)
 
     with pytest.raises(HTTPException) as exc_info:
-        await require_role()((user, auth_session))
+        await require_role()((user, auth_session), *role_dependency_context())
 
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail == "Not authorized"
@@ -973,9 +1000,15 @@ async def test_role_change_takes_effect_next_request() -> None:
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await cricket_data_access((user, auth_session))
+        await cricket_data_access(
+            (user, auth_session),
+            *role_dependency_context(),
+        )
     user.role = UserRole.ASSISTANT_COACH
-    result = await cricket_data_access((user, auth_session))
+    result = await cricket_data_access(
+        (user, auth_session),
+        *role_dependency_context(),
+    )
 
     assert exc_info.value.status_code == 403
     assert result is None

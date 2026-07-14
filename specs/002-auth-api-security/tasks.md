@@ -229,14 +229,14 @@
 
 ### Tests for User Story 7 (MANDATORY unit tests) ⚠️
 
-- [ ] T064 [P] [US7] Write unit tests for audit logging: test_login_success_logged, test_login_failure_logged, test_logout_logged, test_token_refresh_logged, test_token_reuse_logged, test_role_change_logged, test_user_disable_logged, test_password_change_logged, test_rate_limit_logged, test_authorization_denial_logged in `backend/tests/unit/test_audit_service.py`
-- [ ] T065 [P] [US7] Write unit tests for audit data integrity: test_no_passwords_in_audit, test_no_token_hashes_in_audit, test_no_access_tokens_in_audit, test_no_refresh_tokens_in_audit, test_no_signing_secrets_in_audit, test_all_required_fields_present_when_available in `backend/tests/unit/test_audit_service.py`
-- [ ] T066 [P] [US7] Write integration test: perform full auth flow → inspect audit log → verify all events recorded in `backend/tests/integration/test_audit_logging.py`
+- [X] T064 [P] [US7] Write unit tests for audit logging: test_login_success_logged, test_login_failure_logged, test_logout_logged, test_token_refresh_logged, test_token_reuse_logged, test_role_change_logged, test_user_disable_logged, test_password_change_logged, test_rate_limit_logged, test_authorization_denial_logged in `backend/tests/unit/test_audit_service.py`
+- [X] T065 [P] [US7] Write unit tests for audit data integrity: test_no_passwords_in_audit, test_no_token_hashes_in_audit, test_no_access_tokens_in_audit, test_no_refresh_tokens_in_audit, test_no_signing_secrets_in_audit, test_all_required_fields_present_when_available in `backend/tests/unit/test_audit_service.py`
+- [X] T066 [P] [US7] Write integration test: perform full auth flow → inspect audit log → verify all events recorded in `backend/tests/integration/test_audit_logging.py`
 
 ### Implementation for User Story 7
 
-- [ ] T067 [US7] Ensure AuditService.log_event is called at every audit point: AuthService.login (success + failure), AuthService.refresh (success + reuse), AuthService.logout, user role change, user disable, password change, rate limit enforcement, authorization denial (in require_role dependency), in all relevant service and middleware files
-- [ ] T068 [US7] Implement GET /api/v1/auth/audit-log endpoint: head coach only, returns paginated audit records filtered by optional event_type, user_id, and time range query parameters, in `backend/src/routes/auth.py`
+- [X] T067 [US7] Ensure AuditService.log_event is called at every audit point: AuthService.login (success + failure), AuthService.refresh (success + reuse), AuthService.logout, user role change, user disable, password change, rate limit enforcement, authorization denial (in require_role dependency), in all relevant service and middleware files
+- [X] T068 [US7] Implement GET /api/v1/auth/audit-log endpoint: head coach only, returns paginated audit records filtered by optional event_type, user_id, and time range query parameters, in `backend/src/routes/auth.py`
 
 **Checkpoint**: Complete audit trail for all security events. Zero credential leakage in logs.
 

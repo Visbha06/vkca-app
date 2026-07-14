@@ -284,7 +284,7 @@ async def test_assistant_coach_cannot_change_role(
     )
 
     assert response.status_code == 403
-    db_session.commit.assert_not_awaited()
+    db_session.commit.assert_awaited_once_with()
 
 
 @pytest.mark.asyncio
@@ -375,7 +375,7 @@ async def test_non_head_coach_cannot_disable(
     response = await client.post(f"/api/v1/users/{uuid4()}/disable")
 
     assert response.status_code == 403
-    db_session.commit.assert_not_awaited()
+    db_session.commit.assert_awaited_once_with()
 
 
 @pytest.mark.asyncio
@@ -415,7 +415,7 @@ async def test_non_head_coach_cannot_revoke_user_sessions(
 
     assert response.status_code == 403
     db_session.scalars.assert_not_awaited()
-    db_session.commit.assert_not_awaited()
+    db_session.commit.assert_awaited_once_with()
 
 
 @pytest.mark.asyncio

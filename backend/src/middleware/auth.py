@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Cookie, Depends, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
 from sqlalchemy import select
@@ -15,10 +15,11 @@ from src.database import get_db
 from src.enums import UserRole
 from src.models.auth_session import AuthSession
 from src.models.user import User
+from src.services.audit_service import AuditService
 from src.services.token_service import TokenService
 
 AuthenticatedUser = tuple[User, AuthSession]
-RoleDependency = Callable[[AuthenticatedUser], Awaitable[None]]
+RoleDependency = Callable[..., Awaitable[None]]
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -93,9 +94,27 @@ def require_role(*roles: UserRole) -> RoleDependency:
 
     async def role_dependency(
         authenticated: Annotated[AuthenticatedUser, Depends(get_current_user)],
+        request: Request,
+        session: Annotated[AsyncSession, Depends(get_db)],
     ) -> None:
-        user, _ = authenticated
+        user, auth_session = authenticated
         if user.role not in roles:
+            ip_address = (
+                request.client.host[:45] if request.client is not None else None
+            )
+            user_agent = request.headers.get("user-agent")
+            await AuditService.log_event(
+                session,
+                "authorization_denial",
+                user_id=user.id,
+                session_id=auth_session.id,
+                result="failure",
+                reason="insufficient_role",
+                ip_address=ip_address,
+                user_agent=user_agent[:512] if user_agent is not None else None,
+                target_resource=request.url.path,
+            )
+            await session.commit()
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized",

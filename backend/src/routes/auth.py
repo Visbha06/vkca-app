@@ -1,13 +1,32 @@
-"""HTTP routes for login, current-session inspection, and logout."""
+"""HTTP routes for login, session inspection, logout, and audit review."""
 
+from datetime import datetime
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    status,
+)
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import get_settings
 from src.database import get_db
-from src.middleware.auth import AuthenticatedUser, get_current_user, get_logout_user
+from src.enums import UserRole
+from src.middleware.auth import (
+    AuthenticatedUser,
+    get_current_user,
+    get_logout_user,
+    require_role,
+)
+from src.models.auth_audit_log import AuthAuditLog
+from src.schemas.audit import AuditLogResponse
 from src.schemas.auth import (
     CurrentSessionResponse,
     CurrentUserResponse,
@@ -203,6 +222,40 @@ async def get_me(
             expires_at=auth_session.expires_at,
         ),
     )
+
+
+@router.get("/audit-log", response_model=list[AuditLogResponse])
+async def get_audit_log(
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _require_hc: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH)),
+    ],
+    event_type: Annotated[str | None, Query(max_length=30)] = None,
+    user_id: UUID | None = None,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[AuditLogResponse]:
+    """Return a filtered, newest-first page of credential-free audit events."""
+
+    statement = select(AuthAuditLog)
+    if event_type is not None:
+        statement = statement.where(AuthAuditLog.event_type == event_type)
+    if user_id is not None:
+        statement = statement.where(AuthAuditLog.user_id == user_id)
+    if start_time is not None:
+        statement = statement.where(AuthAuditLog.event_timestamp >= start_time)
+    if end_time is not None:
+        statement = statement.where(AuthAuditLog.event_timestamp <= end_time)
+    statement = (
+        statement.order_by(AuthAuditLog.event_timestamp.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    records = list((await session.scalars(statement)).all())
+    return [AuditLogResponse.model_validate(record) for record in records]
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
