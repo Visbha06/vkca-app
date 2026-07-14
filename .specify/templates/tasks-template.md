@@ -156,7 +156,7 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Performance optimization across all stories
 - [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
 - [ ] TXXX Security hardening
-- [ ] TXXX Run quickstart.md validation
+- [ ] TXXX Run quickstart validation: execute test at backend/tests/integration/quickstart/test_NNN_quickstart_flow.py (MANDATORY per constitution — validates the steps in quickstart.md end-to-end)
 
 ---
 

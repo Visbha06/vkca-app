@@ -1,18 +1,18 @@
-<!--
-  Sync Impact Report
-  ==================
-  Version change: 1.0.0 → 1.1.0 (MINOR — new principle added)
-  Modified principles: N/A
-  Added sections:
-    - XII. Documentation (new principle — per-feature docs in docs/)
-  Removed sections: N/A
-  Templates requiring updates:
-    - .specify/templates/plan-template.md: ✅ aligned (Constitution Check defers to this file)
-    - .specify/templates/spec-template.md: ✅ aligned (no documentation-section requirement)
-    - .specify/templates/tasks-template.md: ⚠ pending — Polish phase doc task needs
-      strengthening to reflect mandatory per-feature doc file
-  Follow-up TODOs: None
--->
+ <!--
+   Sync Impact Report
+   ==================
+   Version change: 1.1.0 → 1.2.0 (MINOR — materially expanded guidance under V. Testing Discipline)
+   Modified principles:
+     - V. Testing Discipline — added Quickstart validation sub-clause
+   Added sections: N/A
+   Removed sections: N/A
+   Templates requiring updates:
+     - .specify/templates/plan-template.md: ✅ aligned (quickstart.md already listed in project structure)
+     - .specify/templates/spec-template.md: ✅ aligned (no quickstart reference)
+     - .specify/templates/tasks-template.md: ✅ updated (Polish phase quickstart task
+       strengthened with exact test path)
+   Follow-up TODOs: None
+ -->
 
 # VKCA App Constitution
 
@@ -77,6 +77,11 @@ Backend dependencies MUST be managed with `uv add` and `uv remove`.
   service dependencies.
 - **Test isolation**: Each test MUST set up its own state and clean up after
   itself. No test SHALL depend on the side effects of another test.
+- **Quickstart validation**: Every feature spec planned via `/speckit-plan`
+  generates a `quickstart.md`. The associated quickstart test MUST live in
+  `backend/tests/integration/quickstart/` and MUST be named
+  `test_<spec_num>_quickstart_flow.py` (e.g., `test_001_quickstart_flow.py`).
+  The test MUST validate the steps described in `quickstart.md` end-to-end.
 
 ### VI. MCP Server Priority
 
@@ -208,4 +213,4 @@ applicable principles. The Constitution Check gate in each implementation
 plan MUST reference this document. Complexity or principle violations MUST be
 documented and justified in the plan's Complexity Tracking table.
 
-**Version**: 1.1.0 | **Ratified**: 2026-07-05 | **Last Amended**: 2026-07-05
+**Version**: 1.2.0 | **Ratified**: 2026-07-05 | **Last Amended**: 2026-07-13
