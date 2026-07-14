@@ -43,6 +43,7 @@ async def client(db_session: AsyncSession):
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("authenticated_client")
 async def test_stale_player_update_returns_409_and_logs_conflict(
     client: httpx.AsyncClient,
     db_session: AsyncSession,

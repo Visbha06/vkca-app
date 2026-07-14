@@ -1,5 +1,7 @@
 """Database models and shared metadata."""
 
+from src.models.auth_audit_log import AuthAuditLog
+from src.models.auth_session import AuthSession
 from src.models.base import Base, TimestampMixin, UUIDMixin, VersionMixin
 from src.models.data_sync_log import DataSyncLog
 from src.models.match import Match
@@ -14,6 +16,8 @@ from src.models.team_player import TeamPlayer
 from src.models.user import User
 
 __all__ = [
+    "AuthAuditLog",
+    "AuthSession",
     "Base",
     "DataSyncLog",
     "Match",

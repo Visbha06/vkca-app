@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.user import User
 from src.schemas.user import UserCreate
+from src.services.password_service import PasswordService
 
 
 class UserAlreadyExistsError(Exception):
@@ -23,19 +24,26 @@ class UserService:
         self.session = session
 
     async def create_user(self, payload: UserCreate) -> User:
-        """Create an account after an application-level duplicate check."""
+        """Normalize and securely persist a new account."""
 
-        duplicate_statement = select(User.id).where(User.email == payload.email)
+        normalized_email = payload.email.strip().lower()
+        duplicate_statement = select(User.id).where(User.email == normalized_email)
         if await self.session.scalar(duplicate_statement) is not None:
-            raise UserAlreadyExistsError(payload.email)
+            raise UserAlreadyExistsError(normalized_email)
 
-        user = User(**payload.model_dump())
+        user = User(
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            email=normalized_email,
+            hashed_password=PasswordService.hash_password(payload.password),
+            role=payload.role,
+        )
         self.session.add(user)
         try:
             await self.session.commit()
-        except IntegrityError:
+        except IntegrityError as exc:
             await self.session.rollback()
-            raise
+            raise UserAlreadyExistsError(normalized_email) from exc
         await self.session.refresh(user)
         return user
 

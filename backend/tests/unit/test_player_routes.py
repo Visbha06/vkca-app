@@ -1,7 +1,7 @@
 """Unit tests for player API routes."""
 
 from datetime import UTC, date, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 from uuid import UUID, uuid4
 
 import httpx
@@ -9,8 +9,9 @@ import pytest
 import pytest_asyncio
 
 from src.database import get_db
-from src.enums import BattingStyle, BowlingStyle, PlayerType
+from src.enums import BattingStyle, BowlingStyle, PlayerType, UserRole
 from src.main import app
+from src.middleware.auth import get_current_user
 from src.models.player import Player
 from src.schemas.player import PlayerResponse
 from src.services.occ import StaleVersionError
@@ -53,7 +54,11 @@ async def client():
     async def override_get_db():
         yield AsyncMock()
 
+    async def override_get_current_user():
+        return Mock(role=UserRole.HEAD_COACH), Mock()
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(
         transport=transport, base_url="http://testserver"

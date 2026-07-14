@@ -10,6 +10,8 @@ venv/
 
 # Node (frontend)
 node_modules/
+dist/
+build/
 
 # IDE
 .vscode/
@@ -25,6 +27,7 @@ Dockerfile*
 
 # Logs
 *.log
+*.log*
 
 # Coverage
 coverage/

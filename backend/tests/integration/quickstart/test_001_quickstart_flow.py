@@ -1,4 +1,4 @@
-"""Executable coverage for the twelve-step quickstart validation flow."""
+"""Executable coverage for the 001 cricket-data quickstart flow."""
 
 from datetime import UTC, datetime
 from time import monotonic
@@ -51,6 +51,7 @@ async def client():
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("authenticated_client")
 async def test_full_twelve_step_quickstart_flow(
     client: httpx.AsyncClient,
     db_session: AsyncSession,
