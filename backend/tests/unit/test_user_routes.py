@@ -379,6 +379,46 @@ async def test_non_head_coach_cannot_disable(
 
 
 @pytest.mark.asyncio
+async def test_head_coach_can_revoke_user_sessions(
+    client: httpx.AsyncClient,
+    db_session: AsyncMock,
+) -> None:
+    target = make_user()
+    sessions = [make_auth_session(target), make_auth_session(target)]
+    db_session.scalar.return_value = target
+    db_session.scalars.return_value.all.return_value = sessions
+
+    response = await client.post(
+        f"/api/v1/users/{target.id}/revoke-sessions",
+    )
+
+    assert response.status_code == 204
+    assert all(item.revoked_at is not None for item in sessions)
+    assert {item.revocation_reason for item in sessions} == {"admin_revocation"}
+    db_session.commit.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_non_head_coach_cannot_revoke_user_sessions(
+    client: httpx.AsyncClient,
+    db_session: AsyncMock,
+) -> None:
+    assistant = make_user(role=UserRole.ASSISTANT_COACH)
+
+    async def override_get_current_user():
+        return assistant, make_auth_session(assistant)
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    response = await client.post(
+        f"/api/v1/users/{uuid4()}/revoke-sessions",
+    )
+
+    assert response.status_code == 403
+    db_session.scalars.assert_not_awaited()
+    db_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_user_can_change_own_password(
     client: httpx.AsyncClient,
     db_session: AsyncMock,
@@ -449,5 +489,5 @@ async def test_password_change_revokes_sessions_and_is_audited(
 
     assert response.status_code == 204
     assert all(item.revoked_at is not None for item in sessions)
-    assert {item.revocation_reason for item in sessions} == {"password_changed"}
+    assert {item.revocation_reason for item in sessions} == {"password_change"}
     assert any(call.args[1] == "password_change" for call in log_event.await_args_list)

@@ -1,6 +1,5 @@
 """HTTP routes for login, current-session inspection, and logout."""
 
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -15,7 +14,6 @@ from src.schemas.auth import (
     LoginRequest,
     TokenResponse,
 )
-from src.services.audit_service import AuditService
 from src.services.auth_service import (
     AuthService,
     InvalidCredentialsError,
@@ -213,17 +211,10 @@ async def logout(
     _validate_csrf_token(request)
     user, auth_session = current
     ip_address, user_agent = _request_metadata(request)
-    auth_session.revoked_at = datetime.now(UTC)
-    auth_session.revocation_reason = "logout"
-    await AuditService.log_event(
-        session,
-        "logout",
-        user_id=user.id,
-        session_id=auth_session.id,
-        result="success",
-        ip_address=ip_address,
-        user_agent=user_agent,
-        target_resource="/api/v1/auth/logout",
+    await AuthService(session).logout(
+        user,
+        auth_session,
+        ip_address,
+        user_agent,
     )
-    await session.commit()
     _clear_auth_cookies(response, request)

@@ -101,3 +101,123 @@ async def test_login_access_logout_rejects_revoked_token(
             )
             await cleanup_session.execute(delete(User).where(User.id == user_id))
             await cleanup_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_multiple_sessions_selective_logout_then_full_password_revocation(
+    client: httpx.AsyncClient,
+) -> None:
+    """Keep sibling sessions active on logout, then revoke them on password change."""
+
+    run_id = uuid4().hex
+    user_id = uuid4()
+    email = f"multi-session-{run_id}@example.com"
+    password = "IntegrationP@ssword1"
+
+    async with AsyncSessionFactory() as setup_session:
+        setup_session.add(
+            User(
+                id=user_id,
+                first_name="Multi",
+                last_name="Session",
+                email=email,
+                hashed_password=PasswordService.hash_password(password),
+                role=UserRole.HEAD_COACH,
+                is_active=True,
+            )
+        )
+        await setup_session.commit()
+
+    transport_options = {"app": app, "raise_app_exceptions": False}
+    try:
+        async with (
+            httpx.AsyncClient(
+                transport=httpx.ASGITransport(**transport_options),
+                base_url="http://testserver",
+            ) as mobile_client,
+            httpx.AsyncClient(
+                transport=httpx.ASGITransport(**transport_options),
+                base_url="http://testserver",
+            ) as tablet_client,
+        ):
+            device_clients = (client, mobile_client, tablet_client)
+            authorizations: list[dict[str, str]] = []
+            for device_client in device_clients:
+                login = await device_client.post(
+                    "/api/v1/auth/login",
+                    json={"email": email, "password": password},
+                )
+                assert login.status_code == 200, login.text
+                authorizations.append(
+                    {"Authorization": (f"Bearer {login.json()['access_token']}")}
+                )
+
+            desktop_logout = await client.post(
+                "/api/v1/auth/logout",
+                headers={
+                    **authorizations[0],
+                    "X-CSRF-Token": client.cookies["csrf_token"],
+                },
+            )
+            assert desktop_logout.status_code == 204, desktop_logout.text
+
+            desktop_me = await client.get(
+                "/api/v1/auth/me",
+                headers=authorizations[0],
+            )
+            mobile_me = await mobile_client.get(
+                "/api/v1/auth/me",
+                headers=authorizations[1],
+            )
+            tablet_me = await tablet_client.get(
+                "/api/v1/auth/me",
+                headers=authorizations[2],
+            )
+            assert desktop_me.status_code == 401
+            assert mobile_me.status_code == 200
+            assert tablet_me.status_code == 200
+
+            password_change = await mobile_client.post(
+                f"/api/v1/users/{user_id}/change-password",
+                json={"new_password": "ChangedP@ssword2"},
+                headers=authorizations[1],
+            )
+            assert password_change.status_code == 204, password_change.text
+
+            rejected_mobile = await mobile_client.get(
+                "/api/v1/auth/me",
+                headers=authorizations[1],
+            )
+            rejected_tablet = await tablet_client.get(
+                "/api/v1/auth/me",
+                headers=authorizations[2],
+            )
+            assert rejected_mobile.status_code == 401
+            assert rejected_tablet.status_code == 401
+
+        async with AsyncSessionFactory() as verification_session:
+            auth_sessions = list(
+                (
+                    await verification_session.scalars(
+                        select(AuthSession).where(AuthSession.user_id == user_id)
+                    )
+                ).all()
+            )
+            assert len(auth_sessions) == 3
+            assert all(item.revoked_at is not None for item in auth_sessions)
+            assert [item.revocation_reason for item in auth_sessions].count(
+                "logout"
+            ) == 1
+            assert [item.revocation_reason for item in auth_sessions].count(
+                "password_change"
+            ) == 2
+    finally:
+        async with AsyncSessionFactory() as cleanup_session:
+            await cleanup_session.execute(
+                delete(AuthAuditLog).where(AuthAuditLog.user_id == user_id)
+            )
+            await cleanup_session.execute(
+                delete(AuthSession).where(AuthSession.user_id == user_id)
+            )
+            await cleanup_session.execute(delete(User).where(User.id == user_id))
+            await cleanup_session.commit()

@@ -1,6 +1,5 @@
 """HTTP routes for authenticated user account administration."""
 
-from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -11,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database import get_db
 from src.enums import UserRole
 from src.middleware.auth import AuthenticatedUser, get_current_user, require_role
-from src.models.auth_session import AuthSession
 from src.models.user import User
 from src.schemas.user import (
     UserCreate,
@@ -20,6 +18,7 @@ from src.schemas.user import (
     UserRoleUpdate,
 )
 from src.services.audit_service import AuditService
+from src.services.auth_service import AuthService
 from src.services.password_service import PasswordService
 from src.services.user_service import UserAlreadyExistsError, UserService
 
@@ -36,45 +35,6 @@ async def _find_user(session: AsyncSession, user_id: UUID) -> User:
             detail="User not found",
         )
     return user
-
-
-async def _active_sessions(
-    session: AsyncSession,
-    user_id: UUID,
-) -> list[AuthSession]:
-    """Load all currently active sessions for one account."""
-
-    statement = select(AuthSession).where(
-        AuthSession.user_id == user_id,
-        AuthSession.revoked_at.is_(None),
-    )
-    return list((await session.scalars(statement)).all())
-
-
-async def _revoke_sessions(
-    session: AsyncSession,
-    user: User,
-    *,
-    reason: str,
-    now: datetime,
-) -> list[AuthSession]:
-    """Revoke each active session and stage its audit record."""
-
-    auth_sessions = await _active_sessions(session, user.id)
-    for auth_session in auth_sessions:
-        auth_session.revoked_at = now
-        auth_session.revocation_reason = reason
-        auth_session.version_number += 1
-        await AuditService.log_event(
-            session,
-            "session_revocation",
-            user_id=user.id,
-            session_id=auth_session.id,
-            result="success",
-            reason=reason,
-            target_resource=f"/api/v1/users/{user.id}",
-        )
-    return auth_sessions
 
 
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -152,14 +112,12 @@ async def disable_user(
     """Disable an account and revoke all of its active sessions."""
 
     user = await _find_user(session, user_id)
-    now = datetime.now(UTC)
     user.is_active = False
     user.version_number += 1
-    await _revoke_sessions(
-        session,
-        user,
+    await AuthService(session).revoke_user_sessions(
+        user.id,
         reason="user_disabled",
-        now=now,
+        target_resource=f"/api/v1/users/{user.id}/disable",
     )
     await AuditService.log_event(
         session,
@@ -170,6 +128,30 @@ async def disable_user(
     )
     await session.commit()
     return UserResponse.model_validate(user)
+
+
+@router.post(
+    "/{user_id}/revoke-sessions",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def revoke_user_sessions(
+    user_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _require_hc: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH)),
+    ],
+) -> Response:
+    """Revoke every active session for an account as a head coach."""
+
+    user = await _find_user(session, user_id)
+    await AuthService(session).revoke_user_sessions(
+        user.id,
+        reason="admin_revocation",
+        target_resource=f"/api/v1/users/{user.id}/revoke-sessions",
+    )
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(
@@ -194,12 +176,10 @@ async def change_user_password(
     user = await _find_user(session, user_id)
     user.hashed_password = PasswordService.hash_password(payload.new_password)
     user.version_number += 1
-    now = datetime.now(UTC)
-    await _revoke_sessions(
-        session,
-        user,
-        reason="password_changed",
-        now=now,
+    await AuthService(session).revoke_user_sessions(
+        user.id,
+        reason="password_change",
+        target_resource=f"/api/v1/users/{user.id}/change-password",
     )
     await AuditService.log_event(
         session,

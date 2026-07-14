@@ -180,18 +180,18 @@
 
 ### Tests for User Story 5 (MANDATORY unit tests) ⚠️
 
-- [ ] T053 [P] [US5] Write unit tests for session isolation: test_logout_revokes_only_current_session, test_multiple_sessions_independent, test_password_change_revokes_all_sessions, test_user_disable_revokes_all_sessions, test_refresh_rejected_for_revoked_session in `backend/tests/unit/test_auth_service.py`
+- [X] T053 [P] [US5] Write unit tests for session isolation: test_logout_revokes_only_current_session, test_multiple_sessions_independent, test_password_change_revokes_all_sessions, test_user_disable_revokes_all_sessions, test_refresh_rejected_for_revoked_session in `backend/tests/unit/test_auth_service.py`
 
 ### Implementation for User Story 5
 
-- [ ] T054 [US5] Extend AuthService.logout: revoke only the current session (set revoked_at + reason), do not touch other sessions for same user, in `backend/src/services/auth_service.py`
-- [ ] T055 [US5] Add session revocation to password change flow: after password hash is updated in T052, revoke all AuthSession rows where user_id matches and revoked_at IS NULL, in `backend/src/services/auth_service.py`
-- [ ] T056 [US5] Add session revocation to user disable flow: after is_active=False in T051, revoke all AuthSession rows for that user, in `backend/src/services/auth_service.py`
-- [ ] T057 [US5] Implement admin session revocation: extend POST /users/{id}/disable or add POST /api/v1/users/{user_id}/revoke-sessions endpoint, head coach only, revokes all sessions, records session_revocation audit event per session, in `backend/src/routes/users.py`
+- [X] T054 [US5] Extend AuthService.logout: revoke only the current session (set revoked_at + reason), do not touch other sessions for same user, in `backend/src/services/auth_service.py`
+- [X] T055 [US5] Add session revocation to password change flow: after password hash is updated in T052, revoke all AuthSession rows where user_id matches and revoked_at IS NULL, in `backend/src/services/auth_service.py`
+- [X] T056 [US5] Add session revocation to user disable flow: after is_active=False in T051, revoke all AuthSession rows for that user, in `backend/src/services/auth_service.py`
+- [X] T057 [US5] Implement admin session revocation: extend POST /users/{id}/disable or add POST /api/v1/users/{user_id}/revoke-sessions endpoint, head coach only, revokes all sessions, records session_revocation audit event per session, in `backend/src/routes/users.py`
 
 ### Integration tests for User Story 5
 
-- [ ] T058 [US5] Write integration test: multiple sessions → selective logout → full revocation on password change in `backend/tests/integration/test_auth_flow.py`
+- [X] T058 [US5] Write integration test: multiple sessions → selective logout → full revocation on password change in `backend/tests/integration/test_auth_flow.py`
 
 **Checkpoint**: Session revocation works correctly — logout is scoped, password change/disable are global, revoked tokens are rejected.
 

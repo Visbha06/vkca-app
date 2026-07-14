@@ -1,7 +1,7 @@
 """Authentication orchestration for login and server-side sessions."""
 
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -108,6 +108,65 @@ class AuthService:
         )
         await self.session.commit()
         return user, auth_session, access_token, refresh_token, csrf_token
+
+    async def logout(
+        self,
+        user: User,
+        auth_session: AuthSession,
+        ip_address: str | None,
+        user_agent: str | None,
+    ) -> None:
+        """Revoke and audit only the session used for the logout request."""
+
+        auth_session.revoked_at = datetime.now(UTC)
+        auth_session.revocation_reason = "logout"
+        auth_session.version_number += 1
+        await AuditService.log_event(
+            self.session,
+            "logout",
+            user_id=user.id,
+            session_id=auth_session.id,
+            result="success",
+            ip_address=ip_address,
+            user_agent=user_agent,
+            target_resource="/api/v1/auth/logout",
+        )
+        await self.session.commit()
+
+    async def revoke_user_sessions(
+        self,
+        user_id: UUID,
+        *,
+        reason: str,
+        target_resource: str,
+    ) -> list[AuthSession]:
+        """Revoke every active session for a user in the current transaction."""
+
+        auth_sessions = list(
+            (
+                await self.session.scalars(
+                    select(AuthSession).where(
+                        AuthSession.user_id == user_id,
+                        AuthSession.revoked_at.is_(None),
+                    )
+                )
+            ).all()
+        )
+        now = datetime.now(UTC)
+        for auth_session in auth_sessions:
+            auth_session.revoked_at = now
+            auth_session.revocation_reason = reason
+            auth_session.version_number += 1
+            await AuditService.log_event(
+                self.session,
+                "session_revocation",
+                user_id=auth_session.user_id,
+                session_id=auth_session.id,
+                result="success",
+                reason=reason,
+                target_resource=target_resource,
+            )
+        return auth_sessions
 
     async def refresh(
         self,
