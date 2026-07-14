@@ -205,17 +205,17 @@
 
 ### Tests for User Story 6 (MANDATORY unit tests) ⚠️
 
-- [ ] T059 [P] [US6] Write unit tests for rate limiter: test_five_failures_allowed, test_sixth_returns_429, test_429_response_no_email_disclosure, test_successful_login_resets_counter, test_different_email_ip_independent, test_rolling_window_expires, test_rate_limit_not_permanent_lock, test_rate_limit_audit_event in `backend/tests/unit/test_rate_limiter.py`
+- [X] T059 [P] [US6] Write unit tests for rate limiter: test_five_failures_allowed, test_sixth_returns_429, test_429_response_no_email_disclosure, test_successful_login_resets_counter, test_different_email_ip_independent, test_rolling_window_expires, test_rate_limit_not_permanent_lock, test_rate_limit_audit_event in `backend/tests/unit/test_rate_limiter.py`
 
 ### Implementation for User Story 6
 
-- [ ] T060 [US6] Implement InMemoryRateLimiter: track failed attempts as dict keyed by "email:ip" → list of attempt timestamps, sliding_window_check(key, max_attempts=5, window_seconds=900) → bool (True=blocked), record_failure(key), record_success(key) (clears or resets counter), periodic cleanup of expired entries, in `backend/src/services/rate_limiter.py`
-- [ ] T061 [US6] Integrate rate limiter into AuthService.login: before password verification, check rate limit for (normalized_email, client_ip); if blocked → audit rate_limit event, raise HTTP 429; if password correct → call rate_limiter.record_success; if password wrong → call rate_limiter.record_failure, in `backend/src/services/auth_service.py`
-- [ ] T062 [US6] Register rate limiter as a FastAPI app-level dependency or singleton for consistent state across requests in `backend/src/main.py`
+- [X] T060 [US6] Implement InMemoryRateLimiter: track failed attempts as dict keyed by "email:ip" → list of attempt timestamps, sliding_window_check(key, max_attempts=5, window_seconds=900) → bool (True=blocked), record_failure(key), record_success(key) (clears or resets counter), periodic cleanup of expired entries, in `backend/src/services/rate_limiter.py`
+- [X] T061 [US6] Integrate rate limiter into AuthService.login: before password verification, check rate limit for (normalized_email, client_ip); if blocked → audit rate_limit event, raise HTTP 429; if password correct → call rate_limiter.record_success; if password wrong → call rate_limiter.record_failure, in `backend/src/services/auth_service.py`
+- [X] T062 [US6] Register rate limiter as a FastAPI app-level dependency or singleton for consistent state across requests in `backend/src/main.py`
 
 ### Integration tests for User Story 6
 
-- [ ] T063 [US6] Write integration test: 6 rapid failed logins → verify 429, successful login → verify reset, different account → verify independent rate limit in `backend/tests/integration/test_rate_limiting.py`
+- [X] T063 [US6] Write integration test: 6 rapid failed logins → verify 429, successful login → verify reset, different account → verify independent rate limit in `backend/tests/integration/test_rate_limiting.py`
 
 **Checkpoint**: Login rate limiting active. Brute-force attacks are throttled without information leakage.
 

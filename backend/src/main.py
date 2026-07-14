@@ -11,6 +11,7 @@ from src.routes.players import router as players_router
 from src.routes.stats import router as stats_router
 from src.routes.teams import router as teams_router
 from src.routes.users import router as users_router
+from src.services.rate_limiter import rate_limiter
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)
@@ -30,6 +31,7 @@ async def health_check() -> dict[str, str]:
 
 
 app = FastAPI(title="VKCA Cricket Team Management API")
+app.state.rate_limiter = rate_limiter
 register_error_handlers(app)
 app.add_middleware(
     CORSMiddleware,

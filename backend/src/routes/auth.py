@@ -18,6 +18,7 @@ from src.services.auth_service import (
     AuthService,
     InvalidCredentialsError,
     InvalidSessionError,
+    RateLimitExceededError,
 )
 from src.services.token_service import TokenService
 
@@ -134,6 +135,11 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
+        ) from exc
+    except RateLimitExceededError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Please try again later.",
         ) from exc
 
     _set_auth_cookies(response, request, refresh_token, csrf_token)

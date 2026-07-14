@@ -12,6 +12,12 @@ from src.models.auth_session import AuthSession
 from src.models.user import User
 from src.services.audit_service import AuditService
 from src.services.password_service import PasswordService
+from src.services.rate_limiter import (
+    InMemoryRateLimiter,
+)
+from src.services.rate_limiter import (
+    rate_limiter as default_rate_limiter,
+)
 from src.services.token_service import TokenService
 
 DUMMY_PASSWORD_HASH = (
@@ -28,6 +34,10 @@ class InvalidSessionError(Exception):
     """Signal an invalid refresh session without exposing the failure reason."""
 
 
+class RateLimitExceededError(Exception):
+    """Signal a throttled login without exposing account existence."""
+
+
 class AuthService:
     """Authenticate credentials and establish independently revocable sessions."""
 
@@ -36,9 +46,13 @@ class AuthService:
         session: AsyncSession,
         *,
         token_service: TokenService | None = None,
+        rate_limiter: InMemoryRateLimiter | None = None,
     ) -> None:
         self.session = session
         self.token_service = token_service or TokenService()
+        self.rate_limiter = (
+            rate_limiter if rate_limiter is not None else default_rate_limiter
+        )
 
     async def login(
         self,
@@ -50,6 +64,20 @@ class AuthService:
         """Validate credentials, persist a session, and issue browser tokens."""
 
         normalized_email = email.strip().lower()
+        rate_limit_key = self._rate_limit_key(normalized_email, ip_address)
+        if self.rate_limiter.sliding_window_check(rate_limit_key):
+            await AuditService.log_event(
+                self.session,
+                "rate_limit",
+                result="failure",
+                reason="rate_limited",
+                ip_address=ip_address,
+                user_agent=user_agent,
+                target_resource="/api/v1/auth/login",
+            )
+            await self.session.commit()
+            raise RateLimitExceededError
+
         user = await self.session.scalar(
             select(User).where(User.email == normalized_email)
         )
@@ -59,6 +87,7 @@ class AuthService:
         password_valid = PasswordService.verify_password(password, password_hash)
 
         if user is None or not password_valid or not user.is_active:
+            self.rate_limiter.record_failure(rate_limit_key)
             reason = self._failure_reason(user, password_valid)
             await AuditService.log_event(
                 self.session,
@@ -107,6 +136,7 @@ class AuthService:
             target_resource="/api/v1/auth/login",
         )
         await self.session.commit()
+        self.rate_limiter.record_success(rate_limit_key)
         return user, auth_session, access_token, refresh_token, csrf_token
 
     async def logout(
@@ -325,3 +355,9 @@ class AuthService:
         if not password_valid:
             return "invalid_password"
         return "account_disabled"
+
+    @staticmethod
+    def _rate_limit_key(normalized_email: str, ip_address: str | None) -> str:
+        """Build the independent normalized-email and client-IP counter key."""
+
+        return f"{normalized_email}:{ip_address or 'unknown'}"
