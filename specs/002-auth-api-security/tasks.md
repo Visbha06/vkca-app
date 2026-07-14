@@ -246,16 +246,16 @@
 
 **Purpose**: Documentation, seed scripts, validation, and hardening
 
-- [ ] T069 [P] Create seed script for initial head coach user: generates Argon2id hash for a default password, inserts into users table, in `backend/scripts/seed_head_coach.py`
-- [ ] T070 [P] Write feature documentation: concise version of spec capturing purpose, key flows, API surface, configuration, in `docs/auth-api-security.md` (MANDATORY per constitution — written after implementation, reflects what was built)
-- [ ] T071 Run all unit tests: `uv run pytest backend/tests/unit/ -v` — all must pass
-- [ ] T072 Run all integration tests: `uv run pytest backend/tests/integration/ -v` — all must pass
-- [ ] T073 Validate against quickstart.md: execute all 8 validation scenarios from `specs/002-auth-api-security/quickstart.md` and verify expected outcomes
-- [ ] T074 Run linters: `uv run ruff check backend/src/` and `uv run mypy backend/src/` — all must pass
-- [ ] T075 [P] Run security scanner: `uv run bandit -r backend/src/` — no high-severity findings
-- [ ] T076 Verify no hardcoded secrets: grep for secret patterns (JWT_SECRET, signing keys) in committed files — none found
-- [ ] T077 Verify .env.example includes JWT_SECRET placeholder with documentation
-- [ ] T078 [P] Run performance smoke tests: time login endpoint (<2s per SC-001), authorization check (<500ms per SC-002), rate-limit response (<100ms per SC-007) using `time` or `hyperfine` against a running local server
+- [X] T069 [P] Create seed script for initial head coach user: generates Argon2id hash for a default password, inserts into users table, in `backend/scripts/seed_head_coach.py`
+- [X] T070 [P] Write feature documentation: concise version of spec capturing purpose, key flows, API surface, configuration, in `docs/auth-api-security.md` (MANDATORY per constitution — written after implementation, reflects what was built)
+- [X] T071 Run all unit tests: `uv run pytest backend/tests/unit/ -v` — all must pass
+- [X] T072 Run all integration tests: `uv run pytest backend/tests/integration/ -v` — all must pass
+- [X] T073 Validate against quickstart.md: execute all 8 validation scenarios from `specs/002-auth-api-security/quickstart.md` and verify expected outcomes
+- [X] T074 Run linters: `uv run ruff check backend/src/` and `uv run mypy backend/src/` — all must pass
+- [X] T075 [P] Run security scanner: `uv run bandit -r backend/src/` — no high-severity findings
+- [X] T076 Verify no hardcoded secrets: grep for secret patterns (JWT_SECRET, signing keys) in committed files — none found
+- [X] T077 Verify .env.example includes JWT_SECRET placeholder with documentation
+- [X] T078 [P] Run performance smoke tests: time login endpoint (<2s per SC-001), authorization check (<500ms per SC-002), rate-limit response (<100ms per SC-007) using `time` or `hyperfine` against a running local server
 
 ---
 

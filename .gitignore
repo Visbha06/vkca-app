@@ -65,6 +65,8 @@ pgdata/
 
 # Docker logs
 *.log
+*.tmp
+*.swp
 
 # ==========================================
 # 5. Security & Environment Secrets

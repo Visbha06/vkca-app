@@ -20,7 +20,8 @@ from src.services.rate_limiter import (
 )
 from src.services.token_service import TokenService
 
-DUMMY_PASSWORD_HASH = (
+# This public hash equalizes verification timing for unknown accounts.
+DUMMY_PASSWORD_HASH = (  # nosec B105
     "$argon2id$v=19$m=65536,t=3,p=4$M1GdDsvF79kBofj4RwGr+g$"
     "wzgw0TMYLKtFni5U28a1DNG2GNSA8JY3DofEL0s8UY4"
 )

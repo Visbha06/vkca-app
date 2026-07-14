@@ -1,4 +1,4 @@
-"""Executable coverage for the twelve-step quickstart validation flow."""
+"""Executable coverage for the 001 cricket-data quickstart flow."""
 
 from datetime import UTC, datetime
 from time import monotonic

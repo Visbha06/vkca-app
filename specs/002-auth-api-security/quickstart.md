@@ -115,11 +115,13 @@ curl -s -X POST http://localhost:8000/api/v1/auth/refresh \
   -b cookies.txt -c cookies.txt
 
 # Try to use the OLD refresh token (replay attack simulation)
-# Write the old token back to cookies
-echo -e "127.0.0.1\tFALSE\t/api/v1/auth\tFALSE\t0\trefresh_token\t$OLD_REFRESH" > old_cookies.txt
+# Write the old refresh token and current CSRF cookie to a separate cookie jar
+CURRENT_CSRF=$(grep csrf_token cookies.txt | awk '{print $NF}')
+printf "127.0.0.1\tFALSE\t/api/v1/auth\tFALSE\t0\trefresh_token\t%s\n" "$OLD_REFRESH" > old_cookies.txt
+printf "127.0.0.1\tFALSE\t/api/v1/auth\tFALSE\t0\tcsrf_token\t%s\n" "$CURRENT_CSRF" >> old_cookies.txt
 
 curl -v -X POST http://localhost:8000/api/v1/auth/refresh \
-  -H "X-CSRF-Token: $(grep csrf_token cookies.txt | awk '{print $NF}')" \
+  -H "X-CSRF-Token: $CURRENT_CSRF" \
   -b old_cookies.txt
 
 # Expected: 401, entire token family revoked, audit log records token_reuse event
@@ -184,7 +186,7 @@ AC_TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
 curl -s -X POST http://localhost:8000/api/v1/players \
   -H "Authorization: Bearer $AC_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"first_name":"Test","last_name":"Player","playing_role":"batter","batting_style":"right","bowling_style":"right-arm off-break"}'
+  -d '{"first_name":"Test","last_name":"Player","date_of_birth":"2000-01-01","player_type":"batter","batting_style":"right","bowling_style":"right-arm off-break"}'
 # Expected: 201
 
 # Assistant coach CANNOT create users
