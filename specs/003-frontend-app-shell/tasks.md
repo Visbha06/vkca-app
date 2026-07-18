@@ -61,15 +61,15 @@ All paths relative to `frontend/`. Parent directory is `/home/visbha/vkca-app/fr
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T014 [P] [US1] Write unit tests for HomePage (renders logo, renders welcome title, logo has alt text, title is h1) in `frontend/src/tests/HomePage.test.tsx`
+- [X] T014 [P] [US1] Write unit tests for HomePage (renders logo, renders welcome title, logo has alt text, title is h1) in `frontend/src/tests/HomePage.test.tsx`
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Create HomePage component with placeholder logo image and "Welcome to VK Cricket Academy!" heading in `frontend/src/pages/HomePage.tsx`
-- [ ] T016 [US1] Add fade-in animation CSS keyframes with `prefers-reduced-motion` gate in `frontend/src/index.css`
-- [ ] T017 [US1] Wire HomePage as the index route (`/`) in `frontend/src/App.tsx`
-- [ ] T018 [US1] Run HomePage unit tests (`npx vitest run`) and verify all pass
-- [ ] T019 [US1] Manual browser verification: logo fades in, title visible, Home link active, reduced-motion preference disables animation
+- [X] T015 [US1] Create HomePage component with placeholder logo image and "Welcome to VK Cricket Academy!" heading in `frontend/src/pages/HomePage.tsx`
+- [X] T016 [US1] Add fade-in animation CSS keyframes with `prefers-reduced-motion` gate in `frontend/src/index.css`
+- [X] T017 [US1] Wire HomePage as the index route (`/`) in `frontend/src/App.tsx`
+- [X] T018 [US1] Run HomePage unit tests (`npx vitest run`) and verify all pass
+- [X] T019 [US1] Manual browser verification: logo fades in, title visible, Home link active, reduced-motion preference disables animation
 
 **Checkpoint**: Home page fully functional — MVP deliverable
 
@@ -83,17 +83,17 @@ All paths relative to `frontend/`. Parent directory is `/home/visbha/vkca-app/fr
 
 ### Tests for User Story 2 (MANDATORY unit tests) ⚠️
 
-- [ ] T020 [P] [US2] Write unit tests for routing (each route renders correct page component, unknown route renders 404) in `frontend/src/tests/routes.test.tsx`
+- [X] T020 [P] [US2] Write unit tests for routing (each route renders correct page component, unknown route renders 404) in `frontend/src/tests/routes.test.tsx`
 
 ### Implementation for User Story 2
 
-- [ ] T021 [P] [US2] Create SidebarNavLink component using React Router's `NavLink` with active-state styling and `aria-current` in `frontend/src/components/SidebarNavLink.tsx`
-- [ ] T022 [US2] Create inline SVG icon components for all 6 navigation items (Home, Players, Teams, Coaches, Calendar, Settings) — add as inline SVGs or a shared icons file in `frontend/src/components/NavIcons.tsx`
-- [ ] T023 [US2] Add all 6 navigation items using SidebarNavLink with icons to sidebar in `frontend/src/layouts/AppLayout.tsx`
-- [ ] T024 [US2] Create NotFoundPage component (catch-all route) in `frontend/src/pages/NotFoundPage.tsx`
-- [ ] T025 [US2] Add all routes (`/`, `/players`, `/teams`, `/coaches`, `/calendar`, `/settings`, `*`) to router config in `frontend/src/App.tsx`
-- [ ] T026 [US2] Run route unit tests and verify all pass
-- [ ] T027 [US2] Manual browser verification: navigate all 6 routes + unknown route → 404 page; verify active state follows; verify no full reload
+- [X] T021 [P] [US2] Create SidebarNavLink component using React Router's `NavLink` with active-state styling and `aria-current` in `frontend/src/components/SidebarNavLink.tsx`
+- [X] T022 [US2] Create inline SVG icon components for all 6 navigation items (Home, Players, Teams, Coaches, Calendar, Settings) — add as inline SVGs or a shared icons file in `frontend/src/components/NavIcons.tsx`
+- [X] T023 [US2] Add all 6 navigation items using SidebarNavLink with icons to sidebar in `frontend/src/layouts/AppLayout.tsx`
+- [X] T024 [US2] Create NotFoundPage component (catch-all route) in `frontend/src/pages/NotFoundPage.tsx`
+- [X] T025 [US2] Add all routes (`/`, `/players`, `/teams`, `/coaches`, `/calendar`, `/settings`, `*`) to router config in `frontend/src/App.tsx`
+- [X] T026 [US2] Run route unit tests and verify all pass
+- [X] T027 [US2] Manual browser verification: navigate all 6 routes + unknown route → 404 page; verify active state follows; verify no full reload
 
 **Checkpoint**: All routes navigable, active states working, 404 handled
 
