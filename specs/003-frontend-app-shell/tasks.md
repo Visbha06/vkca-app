@@ -38,14 +38,14 @@ All paths relative to `frontend/`. Parent directory is `/home/visbha/vkca-app/fr
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 [P] Set up Tailwind CSS directives and academy theme tokens (color #559eac, sidebar widths, breakpoint) in `frontend/src/index.css`
-- [ ] T007 [P] Create SidebarContext with expanded/mobileOpen state and toggle actions in `frontend/src/layouts/SidebarContext.tsx`
-- [ ] T008 Create AppLayout shell component with sidebar container + main content area + `<Outlet />` in `frontend/src/layouts/AppLayout.tsx`
-- [ ] T009 Configure React Router with layout route (`createBrowserRouter`) wrapping AppLayout in `frontend/src/App.tsx`
-- [ ] T010 Update entry point to use `RouterProvider` in `frontend/src/main.tsx`
-- [ ] T011 [P] Create placeholder academy logo image (simple colored SVG or PNG) at `frontend/src/assets/placeholderLogo.png`
-- [ ] T012 [P] Clean up old Vite template files: remove `frontend/src/App.css`, unused assets in `frontend/src/assets/` (hero.png, react.svg, vite.svg if no longer referenced)
-- [ ] T013 Verify dev server starts (`npm run dev`) and renders AppLayout shell with sidebar and empty main content area
+- [X] T006 [P] Set up Tailwind CSS directives and academy theme tokens (color #559eac, sidebar widths, breakpoint) in `frontend/src/index.css`
+- [X] T007 [P] Create SidebarContext with expanded/mobileOpen state and toggle actions in `frontend/src/layouts/SidebarContext.tsx`
+- [X] T008 Create AppLayout shell component with sidebar container + main content area + `<Outlet />` in `frontend/src/layouts/AppLayout.tsx`
+- [X] T009 Configure React Router with layout route (`createBrowserRouter`) wrapping AppLayout in `frontend/src/App.tsx`
+- [X] T010 Update entry point to use `RouterProvider` in `frontend/src/main.tsx`
+- [X] T011 [P] Create placeholder academy logo image (simple colored SVG or PNG) at `frontend/src/assets/placeholderLogo.png`
+- [X] T012 [P] Clean up old Vite template files: remove `frontend/src/App.css`, unused assets in `frontend/src/assets/` (hero.png, react.svg, vite.svg if no longer referenced)
+- [X] T013 Verify dev server starts (`npm run dev`) and renders AppLayout shell with sidebar and empty main content area
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 
