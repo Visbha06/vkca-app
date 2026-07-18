@@ -123,7 +123,7 @@ A user accesses the application from a desktop, tablet, or mobile device and fin
 - **FR-001**: The frontend MUST be built with React and TypeScript with strict type checking enabled.
 - **FR-002**: The project MUST use a modern React build framework and development toolchain (e.g., Vite, Next.js, or equivalent).
 - **FR-003**: The source code MUST be organized into directories for layouts, pages, components, assets, and styles.
-- **FR-004**: Frontend linting (ESLint) and formatting (Prettier) MUST be configured and runnable as project commands.
+- **FR-004**: Frontend linting (ESLint) MUST be configured and runnable as a project command.
 - **FR-005**: Client-side routing MUST handle page navigation without full browser reloads.
 
 **Shared Layout**

@@ -38,7 +38,7 @@ Build the React + TypeScript frontend application shell for VK Cricket Academy. 
 | II. Simple UX | ✅ PASS | Sidebar navigation is single primary interaction; all pages reachable in ≤2 clicks |
 | III. Responsive Design | ✅ PASS | Tailwind breakpoints `md:` (768px) for sidebar behavior switch; tested at 320–2560px |
 | IV. Minimal Dependencies | ✅ PASS | Only react-router-dom and tailwindcss added to existing Vite scaffold |
-| V. Testing Discipline | ✅ PASS | Unit tests mandatory for all components and routing; E2E test will be added in a follow-up task |
+| V. Testing Discipline | ✅ PASS | Unit tests mandatory for all components and routing; one E2E Playwright test (T051). Quickstart validation (constitution V sub-clause) is backend-specific by path convention; frontend equivalent is manual quickstart.md validation (T055). |
 | VI. MCP Server Priority | N/A | Frontend-only feature; no codebase search needed |
 | VII. Database Schema Migrations | N/A | No database involvement |
 | VIII. UX Completeness in Specs | ✅ PASS | Spec covers layouts, states, responsive behavior, accessibility, edge cases |
@@ -98,7 +98,9 @@ frontend/
     │   └── NotFoundPage.tsx      # 404 page
     ├── assets/
     │   └── placeholderLogo.png   # Academy logo placeholder
-    └── __tests__/
+    ├── e2e/
+    │   └── app-shell.spec.ts       # Playwright E2E test
+    └── tests/
         ├── AppLayout.test.tsx
         ├── Sidebar.test.tsx
         ├── routes.test.tsx
@@ -106,7 +108,7 @@ frontend/
         └── ResponsiveNav.test.tsx
 ```
 
-**Structure Decision**: Single frontend SPA. The existing Vite scaffold (`frontend/`) is preserved as the base. New directories `layouts/`, `components/`, `pages/`, and `__tests__/` are added. The default Vite template files (hero image, counter, etc.) are removed. React Router's `<Outlet />` pattern enables the shared layout to persist across routes.
+**Structure Decision**: Single frontend SPA. The existing Vite scaffold (`frontend/`) is preserved as the base. New directories `layouts/`, `components/`, `pages/`, `tests/`, and `e2e/` are added. The default Vite template files (hero image, counter, etc.) are removed. React Router's `<Outlet />` pattern enables the shared layout to persist across routes.
 
 ## Complexity Tracking
 
