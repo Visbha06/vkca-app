@@ -16,7 +16,7 @@ export default function SidebarToggle() {
       type="button"
       aria-expanded={expanded}
       aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
-      className="mt-3 flex w-full items-center justify-center rounded-lg p-2 text-white transition-colors hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-white"
+      className="mt-3 hidden w-full items-center justify-center rounded-lg p-2 text-white transition-colors hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 focus:ring-offset-slate-900 md:flex"
       onClick={toggleExpanded}
       onKeyDown={handleKeyDown}
     >

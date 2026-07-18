@@ -99,13 +99,13 @@ describe('sidebar', () => {
     const main = screen.getByRole('main')
 
     expect(sidebar).toHaveClass('w-sidebar-expanded')
-    expect(main).toHaveClass('ml-sidebar-expanded')
+    expect(main).toHaveClass('md:ml-sidebar-expanded')
 
     fireEvent.click(
       screen.getByRole('button', { name: 'Collapse sidebar' }),
     )
 
     expect(sidebar).toHaveClass('w-sidebar-collapsed')
-    expect(main).toHaveClass('ml-sidebar-collapsed')
+    expect(main).toHaveClass('md:ml-sidebar-collapsed')
   })
 })

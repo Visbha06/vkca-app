@@ -15,10 +15,50 @@
   body {
     min-height: 100vh;
     margin: 0;
+    overflow-x: hidden;
   }
 
   #root {
     min-height: 100vh;
+  }
+}
+
+@layer components {
+  .app-sidebar {
+    transform: translateX(-100%);
+    visibility: hidden;
+  }
+
+  .app-sidebar[data-mobile-open="true"] {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .mobile-navigation-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    border: 0;
+    background: rgb(15 23 42 / 55%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease-out;
+  }
+
+  .mobile-navigation-backdrop[data-open="true"] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  @media (width >= 48rem) {
+    .app-sidebar {
+      transform: translateX(0);
+      visibility: visible;
+    }
+
+    .mobile-navigation-backdrop {
+      display: none;
+    }
   }
 }
 
@@ -43,5 +83,11 @@
 @media (prefers-reduced-motion: reduce) {
   .home-page-enter {
     animation: none;
+  }
+
+  .app-main,
+  .app-sidebar,
+  .mobile-navigation-backdrop {
+    transition-duration: 0ms;
   }
 }

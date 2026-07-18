@@ -149,19 +149,19 @@ All paths relative to `frontend/`. Parent directory is `/home/visbha/vkca-app/fr
 
 ### Tests for User Story 5 (MANDATORY unit tests) ⚠️
 
-- [ ] T041 [P] [US5] Write unit tests for AppLayout (renders sidebar, renders main content area, provides SidebarContext) in `frontend/src/tests/AppLayout.test.tsx`
-- [ ] T042 [P] [US5] Write responsive navigation tests (mobile overlay opens on hamburger click, closes on link tap) in `frontend/src/tests/ResponsiveNav.test.tsx`
+- [X] T041 [P] [US5] Write unit tests for AppLayout (renders sidebar, renders main content area, provides SidebarContext) in `frontend/src/tests/AppLayout.test.tsx`
+- [X] T042 [P] [US5] Write responsive navigation tests (mobile overlay opens on hamburger click, closes on link tap) in `frontend/src/tests/ResponsiveNav.test.tsx`
 
 ### Implementation for User Story 5
 
-- [ ] T043 [P] [US5] Create MobileNavToggle component (hamburger menu button, visible only on mobile, accessible label) in `frontend/src/components/MobileNavToggle.tsx`
-- [ ] T044 [US5] Implement mobile overlay drawer state (`mobileOpen`, `openMobile`, `closeMobile`) in `frontend/src/layouts/SidebarContext.tsx`
-- [ ] T045 [US5] Add responsive CSS: sidebar as overlay with backdrop on mobile (<768px), inline collapsible on desktop/tablet (≥768px) in `frontend/src/index.css`
-- [ ] T046 [US5] Integrate MobileNavToggle into AppLayout header bar (visible only on mobile) in `frontend/src/layouts/AppLayout.tsx`
-- [ ] T047 [US5] Add keyboard accessibility: visible focus rings (Tailwind `focus:ring-*`), `aria-label` on toggle, `aria-current="page"` on active link, semantic `<nav>` landmark in `frontend/src/components/SidebarNavLink.tsx`, `frontend/src/components/SidebarToggle.tsx`, `frontend/src/components/MobileNavToggle.tsx`
-- [ ] T048 [US5] Manual responsive verification: test at 320px, 768px, 1024px, 1440px, 1920px — no horizontal overflow, sidebar behavior correct at each breakpoint
-- [ ] T049 [US5] Manual accessibility verification: Tab through all controls, verify focus rings, test with keyboard only (no mouse), verify screen reader announces toggle state, verify text contrast meets WCAG AA (4.5:1 normal, 3:1 large) using browser DevTools
-- [ ] T050 [US5] Run all unit tests (`npx vitest run`) — verify full suite passes
+- [X] T043 [P] [US5] Create MobileNavToggle component (hamburger menu button, visible only on mobile, accessible label) in `frontend/src/components/MobileNavToggle.tsx`
+- [X] T044 [US5] Implement mobile overlay drawer state (`mobileOpen`, `openMobile`, `closeMobile`) in `frontend/src/layouts/SidebarContext.tsx`
+- [X] T045 [US5] Add responsive CSS: sidebar as overlay with backdrop on mobile (<768px), inline collapsible on desktop/tablet (≥768px) in `frontend/src/index.css`
+- [X] T046 [US5] Integrate MobileNavToggle into AppLayout header bar (visible only on mobile) in `frontend/src/layouts/AppLayout.tsx`
+- [X] T047 [US5] Add keyboard accessibility: visible focus rings (Tailwind `focus:ring-*`), `aria-label` on toggle, `aria-current="page"` on active link, semantic `<nav>` landmark in `frontend/src/components/SidebarNavLink.tsx`, `frontend/src/components/SidebarToggle.tsx`, `frontend/src/components/MobileNavToggle.tsx`
+- [X] T048 [US5] Manual responsive verification: test at 320px, 768px, 1024px, 1440px, 1920px — no horizontal overflow, sidebar behavior correct at each breakpoint
+- [X] T049 [US5] Manual accessibility verification: Tab through all controls, verify focus rings, test with keyboard only (no mouse), verify screen reader announces toggle state, verify text contrast meets WCAG AA (4.5:1 normal, 3:1 large) using browser DevTools
+- [X] T050 [US5] Run all unit tests (`npx vitest run`) — verify full suite passes
 
 **Checkpoint**: Fully responsive, accessible application shell — all user stories complete
 
