@@ -24,11 +24,11 @@ All paths relative to `frontend/`. Parent directory is `/home/visbha/vkca-app/fr
 
 **Purpose**: Install dependencies and configure toolchain
 
-- [ ] T001 Install production dependencies: `react-router-dom` in `frontend/package.json`
-- [ ] T002 [P] Install dev dependencies: `tailwindcss`, `@tailwindcss/vite` in `frontend/package.json`
-- [ ] T003 [P] Install test dependencies: `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom` in `frontend/package.json`
-- [ ] T004 [P] Enable strict TypeScript mode (`strict: true`) in `frontend/tsconfig.app.json`
-- [ ] T005 Configure Vite with Tailwind CSS plugin in `frontend/vite.config.ts`
+- [X] T001 Install production dependencies: `react-router-dom` in `frontend/package.json`
+- [X] T002 [P] Install dev dependencies: `tailwindcss`, `@tailwindcss/vite` in `frontend/package.json`
+- [X] T003 [P] Install test dependencies: `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom` in `frontend/package.json`
+- [X] T004 [P] Enable strict TypeScript mode (`strict: true`) in `frontend/tsconfig.app.json`
+- [X] T005 Configure Vite with Tailwind CSS plugin in `frontend/vite.config.ts`
 
 ---
 
