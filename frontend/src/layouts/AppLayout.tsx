@@ -8,6 +8,7 @@ import {
   TeamsIcon,
 } from '../components/NavIcons'
 import SidebarNavLink from '../components/SidebarNavLink'
+import SidebarToggle from '../components/SidebarToggle'
 import { SidebarProvider, useSidebar } from './SidebarContext'
 
 const navigationItems = [
@@ -39,20 +40,25 @@ function AppLayoutShell() {
   const { expanded } = useSidebar()
 
   return (
-    <div className="flex min-h-screen bg-white text-slate-900">
+    <div className="min-h-screen bg-white text-slate-900">
       <aside
         aria-label="Application sidebar"
-        className={`flex shrink-0 flex-col bg-academy p-3 transition-[width] duration-200 ${
+        className={`fixed inset-y-0 left-0 flex flex-col overflow-hidden bg-academy p-3 transition-[width] duration-200 ${
           expanded ? 'w-sidebar-expanded' : 'w-sidebar-collapsed'
         }`}
       >
-        <nav aria-label="Primary navigation" className="space-y-1">
+        <nav aria-label="Primary navigation" className="flex-1 space-y-1">
           {navigationItems.map((item) => (
             <SidebarNavLink key={item.to} {...item} />
           ))}
         </nav>
+        <SidebarToggle />
       </aside>
-      <main className="min-w-0 flex-1 bg-slate-50 p-6">
+      <main
+        className={`min-h-screen min-w-0 bg-slate-50 p-6 transition-[margin] duration-200 ${
+          expanded ? 'ml-sidebar-expanded' : 'ml-sidebar-collapsed'
+        }`}
+      >
         <Outlet />
       </main>
     </div>

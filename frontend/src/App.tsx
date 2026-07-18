@@ -4,8 +4,13 @@ import {
   type RouteObject,
 } from 'react-router-dom'
 import AppLayout from './layouts/AppLayout'
+import CalendarPage from './pages/CalendarPage'
+import CoachesPage from './pages/CoachesPage'
 import HomePage from './pages/HomePage'
 import NotFoundPage from './pages/NotFoundPage'
+import PlayersPage from './pages/PlayersPage'
+import SettingsPage from './pages/SettingsPage'
+import TeamsPage from './pages/TeamsPage'
 
 export const appRoutes: RouteObject[] = [
   {
@@ -18,37 +23,23 @@ export const appRoutes: RouteObject[] = [
       },
       {
         path: 'players',
-        element: (
-          <h1 className="text-3xl font-bold text-slate-900">
-            Player Directory
-          </h1>
-        ),
+        element: <PlayersPage />,
       },
       {
         path: 'teams',
-        element: <h1 className="text-3xl font-bold text-slate-900">Teams</h1>,
+        element: <TeamsPage />,
       },
       {
         path: 'coaches',
-        element: (
-          <h1 className="text-3xl font-bold text-slate-900">
-            Coaches Portal
-          </h1>
-        ),
+        element: <CoachesPage />,
       },
       {
         path: 'calendar',
-        element: (
-          <h1 className="text-3xl font-bold text-slate-900">Calendar</h1>
-        ),
+        element: <CalendarPage />,
       },
       {
         path: 'settings',
-        element: (
-          <h1 className="text-3xl font-bold text-slate-900">
-            User Settings
-          </h1>
-        ),
+        element: <SettingsPage />,
       },
       { path: '*', element: <NotFoundPage /> },
     ],

@@ -107,12 +107,12 @@ All paths relative to `frontend/`. Parent directory is `/home/visbha/vkca-app/fr
 
 ### Implementation for User Story 4
 
-- [ ] T028 [P] [US4] Create PlayersPage placeholder (h1: "Player Directory", message) in `frontend/src/pages/PlayersPage.tsx`
-- [ ] T029 [P] [US4] Create TeamsPage placeholder (h1: "Teams", message) in `frontend/src/pages/TeamsPage.tsx`
-- [ ] T030 [P] [US4] Create CoachesPage placeholder (h1: "Coaches Portal", message) in `frontend/src/pages/CoachesPage.tsx`
-- [ ] T031 [P] [US4] Create CalendarPage placeholder (h1: "Calendar", message) in `frontend/src/pages/CalendarPage.tsx`
-- [ ] T032 [P] [US4] Create SettingsPage placeholder (h1: "User Settings", message) in `frontend/src/pages/SettingsPage.tsx`
-- [ ] T033 [US4] Manual verification: navigate to each placeholder page, confirm heading + message, confirm no fake data/forms/controls
+- [X] T028 [P] [US4] Create PlayersPage placeholder (h1: "Player Directory", message) in `frontend/src/pages/PlayersPage.tsx`
+- [X] T029 [P] [US4] Create TeamsPage placeholder (h1: "Teams", message) in `frontend/src/pages/TeamsPage.tsx`
+- [X] T030 [P] [US4] Create CoachesPage placeholder (h1: "Coaches Portal", message) in `frontend/src/pages/CoachesPage.tsx`
+- [X] T031 [P] [US4] Create CalendarPage placeholder (h1: "Calendar", message) in `frontend/src/pages/CalendarPage.tsx`
+- [X] T032 [P] [US4] Create SettingsPage placeholder (h1: "User Settings", message) in `frontend/src/pages/SettingsPage.tsx`
+- [X] T033 [US4] Manual verification: navigate to each placeholder page, confirm heading + message, confirm no fake data/forms/controls
 
 **Checkpoint**: All placeholder pages render correctly
 
@@ -126,16 +126,16 @@ All paths relative to `frontend/`. Parent directory is `/home/visbha/vkca-app/fr
 
 ### Tests for User Story 3 (MANDATORY unit tests) ⚠️
 
-- [ ] T034 [P] [US3] Write unit tests for sidebar behavior (expand/collapse, keyboard toggle, active state, state persists across navigation) in `frontend/src/tests/Sidebar.test.tsx`
+- [X] T034 [P] [US3] Write unit tests for sidebar behavior (expand/collapse, keyboard toggle, active state, state persists across navigation) in `frontend/src/tests/Sidebar.test.tsx`
 
 ### Implementation for User Story 3
 
-- [ ] T035 [P] [US3] Create SidebarToggle component with chevron icons (collapsed shows expand arrow, expanded shows collapse arrow) and accessible label in `frontend/src/components/SidebarToggle.tsx`
-- [ ] T036 [US3] Implement `expanded` state toggle logic in `frontend/src/layouts/SidebarContext.tsx` (add `toggleExpanded` action)
-- [ ] T037 [US3] Style collapsed sidebar: hide labels, keep icons visible with tooltips (`title` attribute), reduce sidebar width in `frontend/src/layouts/AppLayout.tsx` and `frontend/src/components/SidebarNavLink.tsx`
-- [ ] T038 [US3] Ensure main content area dynamically adjusts margin when sidebar toggles using Tailwind transition classes in `frontend/src/layouts/AppLayout.tsx`
-- [ ] T039 [US3] Run sidebar unit tests and verify all pass
-- [ ] T040 [US3] Manual verification: toggle via click, toggle via keyboard (Tab → Enter/Space), verify state persists across page navigation, verify no content overlap
+- [X] T035 [P] [US3] Create SidebarToggle component with chevron icons (collapsed shows expand arrow, expanded shows collapse arrow) and accessible label in `frontend/src/components/SidebarToggle.tsx`
+- [X] T036 [US3] Implement `expanded` state toggle logic in `frontend/src/layouts/SidebarContext.tsx` (add `toggleExpanded` action)
+- [X] T037 [US3] Style collapsed sidebar: hide labels, keep icons visible with tooltips (`title` attribute), reduce sidebar width in `frontend/src/layouts/AppLayout.tsx` and `frontend/src/components/SidebarNavLink.tsx`
+- [X] T038 [US3] Ensure main content area dynamically adjusts margin when sidebar toggles using Tailwind transition classes in `frontend/src/layouts/AppLayout.tsx`
+- [X] T039 [US3] Run sidebar unit tests and verify all pass
+- [X] T040 [US3] Manual verification: toggle via click, toggle via keyboard (Tab → Enter/Space), verify state persists across page navigation, verify no content overlap
 
 **Checkpoint**: Sidebar fully interactive with expand/collapse and keyboard support
 
