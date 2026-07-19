@@ -11,6 +11,7 @@ import {
   Routes,
 } from 'react-router-dom'
 import { appRoutes } from '../App'
+import { AuthContext, type AuthContextValue } from '../auth/AuthContext'
 import AppLayout from '../layouts/AppLayout'
 
 afterEach(cleanup)
@@ -19,9 +20,23 @@ function renderSidebar(initialPath = '/') {
   const router = createMemoryRouter(appRoutes, {
     initialEntries: [initialPath],
   })
+  const authValue: AuthContextValue = {
+    user: null,
+    accessToken: 'test-token',
+    isAuthenticated: true,
+    isInitializing: false,
+    isLoginPending: false,
+    isLogoutPending: false,
+    login: async () => undefined,
+    logout: async () => undefined,
+    refreshSession: async () => true,
+  }
 
-  render(<RouterProvider router={router} />)
-
+  render(
+    <AuthContext.Provider value={authValue}>
+      <RouterProvider router={router} />
+    </AuthContext.Provider>,
+  )
 }
 
 describe('sidebar', () => {

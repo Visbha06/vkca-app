@@ -57,17 +57,17 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T009 [P] [US1] Unit test for AuthContext (login success, login failure, session restore success, session restore failure, logout clearance) in `frontend/src/tests/AuthContext.test.tsx`
-- [ ] T010 [P] [US1] Unit test for LoginPage (renders form, required-field validation, Enter key submission, password visibility toggle, button disabled during submission) in `frontend/src/tests/LoginPage.test.tsx`
-- [ ] T011 [P] [US1] Unit test for ProtectedRoute (redirects unauthenticated to /login with redirect param, renders children for authenticated, shows nothing during initialization) in `frontend/src/tests/ProtectedRoute.test.tsx`
+- [X] T009 [P] [US1] Unit test for AuthContext (login success, login failure, session restore success, session restore failure, logout clearance) in `frontend/src/tests/AuthContext.test.tsx`
+- [X] T010 [P] [US1] Unit test for LoginPage (renders form, required-field validation, Enter key submission, password visibility toggle, button disabled during submission) in `frontend/src/tests/LoginPage.test.tsx`
+- [X] T011 [P] [US1] Unit test for ProtectedRoute (redirects unauthenticated to /login with redirect param, renders children for authenticated, shows nothing during initialization) in `frontend/src/tests/ProtectedRoute.test.tsx`
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Build LoginPage with VKCA branding, email/password inputs, show/hide toggle, login button, and Enter-key submission in `frontend/src/pages/LoginPage.tsx`
-- [ ] T013 [P] [US1] Build ProtectedRoute wrapper (redirects to `/login?redirect=<path>` when unauthenticated, renders children when authenticated, blank during initialization) in `frontend/src/auth/ProtectedRoute.tsx`
-- [ ] T014 [P] [US1] Build GuestRoute wrapper (redirects authenticated users to `/` or `redirect` param, renders children when unauthenticated) in `frontend/src/auth/GuestRoute.tsx`
-- [ ] T015 [US1] Restructure routes in `frontend/src/App.tsx`: add `/login` route with GuestRoute, wrap all existing routes with ProtectedRoute + AppLayout
-- [ ] T016 [US1] Wrap application in AuthProvider in `frontend/src/main.tsx`
+- [X] T012 [US1] Build LoginPage with VKCA branding, email/password inputs, show/hide toggle, login button, and Enter-key submission in `frontend/src/pages/LoginPage.tsx`
+- [X] T013 [P] [US1] Build ProtectedRoute wrapper (redirects to `/login?redirect=<path>` when unauthenticated, renders children when authenticated, blank during initialization) in `frontend/src/auth/ProtectedRoute.tsx`
+- [X] T014 [P] [US1] Build GuestRoute wrapper (redirects authenticated users to `/` or `redirect` param, renders children when unauthenticated) in `frontend/src/auth/GuestRoute.tsx`
+- [X] T015 [US1] Restructure routes in `frontend/src/App.tsx`: add `/login` route with GuestRoute, wrap all existing routes with ProtectedRoute + AppLayout
+- [X] T016 [US1] Wrap application in AuthProvider in `frontend/src/main.tsx`
 
 **Checkpoint**: User Story 1 fully functional — login, session restore, route protection all working end-to-end.
 
