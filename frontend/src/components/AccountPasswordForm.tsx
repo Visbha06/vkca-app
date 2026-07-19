@@ -76,7 +76,7 @@ export default function AccountPasswordForm() {
       try {
         await logout()
       } finally {
-        navigate('/login?reason=password-changed', { replace: true })
+        navigate('/login?reason=password-changed', { replace: true, flushSync: true })
       }
     }
   }

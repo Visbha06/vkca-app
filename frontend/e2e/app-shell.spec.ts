@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test'
+import { installAuthApiMock } from './auth-api-mock'
 
 test.describe('application shell primary journey', () => {
+  test.beforeEach(async ({ page }) => {
+    await installAuthApiMock(page)
+  })
+
   test('navigates and collapses the inline sidebar at 1280px', async ({
     page,
   }) => {
@@ -86,7 +91,7 @@ test.describe('application shell primary journey', () => {
     })
     await expect(closeNavigation).toBeFocused()
     await page.keyboard.press('Shift+Tab')
-    await expect(page.getByRole('link', { name: 'User Settings' })).toBeFocused()
+    await expect(page.getByRole('button', { name: 'Log out' })).toBeFocused()
     await page.keyboard.press('Tab')
     await expect(closeNavigation).toBeFocused()
 
@@ -120,7 +125,6 @@ test.describe('application shell primary journey', () => {
       ['/teams', 'Teams'],
       ['/coaches', 'Coaches Portal'],
       ['/calendar', 'Calendar'],
-      ['/settings', 'User Settings'],
     ] as const
 
     for (const [path, heading] of routes) {
@@ -133,6 +137,9 @@ test.describe('application shell primary journey', () => {
       ).toBeVisible()
       await expect(page.locator('main form, main input, main select')).toHaveCount(0)
     }
+
+    await page.goto('/settings')
+    await expect(page.getByRole('dialog', { name: 'User Settings' })).toBeVisible()
 
     await page.goto('/nonexistent-route')
     await expect(

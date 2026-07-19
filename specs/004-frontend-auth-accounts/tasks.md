@@ -159,12 +159,12 @@
 
 **Purpose**: Final integration, documentation, and validation
 
-- [ ] T035 [P] Write E2E Playwright test covering login → protected navigation → account settings modal → password change → logout flow in `frontend/e2e/auth-flow.spec.ts`
-- [ ] T036 [P] Write feature documentation in `docs/frontend-auth-accounts.md` (concise version of spec, capturing purpose, key flows, API surface, configuration — MANDATORY per constitution)
-- [ ] T037 Create quickstart validation test in `backend/tests/integration/quickstart/test_004_quickstart_flow.py` and execute: `cd backend && uv run pytest backend/tests/integration/quickstart/test_004_quickstart_flow.py -v` (validates the 15 scenarios in quickstart.md end-to-end)
-- [ ] T038 Manually verify responsive behavior at 320px, 768px, 1280px, and 2560px viewports — confirm login page and settings modal have no horizontal overflow, 44px minimum touch targets, and internal scroll where needed
-- [ ] T039 Final code review: verify no localStorage/sessionStorage token storage, no hardcoded px values, no `any` types, all components under 200 lines, dead code removed
-- [ ] T040 Run full test suite: `cd frontend && npx vitest run && npx playwright test`
+- [X] T035 [P] Write E2E Playwright test covering login → protected navigation → account settings modal → password change → logout flow in `frontend/e2e/auth-flow.spec.ts`
+- [X] T036 [P] Write feature documentation in `docs/frontend-auth-accounts.md` (concise version of spec, capturing purpose, key flows, API surface, configuration — MANDATORY per constitution)
+- [X] T037 Create quickstart validation test in `backend/tests/integration/quickstart/test_004_quickstart_flow.py` and execute: `cd backend && uv run pytest backend/tests/integration/quickstart/test_004_quickstart_flow.py -v` (validates the 15 scenarios in quickstart.md end-to-end)
+- [X] T038 Manually verify responsive behavior at 320px, 768px, 1280px, and 2560px viewports — confirm login page and settings modal have no horizontal overflow, 44px minimum touch targets, and internal scroll where needed
+- [X] T039 Final code review: verify no localStorage/sessionStorage token storage, no hardcoded px values, no `any` types, all components under 200 lines, dead code removed
+- [X] T040 Run full test suite: `cd frontend && npx vitest run && npx playwright test`
 
 ---
 
