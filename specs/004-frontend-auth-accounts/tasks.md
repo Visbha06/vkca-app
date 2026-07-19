@@ -25,8 +25,8 @@
 
 **Purpose**: Create new directories and backend schema foundation
 
-- [ ] T001 Create frontend directory structure: `frontend/src/auth/` and `frontend/src/api/`
-- [ ] T002 [P] Add `ProfileUpdate` Pydantic schema in `backend/src/schemas/auth.py` with `first_name: str` and `last_name: str` (both required, non-empty)
+- [X] T001 Create frontend directory structure: `frontend/src/auth/` and `frontend/src/api/`
+- [X] T002 [P] Add `ProfileUpdate` Pydantic schema in `backend/src/schemas/auth.py` with `first_name: str` and `last_name: str` (both required, non-empty)
 
 ---
 
@@ -36,12 +36,12 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 [P] Define TypeScript types (AuthUser, SessionMeta, AuthState, LoginCredentials, ProfileUpdateRequest, PasswordChangeRequest, ApiError, LoginResponse, RefreshResponse) in `frontend/src/auth/types.ts`
-- [ ] T004 [P] Implement CSRF cookie reader utility `readCsrfToken()` in `frontend/src/auth/utils.ts`
-- [ ] T005 [P] Implement `PATCH /api/v1/auth/me` route handler in `backend/src/routes/auth.py` (uses existing `get_current_user` dependency, returns `UserResponse`)
-- [ ] T006 [P] Add backend unit tests for `PATCH /api/v1/auth/me` in `backend/tests/unit/test_auth_routes.py` (test success, test unauthenticated, test validation errors)
-- [ ] T007 Implement centralized API client with token injection, credential inclusion, and CSRF header in `frontend/src/api/client.ts`
-- [ ] T008 Implement AuthContext and AuthProvider with full state management (user, accessToken, isAuthenticated, isInitializing, isLoginPending, isLogoutPending; login/logout/refreshSession actions; session restore on mount) in `frontend/src/auth/AuthContext.tsx` and `frontend/src/auth/AuthProvider.tsx`
+- [X] T003 [P] Define TypeScript types (AuthUser, SessionMeta, AuthState, LoginCredentials, ProfileUpdateRequest, PasswordChangeRequest, ApiError, LoginResponse, RefreshResponse) in `frontend/src/auth/types.ts`
+- [X] T004 [P] Implement CSRF cookie reader utility `readCsrfToken()` in `frontend/src/auth/utils.ts`
+- [X] T005 [P] Implement `PATCH /api/v1/auth/me` route handler in `backend/src/routes/auth.py` (uses existing `get_current_user` dependency, returns `UserResponse`)
+- [X] T006 [P] Add backend unit tests for `PATCH /api/v1/auth/me` in `backend/tests/unit/test_auth_routes.py` (test success, test unauthenticated, test validation errors)
+- [X] T007 Implement centralized API client with token injection, credential inclusion, and CSRF header in `frontend/src/api/client.ts`
+- [X] T008 Implement AuthContext and AuthProvider with full state management (user, accessToken, isAuthenticated, isInitializing, isLoginPending, isLogoutPending; login/logout/refreshSession actions; session restore on mount) in `frontend/src/auth/AuthContext.tsx` and `frontend/src/auth/AuthProvider.tsx`
 
 **Checkpoint**: Foundation ready — auth state, API client, and backend endpoint available. User story UI can now begin.
 

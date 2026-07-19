@@ -324,6 +324,100 @@ async def test_me_returns_profile_with_session(client: httpx.AsyncClient) -> Non
 
 
 @pytest.mark.asyncio
+async def test_patch_me_updates_profile(
+    client: httpx.AsyncClient,
+    db_session: AsyncMock,
+) -> None:
+    user = make_user()
+    auth_session = make_auth_session(user)
+
+    async def override_get_current_user():
+        return user, auth_session
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    response = await client.patch(
+        "/api/v1/auth/me",
+        headers={"Authorization": "Bearer signed-access-token"},
+        json={"first_name": "Jane", "last_name": "Smith"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": str(user.id),
+        "first_name": "Jane",
+        "last_name": "Smith",
+        "email": user.email,
+        "role": user.role.value,
+        "is_active": True,
+        "created_at": user.created_at.isoformat().replace("+00:00", "Z"),
+        "updated_at": user.updated_at.isoformat().replace("+00:00", "Z"),
+        "session": {
+            "session_id": str(auth_session.id),
+            "created_at": auth_session.created_at.isoformat().replace(
+                "+00:00", "Z"
+            ),
+            "last_used_at": auth_session.last_used_at.isoformat().replace(
+                "+00:00", "Z"
+            ),
+            "expires_at": auth_session.expires_at.isoformat().replace(
+                "+00:00", "Z"
+            ),
+        },
+    }
+    assert user.first_name == "Jane"
+    assert user.last_name == "Smith"
+    assert user.version_number == 2
+    db_session.commit.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_patch_me_without_token_returns_401(
+    client: httpx.AsyncClient,
+) -> None:
+    response = await client.patch(
+        "/api/v1/auth/me",
+        json={"first_name": "Jane", "last_name": "Smith"},
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Not authenticated"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"first_name": "", "last_name": "Smith"},
+        {"first_name": "Jane", "last_name": ""},
+        {"last_name": "Smith"},
+        {"first_name": "Jane"},
+    ],
+)
+async def test_patch_me_rejects_invalid_profile(
+    client: httpx.AsyncClient,
+    db_session: AsyncMock,
+    payload: dict[str, str],
+) -> None:
+    user = make_user()
+    auth_session = make_auth_session(user)
+
+    async def override_get_current_user():
+        return user, auth_session
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    response = await client.patch(
+        "/api/v1/auth/me",
+        headers={"Authorization": "Bearer signed-access-token"},
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    db_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_me_without_token_returns_401(client: httpx.AsyncClient) -> None:
     response = await client.get("/api/v1/auth/me")
 
