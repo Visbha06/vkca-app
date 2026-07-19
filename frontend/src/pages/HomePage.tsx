@@ -2,7 +2,7 @@ import academyLogo from '../assets/placeholderLogo.png'
 
 export default function HomePage() {
   return (
-    <section className="home-page-enter flex min-h-[calc(100vh-3rem)] flex-col items-center justify-center gap-6 text-center">
+    <section className="home-page-enter flex min-h-[calc(100vh-var(--spacing)*12)] flex-col items-center justify-center gap-6 text-center">
       <img
         src={academyLogo}
         alt="VK Cricket Academy logo"

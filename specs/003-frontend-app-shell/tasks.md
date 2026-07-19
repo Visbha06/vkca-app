@@ -171,12 +171,12 @@ All paths relative to `frontend/`. Parent directory is `/home/visbha/vkca-app/fr
 
 **Purpose**: E2E test, documentation, final validation
 
-- [ ] T051 [P] Write E2E Playwright test covering primary user journey at 375px and 1280px viewports (open home page → navigate via sidebar → toggle sidebar → test mobile overlay) in `frontend/e2e/app-shell.spec.ts`
-- [ ] T052 [P] Write feature documentation with concise version of spec (purpose, user flows, routes, configuration) in `docs/frontend-app-shell.md`
-- [ ] T053 [P] Run ESLint and fix any errors (`npm run lint`)
-- [ ] T054 Run TypeScript strict check (`npx tsc -b --noEmit`) and fix any type errors
-- [ ] T055 Run quickstart.md validation: work through all 9 scenarios and confirm expected outcomes
-- [ ] T056 Final code review: verify all components ≤200 lines, no `any` types, Tailwind spacing scale used consistently, no hardcoded pixels, text contrast meets WCAG AA across all pages
+- [X] T051 [P] Write E2E Playwright test covering primary user journey at 375px and 1280px viewports (open home page → navigate via sidebar → toggle sidebar → test mobile overlay) in `frontend/e2e/app-shell.spec.ts`
+- [X] T052 [P] Write feature documentation with concise version of spec (purpose, user flows, routes, configuration) in `docs/frontend-app-shell.md`
+- [X] T053 [P] Run ESLint and fix any errors (`npm run lint`)
+- [X] T054 Run TypeScript strict check (`npx tsc -b --noEmit`) and fix any type errors
+- [X] T055 Run quickstart.md validation: work through all 9 scenarios and confirm expected outcomes
+- [X] T056 Final code review: verify all components ≤200 lines, no `any` types, Tailwind spacing scale used consistently, no hardcoded pixels, text contrast meets WCAG AA across all pages
 
 ---
 
