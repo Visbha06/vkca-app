@@ -1,0 +1,10 @@
+#!/bin/bash
+
+(echo "BACKEND TESTS")
+(cd backend/ && source .venv/bin/activate && uv sync --group test && pytest -q --tb=short && uv sync)
+(echo "------")
+(echo "FRONTEND TESTS")
+(cd frontend/ && npm test -- --silent --reporter=dot)
+(echo "------")
+(echo "E2E TESTS")
+(cd frontend/ && npm run test:e2e -- --reporter=dot)
