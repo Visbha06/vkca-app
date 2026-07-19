@@ -1,18 +1,23 @@
- <!--
-   Sync Impact Report
-   ==================
-   Version change: 1.1.0 → 1.2.0 (MINOR — materially expanded guidance under V. Testing Discipline)
-   Modified principles:
-     - V. Testing Discipline — added Quickstart validation sub-clause
-   Added sections: N/A
-   Removed sections: N/A
-   Templates requiring updates:
-     - .specify/templates/plan-template.md: ✅ aligned (quickstart.md already listed in project structure)
-     - .specify/templates/spec-template.md: ✅ aligned (no quickstart reference)
-     - .specify/templates/tasks-template.md: ✅ updated (Polish phase quickstart task
-       strengthened with exact test path)
-   Follow-up TODOs: None
- -->
+  <!--
+    Sync Impact Report
+    ==================
+    Version change: 1.2.0 → 1.3.0 (MINOR — materially expanded guidance under
+    VIII. UX Completeness in Specs + wording clarification under V. Testing
+    Discipline)
+    Modified principles:
+      - V. Testing Discipline — narrowed Quickstart validation scope to backend
+        operations only
+      - VIII. UX Completeness in Specs — added mandatory frontend design
+        references (PRODUCT.md + DESIGN.md)
+    Added sections: N/A
+    Removed sections: N/A
+    Templates requiring updates:
+      - .specify/templates/plan-template.md: ✅ aligned (no change needed)
+      - .specify/templates/spec-template.md: ✅ aligned (no change needed)
+      - .specify/templates/tasks-template.md: ✅ aligned (quickstart task already
+        scoped to backend path)
+    Follow-up TODOs: None
+  -->
 
 # VKCA App Constitution
 
@@ -77,9 +82,9 @@ Backend dependencies MUST be managed with `uv add` and `uv remove`.
   service dependencies.
 - **Test isolation**: Each test MUST set up its own state and clean up after
   itself. No test SHALL depend on the side effects of another test.
-- **Quickstart validation**: Every feature spec planned via `/speckit-plan`
-  generates a `quickstart.md`. The associated quickstart test MUST live in
-  `backend/tests/integration/quickstart/` and MUST be named
+- **Quickstart validation for backend**: Every backend feature spec planned via
+  `/speckit-plan` generates a `quickstart.md`. The associated quickstart test
+  MUST live in `backend/tests/integration/quickstart/` and MUST be named
   `test_<spec_num>_quickstart_flow.py` (e.g., `test_001_quickstart_flow.py`).
   The test MUST validate the steps described in `quickstart.md` end-to-end.
 
@@ -116,6 +121,11 @@ for all user-facing elements:
   responsive behavior, and accessibility considerations.
 - The `/clarify` and `/analyze` workflows MUST flag any missing UI details.
 - Specs without sufficient UX detail SHALL NOT proceed to implementation.
+- **Frontend design references**: When designing the frontend, the agent MUST
+  refer to `PRODUCT.md` and `DESIGN.md` in the project root for brand
+  personality, design principles, color palettes, typography, component
+  patterns, and do's/don'ts. Frontend implementation that contradicts these
+  design documents SHALL NOT be accepted.
 
 ### IX. Optimistic Concurrency Control
 
@@ -213,4 +223,4 @@ applicable principles. The Constitution Check gate in each implementation
 plan MUST reference this document. Complexity or principle violations MUST be
 documented and justified in the plan's Complexity Tracking table.
 
-**Version**: 1.2.0 | **Ratified**: 2026-07-05 | **Last Amended**: 2026-07-13
+**Version**: 1.3.0 | **Ratified**: 2026-07-05 | **Last Amended**: 2026-07-19
