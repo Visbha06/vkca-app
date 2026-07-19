@@ -39,6 +39,7 @@ function AuthProbe() {
       <p data-testid="authenticated">{String(auth.isAuthenticated)}</p>
       <p data-testid="login-pending">{String(auth.isLoginPending)}</p>
       <p data-testid="user-email">{auth.user?.email ?? 'none'}</p>
+      <p data-testid="user-name">{auth.user?.first_name ?? 'none'}</p>
       <p data-testid="access-token">{auth.accessToken ?? 'none'}</p>
       <button
         type="button"
@@ -50,6 +51,16 @@ function AuthProbe() {
       </button>
       <button type="button" onClick={() => void auth.logout()}>
         Log out
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          if (auth.user !== null) {
+            auth.updateUser({ ...auth.user, first_name: 'Updated' })
+          }
+        }}
+      >
+        Update user
       </button>
     </div>
   )
@@ -160,5 +171,20 @@ describe('AuthProvider', () => {
     expect(screen.getByTestId('access-token')).toHaveTextContent('none')
     expect(screen.getByTestId('user-email')).toHaveTextContent('none')
     expect(setAccessToken).toHaveBeenLastCalledWith(null)
+  })
+
+  it('updates the authenticated user without reloading the session', async () => {
+    vi.spyOn(apiClient, 'request')
+      .mockResolvedValueOnce({ access_token: 'restored-token', token_type: 'bearer' })
+      .mockResolvedValueOnce(authenticatedUser)
+
+    renderProvider()
+    await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('true'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Update user' }))
+
+    expect(screen.getByTestId('user-name')).toHaveTextContent('Updated')
+    expect(screen.getByTestId('authenticated')).toHaveTextContent('true')
+    expect(screen.getByTestId('access-token')).toHaveTextContent('restored-token')
   })
 })

@@ -26,6 +26,7 @@ const authValue: AuthContextValue = {
   login: async () => undefined,
   logout: async () => undefined,
   refreshSession: async () => true,
+  updateUser: () => undefined,
 }
 
 function renderSidebar(initialPath = '/') {

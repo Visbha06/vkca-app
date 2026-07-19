@@ -27,6 +27,7 @@ function renderRoute(path: string) {
     login: async () => undefined,
     logout: async () => undefined,
     refreshSession: async () => false,
+    updateUser: () => undefined,
   }
 
   return renderToStaticMarkup(

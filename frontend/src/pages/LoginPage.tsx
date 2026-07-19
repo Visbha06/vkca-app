@@ -64,7 +64,19 @@ export default function LoginPage() {
   const [passwordVisible, setPasswordVisible] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
-  const sessionExpired = searchParams.get('reason') === 'session-expired'
+  const reason = searchParams.get('reason')
+  const accountNotice =
+    reason === 'session-expired'
+      ? {
+          message: 'Your session has expired. Please sign in again.',
+          className: 'border-amber-200 bg-amber-50 text-amber-900',
+        }
+      : reason === 'password-changed'
+        ? {
+            message: 'Your password was changed. Please sign in again.',
+            className: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+          }
+        : null
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -135,12 +147,12 @@ export default function LoginPage() {
               </p>
             </header>
 
-            {sessionExpired && (
+            {accountNotice && (
               <p
-                className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-900"
+                className={`mt-6 rounded-lg border p-3 text-sm font-medium ${accountNotice.className}`}
                 role="status"
               >
-                Your session has expired. Please sign in again.
+                {accountNotice.message}
               </p>
             )}
 

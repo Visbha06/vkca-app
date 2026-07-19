@@ -138,18 +138,18 @@
 
 ### Tests for User Story 4 (MANDATORY unit tests) ⚠️
 
-- [ ] T026 [P] [US4] Unit test for PasswordInput (show/hide toggle, accessible label, keyboard behavior) in `frontend/src/tests/PasswordInput.test.tsx`
-- [ ] T027 [P] [US4] Unit test for AccountSettingsModal (renders profile fields prefilled, email/role read-only, validation on empty name fields, password policy validation, password confirmation mismatch, successful profile update, successful password change causes logout, focus trap, Escape close, backdrop close) in `frontend/src/tests/AccountSettingsModal.test.tsx`
+- [X] T026 [P] [US4] Unit test for PasswordInput (show/hide toggle, accessible label, keyboard behavior) in `frontend/src/tests/PasswordInput.test.tsx`
+- [X] T027 [P] [US4] Unit test for AccountSettingsModal (renders profile fields prefilled, email/role read-only, validation on empty name fields, password policy validation, password confirmation mismatch, successful profile update, successful password change causes logout, focus trap, Escape close, backdrop close) in `frontend/src/tests/AccountSettingsModal.test.tsx`
 
 ### Implementation for User Story 4
 
-- [ ] T028 [P] [US4] Build PasswordInput component (password field with show/hide toggle, accessible label, keyboard-accessible) in `frontend/src/components/PasswordInput.tsx`
-- [ ] T029 [US4] Build AccountSettingsModal (dialog semantics, backdrop dim, focus trap, Escape/backdrop close, body scroll lock, accessible title) in `frontend/src/components/AccountSettingsModal.tsx`
-- [ ] T030 [US4] Implement profile section in modal (read-only email/role, editable first/last name prefilled, validation, save via `PATCH /api/v1/auth/me`, success/error feedback, state update without reload) in `frontend/src/components/AccountSettingsModal.tsx`
-- [ ] T031 [US4] Implement password-change section in modal (new password + confirm password fields with PasswordInput, frontend policy validation: 12-128 chars, uppercase, lowercase, digit, special char, match check, submission via `POST /api/v1/users/{id}/change-password`, 204 → clear state + redirect with message) in `frontend/src/components/AccountSettingsModal.tsx`
-- [ ] T032 [US4] Implement responsive modal behavior (fit viewport at 320px, internal scroll, 44px touch targets, no horizontal overflow) in `frontend/src/components/AccountSettingsModal.tsx`
-- [ ] T033 [US4] Implement accessibility for modal (role="dialog", aria-modal, aria-labelledby, focus trap, aria-describedby on errors, aria-live for success/error announcements, aria-busy during submission) in `frontend/src/components/AccountSettingsModal.tsx`
-- [ ] T034 [US4] Modify SettingsPage to automatically open AccountSettingsModal and handle close-navigation (return to previous route when known, else home) in `frontend/src/pages/SettingsPage.tsx`
+- [X] T028 [P] [US4] Build PasswordInput component (password field with show/hide toggle, accessible label, keyboard-accessible) in `frontend/src/components/PasswordInput.tsx`
+- [X] T029 [US4] Build AccountSettingsModal (dialog semantics, backdrop dim, focus trap, Escape/backdrop close, body scroll lock, accessible title) in `frontend/src/components/AccountSettingsModal.tsx`
+- [X] T030 [US4] Implement profile section in modal (read-only email/role, editable first/last name prefilled, validation, save via `PATCH /api/v1/auth/me`, success/error feedback, state update without reload) in `frontend/src/components/AccountSettingsModal.tsx`
+- [X] T031 [US4] Implement password-change section in modal (new password + confirm password fields with PasswordInput, frontend policy validation: 12-128 chars, uppercase, lowercase, digit, special char, match check, submission via `POST /api/v1/users/{id}/change-password`, 204 → clear state + redirect with message) in `frontend/src/components/AccountSettingsModal.tsx`
+- [X] T032 [US4] Implement responsive modal behavior (fit viewport at 320px, internal scroll, 44px touch targets, no horizontal overflow) in `frontend/src/components/AccountSettingsModal.tsx`
+- [X] T033 [US4] Implement accessibility for modal (role="dialog", aria-modal, aria-labelledby, focus trap, aria-describedby on errors, aria-live for success/error announcements, aria-busy during submission) in `frontend/src/components/AccountSettingsModal.tsx`
+- [X] T034 [US4] Modify SettingsPage to automatically open AccountSettingsModal and handle close-navigation (return to previous route when known, else home) in `frontend/src/pages/SettingsPage.tsx`
 
 **Checkpoint**: Account settings fully functional — profile editing, password change, modal UX, accessibility.
 

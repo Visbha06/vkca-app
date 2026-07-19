@@ -35,6 +35,7 @@ type AuthAction =
   | { type: 'loginFailed' }
   | { type: 'logoutStarted' }
   | { type: 'authenticated'; user: AuthUser; accessToken: string }
+  | { type: 'userUpdated'; user: AuthUser }
   | { type: 'accessTokenRefreshed'; accessToken: string }
   | { type: 'authenticationCleared' }
   | { type: 'initializationFinished' }
@@ -56,6 +57,8 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         isLoginPending: false,
         isLogoutPending: false,
       }
+    case 'userUpdated':
+      return state.user === null ? state : { ...state, user: action.user }
     case 'accessTokenRefreshed':
       return state.isAuthenticated
         ? { ...state, accessToken: action.accessToken }
@@ -143,6 +146,10 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     }
   }, [authenticateWithToken, clearAuthentication])
 
+  const updateUser = useCallback((user: AuthUser) => {
+    dispatch({ type: 'userUpdated', user })
+  }, [])
+
   useEffect(() => {
     apiClient.setAuthHandlers({
       onAccessTokenRefreshed: (accessToken) => {
@@ -171,8 +178,9 @@ export default function AuthProvider({ children }: PropsWithChildren) {
       login,
       logout,
       refreshSession,
+      updateUser,
     }),
-    [state, login, logout, refreshSession],
+    [state, login, logout, refreshSession, updateUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

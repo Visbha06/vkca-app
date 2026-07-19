@@ -1,10 +1,11 @@
 import { createContext, useContext } from 'react'
-import type { AuthState } from './types'
+import type { AuthState, AuthUser } from './types'
 
 export interface AuthContextValue extends AuthState {
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   refreshSession: () => Promise<boolean>
+  updateUser: (user: AuthUser) => void
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(

@@ -26,6 +26,7 @@ function renderProtected(overrides: Partial<AuthContextValue> = {}) {
     login: vi.fn().mockResolvedValue(undefined),
     logout: vi.fn().mockResolvedValue(undefined),
     refreshSession: vi.fn().mockResolvedValue(false),
+    updateUser: vi.fn(),
     ...overrides,
   }
 
@@ -59,6 +60,7 @@ function renderGuest(overrides: Partial<AuthContextValue> = {}) {
     login: vi.fn().mockResolvedValue(undefined),
     logout: vi.fn().mockResolvedValue(undefined),
     refreshSession: vi.fn().mockResolvedValue(false),
+    updateUser: vi.fn(),
     ...overrides,
   }
 

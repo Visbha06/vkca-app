@@ -20,6 +20,7 @@ const authValue: AuthContextValue = {
   login: vi.fn(),
   logout: vi.fn(),
   refreshSession: vi.fn(),
+  updateUser: vi.fn(),
 }
 
 function ContextProbe() {

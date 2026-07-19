@@ -64,8 +64,18 @@ function AppLayoutShell() {
     const pageTitle = getPageTitle(pathname)
     document.title = `${pageTitle} | VK Cricket Academy`
 
-    if (previousPathRef.current !== null && previousPathRef.current !== pathname) {
+    const previousPath = previousPathRef.current
+    if (previousPath !== null && previousPath !== pathname) {
       const focusTimer = window.setTimeout(() => {
+        const settingsTrigger = document.querySelector<HTMLElement>(
+          'a[aria-label="User Settings"]',
+        )
+        if (
+          previousPath === '/settings' &&
+          document.activeElement === settingsTrigger
+        ) {
+          return
+        }
         document.querySelector<HTMLElement>('#main-content h1')?.focus()
       }, 0)
 
@@ -202,6 +212,7 @@ function AppLayoutShell() {
             label="User Settings"
             icon={<SettingsIcon className="size-6" />}
             iconOnly
+            state={pathname === '/settings' ? undefined : { from: pathname }}
           />
           <LogoutButton />
           <SidebarToggle />

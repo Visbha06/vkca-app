@@ -29,6 +29,7 @@ function renderLogin(
     login: vi.fn().mockResolvedValue(undefined),
     logout: vi.fn().mockResolvedValue(undefined),
     refreshSession: vi.fn().mockResolvedValue(false),
+    updateUser: vi.fn(),
     ...overrides,
   }
 
@@ -72,6 +73,14 @@ describe('LoginPage', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent(
       'Your session has expired. Please sign in again.',
+    )
+  })
+
+  it('shows confirmation after a successful password change', () => {
+    renderLogin({}, '/login?reason=password-changed')
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Your password was changed. Please sign in again.',
     )
   })
 

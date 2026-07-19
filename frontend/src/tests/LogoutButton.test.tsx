@@ -16,6 +16,7 @@ const defaultAuthValue: AuthContextValue = {
   login: vi.fn(),
   logout: vi.fn(),
   refreshSession: vi.fn(),
+  updateUser: vi.fn(),
 }
 
 afterEach(() => {
