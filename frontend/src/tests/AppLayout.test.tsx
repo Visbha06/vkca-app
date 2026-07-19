@@ -41,6 +41,10 @@ describe('AppLayout', () => {
     expect(screen.getByRole('main')).toContainElement(
       screen.getByRole('heading', { name: 'Test content' }),
     )
+    expect(
+      screen.getByRole('link', { name: 'Skip to main content' }),
+    ).toHaveAttribute('href', '#main-content')
+    expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content')
   })
 
   it('provides the default sidebar state to routed content', () => {

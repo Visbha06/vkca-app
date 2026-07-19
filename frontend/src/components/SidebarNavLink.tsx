@@ -6,12 +6,14 @@ interface SidebarNavLinkProps {
   to: string
   label: string
   icon: ReactNode
+  iconOnly?: boolean
 }
 
 export default function SidebarNavLink({
   to,
   label,
   icon,
+  iconOnly = false,
 }: SidebarNavLinkProps) {
   const { closeMobile, expanded } = useSidebar()
 
@@ -19,23 +21,30 @@ export default function SidebarNavLink({
     <NavLink
       aria-label={label}
       className={({ isActive }) =>
-        `flex items-center rounded-lg px-3 py-2 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 focus:ring-offset-slate-900 ${
-          expanded ? 'gap-3' : 'justify-center'
+        `flex min-h-11 items-center rounded-lg px-3 py-2 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 focus:ring-offset-slate-900 ${
+          iconOnly
+            ? 'size-11 justify-center p-0'
+            : expanded
+              ? 'gap-3'
+              : 'gap-3 md:justify-center md:gap-0 md:px-0'
         } ${
           isActive
-            ? 'bg-white text-slate-900 shadow-sm ring-2 ring-inset ring-academy'
+            ? 'bg-white text-slate-900 ring-2 ring-inset ring-academy'
             : 'text-white hover:bg-white/15'
         }`
       }
+      data-mobile-drawer-focus
       end={to === '/'}
       onClick={closeMobile}
-      title={expanded ? undefined : label}
+      title={iconOnly || !expanded ? label : undefined}
       to={to}
     >
       <span className="size-6 shrink-0" aria-hidden="true">
         {icon}
       </span>
-      {expanded && <span className="truncate">{label}</span>}
+      {!iconOnly && (
+        <span className={`truncate ${expanded ? '' : 'md:hidden'}`}>{label}</span>
+      )}
     </NavLink>
   )
 }

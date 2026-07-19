@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   createMemoryRouter,
@@ -25,6 +25,19 @@ function renderSidebar(initialPath = '/') {
 }
 
 describe('sidebar', () => {
+  it('shows academy branding and keeps settings in the footer controls', () => {
+    renderSidebar()
+
+    const sidebar = screen.getByLabelText('Application sidebar')
+    expect(within(sidebar).getByText('VK Cricket Academy')).toBeVisible()
+    expect(within(sidebar).getByText('Academy Portal')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'User Settings' })).toHaveAttribute(
+      'title',
+      'User Settings',
+    )
+    expect(screen.queryByText('User Settings')).not.toBeInTheDocument()
+  })
+
   it('collapses and expands while keeping navigation destinations available', () => {
     renderSidebar()
 
@@ -37,7 +50,7 @@ describe('sidebar', () => {
     expect(
       screen.getByRole('button', { name: 'Expand sidebar' }),
     ).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByText('Player Directory')).not.toBeInTheDocument()
+    expect(screen.getByText('Player Directory')).toHaveClass('md:hidden')
     expect(
       screen.getByRole('link', { name: 'Player Directory' }),
     ).toHaveAttribute('title', 'Player Directory')
@@ -98,14 +111,24 @@ describe('sidebar', () => {
     const sidebar = screen.getByLabelText('Application sidebar')
     const main = screen.getByRole('main')
 
-    expect(sidebar).toHaveClass('w-sidebar-expanded')
+    expect(sidebar).toHaveClass('w-sidebar-expanded', 'md:w-sidebar-expanded')
     expect(main).toHaveClass('md:ml-sidebar-expanded')
 
     fireEvent.click(
       screen.getByRole('button', { name: 'Collapse sidebar' }),
     )
 
-    expect(sidebar).toHaveClass('w-sidebar-collapsed')
+    expect(sidebar).toHaveClass('w-sidebar-expanded', 'md:w-sidebar-collapsed')
+    expect(sidebar).toHaveClass('md:p-2.5')
     expect(main).toHaveClass('md:ml-sidebar-collapsed')
+    expect(screen.getByTestId('sidebar-footer-controls')).toHaveClass(
+      'md:flex-col',
+    )
+    expect(
+      screen.getByRole('link', { name: 'User Settings' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Expand sidebar' }),
+    ).toBeInTheDocument()
   })
 })

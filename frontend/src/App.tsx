@@ -9,6 +9,7 @@ import CoachesPage from './pages/CoachesPage'
 import HomePage from './pages/HomePage'
 import NotFoundPage from './pages/NotFoundPage'
 import PlayersPage from './pages/PlayersPage'
+import RouteErrorPage from './pages/RouteErrorPage'
 import SettingsPage from './pages/SettingsPage'
 import TeamsPage from './pages/TeamsPage'
 
@@ -16,6 +17,7 @@ export const appRoutes: RouteObject[] = [
   {
     path: '/',
     element: <AppLayout />,
+    errorElement: <RouteErrorPage />,
     children: [
       {
         index: true,

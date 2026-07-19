@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { appRoutes } from '../App'
 
 const routeCases = [
-  ['/', 'Welcome to VK Cricket Academy!'],
+  ['/', 'Good evening, Coach'],
   ['/players', 'Player Directory'],
   ['/teams', 'Teams'],
   ['/coaches', 'Coaches Portal'],

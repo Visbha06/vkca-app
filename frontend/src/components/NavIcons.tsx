@@ -65,3 +65,20 @@ export function SettingsIcon(props: NavIconProps) {
     </svg>
   )
 }
+
+export function PerformanceIcon(props: NavIconProps) {
+  return (
+    <svg {...sharedProps} {...props}>
+      <path d="M5 20V11h4v9M10 20V4h4v16M15 20v-6h4v6" />
+    </svg>
+  )
+}
+
+export function MatchIcon(props: NavIconProps) {
+  return (
+    <svg {...sharedProps} {...props}>
+      <path d="M8 4h8v4a4 4 0 0 1-8 0V4Z" />
+      <path d="M8 6H5v1a4 4 0 0 0 4 4M16 6h3v1a4 4 0 0 1-4 4M12 12v5M8 21h8M9 17h6" />
+    </svg>
+  )
+}

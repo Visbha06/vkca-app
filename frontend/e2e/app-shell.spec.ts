@@ -10,18 +10,15 @@ test.describe('application shell primary journey', () => {
     await expect(
       page.getByRole('heading', {
         level: 1,
-        name: 'Welcome to VK Cricket Academy!',
+        name: 'Good evening, Coach',
       }),
     ).toBeVisible()
+    await expect(page.getByText('Academy Portal')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Create match' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Home' })).toHaveAttribute(
       'aria-current',
       'page',
     )
-    await expect(page.locator('.home-page-enter')).not.toHaveCSS(
-      'animation-name',
-      'none',
-    )
-
     await page.evaluate(() => {
       document.body.dataset.navigationSession = 'preserved'
     })
@@ -40,6 +37,21 @@ test.describe('application shell primary journey', () => {
     await expect(
       page.getByRole('button', { name: 'Expand sidebar' }),
     ).toHaveAttribute('aria-expanded', 'false')
+    const collapsedSettings = page.getByRole('link', { name: 'User Settings' })
+    const expandSidebar = page.getByRole('button', { name: 'Expand sidebar' })
+    const [settingsBox, expandBox, sidebarBox] = await Promise.all([
+      collapsedSettings.boundingBox(),
+      expandSidebar.boundingBox(),
+      page.getByLabel('Application sidebar').boundingBox(),
+    ])
+    expect(settingsBox).not.toBeNull()
+    expect(expandBox).not.toBeNull()
+    expect(sidebarBox).not.toBeNull()
+    expect(settingsBox!.y).toBeLessThan(expandBox!.y)
+    expect(expandBox!.x).toBeGreaterThanOrEqual(sidebarBox!.x)
+    expect(expandBox!.x + expandBox!.width).toBeLessThanOrEqual(
+      sidebarBox!.x + sidebarBox!.width,
+    )
     await expect(
       page.getByRole('link', { name: 'Player Directory' }),
     ).toHaveAttribute('title', 'Player Directory')
@@ -69,12 +81,22 @@ test.describe('application shell primary journey', () => {
     await page.getByRole('button', { name: 'Open navigation menu' }).click()
     await expect(sidebar).toBeVisible()
     await expect(backdrop).toHaveAttribute('data-open', 'true')
+    const closeNavigation = page.getByRole('button', {
+      name: 'Close navigation menu',
+    })
+    await expect(closeNavigation).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(page.getByRole('link', { name: 'User Settings' })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(closeNavigation).toBeFocused()
 
     await page.getByRole('link', { name: 'Teams' }).click()
     await expect(page).toHaveURL(/\/teams$/)
     await expect(
       page.getByRole('heading', { level: 1, name: 'Teams' }),
     ).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Teams' })).toBeFocused()
+    await expect(page).toHaveTitle('Teams | VK Cricket Academy')
     await expect(sidebar).toBeHidden()
 
     await page.getByRole('button', { name: 'Open navigation menu' }).click()
@@ -155,16 +177,10 @@ test.describe('application shell primary journey', () => {
     await page.goto('/')
 
     await expect(page.locator('h1')).toHaveCount(1)
-    await expect(
-      page.getByRole('img', { name: 'VK Cricket Academy logo' }),
-    ).toBeVisible()
+    await expect(page.getByText('Academy Portal')).toBeVisible()
     await expect(page.getByRole('link', { name: 'Home' })).toHaveAttribute(
       'aria-current',
       'page',
-    )
-    await expect(page.locator('.home-page-enter')).toHaveCSS(
-      'animation-name',
-      'none',
     )
     await expect(page.getByLabel('Application sidebar')).toHaveCSS(
       'transition-duration',
@@ -172,7 +188,13 @@ test.describe('application shell primary journey', () => {
     )
 
     await page.keyboard.press('Tab')
+    const skipLink = page.getByRole('link', { name: 'Skip to main content' })
+    await expect(skipLink).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('main')).toBeFocused()
+
     const focusedLink = page.getByRole('link', { name: 'Home' })
+    await focusedLink.focus()
     await expect(focusedLink).toBeFocused()
     const focusShadow = await focusedLink.evaluate(
       (element) => getComputedStyle(element).boxShadow,

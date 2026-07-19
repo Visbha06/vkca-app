@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import AppLayout from '../layouts/AppLayout'
@@ -13,8 +19,8 @@ function renderResponsiveLayout() {
     <MemoryRouter initialEntries={['/']}>
       <Routes>
         <Route element={<AppLayout />}>
-          <Route index element={<h1>Home page</h1>} />
-          <Route path="teams" element={<h1>Teams page</h1>} />
+          <Route index element={<h1 tabIndex={-1}>Home page</h1>} />
+          <Route path="teams" element={<h1 tabIndex={-1}>Teams page</h1>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -38,6 +44,15 @@ describe('responsive navigation', () => {
     expect(
       screen.getByRole('button', { name: 'Close navigation menu' }),
     ).toHaveAttribute('aria-expanded', 'true')
+    expect(
+      screen.getByRole('button', { name: 'Close navigation menu' }),
+    ).toHaveFocus()
+    expect(screen.getByRole('main', { hidden: true })).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    )
+    expect(screen.getByRole('main', { hidden: true })).toHaveAttribute('inert')
+    expect(document.body).toHaveStyle({ overflow: 'hidden' })
   })
 
   it('closes the mobile overlay when a navigation link is selected', async () => {
@@ -76,6 +91,42 @@ describe('responsive navigation', () => {
     openNavigation()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(sidebar).toHaveAttribute('data-mobile-open', 'false')
+  })
+
+  it('keeps focus inside the mobile drawer and restores it on close', () => {
+    renderResponsiveLayout()
+
+    const openButton = screen.getByRole('button', {
+      name: 'Open navigation menu',
+    })
+    fireEvent.click(openButton)
+
+    const closeButton = screen.getByRole('button', {
+      name: 'Close navigation menu',
+    })
+    const settingsLink = screen.getByRole('link', { name: 'User Settings' })
+
+    expect(closeButton).toHaveFocus()
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true })
+    expect(settingsLink).toHaveFocus()
+
+    fireEvent.keyDown(document, { key: 'Tab' })
+    expect(closeButton).toHaveFocus()
+
+    fireEvent.click(closeButton)
+    expect(openButton).toHaveFocus()
+    expect(document.body.style.overflow).toBe('')
+  })
+
+  it('updates the page title and focuses the new route heading', async () => {
+    renderResponsiveLayout()
+
+    expect(document.title).toBe('Home | VK Cricket Academy')
+    fireEvent.click(screen.getByRole('link', { name: 'Teams' }))
+
+    const heading = await screen.findByRole('heading', { name: 'Teams page' })
+    await waitFor(() => expect(heading).toHaveFocus())
+    expect(document.title).toBe('Teams | VK Cricket Academy')
   })
 
   it('exposes accessible navigation state and visible focus styles', () => {
