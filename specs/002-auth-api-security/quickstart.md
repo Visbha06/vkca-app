@@ -164,7 +164,7 @@ curl -s http://localhost:8000/api/v1/auth/me \
 ### Scenario 6: Role-Based Access Control (User Story 3)
 
 ```bash
-# Create assistant coach and staff users (requires head coach token)
+# Create assistant coach and player users (requires head coach token)
 HC_TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"headcoach@vkca.test","password":"SuperSecur3!P@ss"}' \
@@ -193,7 +193,7 @@ curl -s -X POST http://localhost:8000/api/v1/players \
 curl -s -X POST http://localhost:8000/api/v1/users \
   -H "Authorization: Bearer $AC_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"first_name":"Bad","last_name":"Actor","email":"bad@vkca.test","password":"BadP@ssword1","role":"staff"}'
+  -d '{"first_name":"Bad","last_name":"Actor","email":"bad@vkca.test","password":"BadP@ssword1","role":"player"}'
 # Expected: 403
 ```
 

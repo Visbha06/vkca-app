@@ -12,7 +12,7 @@
 
 ### User Story 1 - Manage Player Profiles (Priority: P1)
 
-A coach or staff member needs to create and maintain cricket player profiles that capture personal details, playing style, and career statistics. This is the foundation of the entire system — without player records, no other feature has meaning.
+A coach or player member needs to create and maintain cricket player profiles that capture personal details, playing style, and career statistics. This is the foundation of the entire system — without player records, no other feature has meaning.
 
 **Why this priority**: Players are the atomic unit of the system. Teams, match performances, and statistics all reference players. This must exist first.
 
@@ -47,7 +47,7 @@ A coach needs to organize players into teams (squads) by age group and assign pl
 
 ### User Story 3 - Record Match Events (Priority: P2)
 
-A coach or staff member needs to record match events — the date, format, opponent, venue, and result — as the parent container for all performance data collected during that game.
+A coach or player member needs to record match events — the date, format, opponent, venue, and result — as the parent container for all performance data collected during that game.
 
 **Why this priority**: Matches are the events that produce all performance statistics. Must exist before match performances can be submitted.
 
@@ -62,7 +62,7 @@ A coach or staff member needs to record match events — the date, format, oppon
 
 ### User Story 4 - Submit Match Performances with Atomic Stats Update (Priority: P1)
 
-After a match concludes, a coach or staff member submits a batch of player performances — batting, bowling, and fielding metrics for each player who participated. The system must accept this batch in a single atomic transaction, write to the three performance tables, and automatically recalculate the player's career aggregate statistics before committing.
+After a match concludes, a coach or player member submits a batch of player performances — batting, bowling, and fielding metrics for each player who participated. The system must accept this batch in a single atomic transaction, write to the three performance tables, and automatically recalculate the player's career aggregate statistics before committing.
 
 **Why this priority**: This is the core operational workflow. Match data entry is the primary daily activity for coaches, and the atomic accumulator rule is a critical data-integrity requirement.
 
@@ -96,7 +96,7 @@ A coach wants to review a player's lifetime batting or bowling statistics, broke
 
 ### User Story 6 - Manage User Accounts (Priority: P3)
 
-An administrator needs to create accounts for coaches and staff members who will operate the system. Each user has a role that determines their access level.
+An administrator needs to create accounts for coaches and player members who will operate the system. Each user has a role that determines their access level.
 
 **Why this priority**: User management gates access to all other features, but authentication is deferred to a future spec. Basic CRUD for user records enables the system to be used once auth is added.
 
@@ -192,7 +192,7 @@ When a concurrent modification conflict occurs (OCC version mismatch), the syste
 
 ### Key Entities
 
-- **User**: Represents a coach, administrator, or staff member who operates the system. Key attributes: name, email (unique across all users), role (head coach / assistant coach / staff), active status.
+- **User**: Represents a coach, administrator, or player member who operates the system. Key attributes: name, email (unique across all users), role (head coach / assistant coach / player), active status.
 - **Player**: A cricket player whose profile and statistics are tracked. Key attributes: name, date of birth, bio, batting style (right/left), bowling style (8 variants), player type (batter / bowler / all-rounder / wicket-keeper), extensible metadata (JSON), active status. Uniqueness enforced on the composite of first_name + last_name + date_of_birth. Inactive players are excluded from the default list but remain queryable by ID.
 - **Team**: A squad organized by age group. Key attributes: name, age group. Links to Players via TeamPlayers.
 - **TeamPlayer**: A cross-reference linking a Player to a Team with the date they joined the squad.

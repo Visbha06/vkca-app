@@ -8,7 +8,7 @@ from src.models.base import Base, TimestampMixin, UUIDMixin, VersionMixin
 
 
 class User(UUIDMixin, TimestampMixin, VersionMixin, Base):
-    """A coach or staff account managed by an administrator.
+    """A coach or player account managed by an administrator.
 
     Email addresses are normalized to lowercase before persistence. The
     ``hashed_password`` column stores only server-generated Argon2id output.
@@ -18,7 +18,7 @@ class User(UUIDMixin, TimestampMixin, VersionMixin, Base):
     __table_args__ = (
         UniqueConstraint("email", name="uq_users_email"),
         CheckConstraint(
-            "role IN ('head coach', 'assistant coach', 'staff')",
+            "role IN ('head coach', 'assistant coach', 'player')",
             name="ck_users_role",
         ),
     )

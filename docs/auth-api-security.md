@@ -1,6 +1,6 @@
 # Authentication, Authorization, and API Security
 
-The VKCA backend authenticates coaches and staff with server-hashed passwords,
+The VKCA backend authenticates coaches and player with server-hashed passwords,
 short-lived access tokens, rotating refresh sessions, role-based permissions,
 login throttling, CSRF protection, and a credential-free security audit trail.
 There is no self-registration; a Head Coach creates and manages all accounts.
@@ -47,7 +47,7 @@ active session belonging to the affected user.
 |---|---|
 | Head Coach | Full cricket-data access plus user, role, and session administration |
 | Assistant Coach | Read and write cricket data; no user administration |
-| Staff | Read-only access to cricket data |
+| Player | Read-only access to cricket data |
 
 Authorization loads the current role from the database on every request, so a
 role change takes effect immediately. Missing authentication returns `401`;
@@ -70,7 +70,7 @@ authenticated requests without permission return `403`.
 | `POST` | `/api/v1/users/{id}/change-password` | Self or Head Coach | Replace the password and revoke all sessions |
 
 All cricket-data routes require authentication. Head and Assistant Coaches may
-perform writes; Staff access is read-only.
+perform writes; Player access is read-only.
 
 ## Security behavior
 

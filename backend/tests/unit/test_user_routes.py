@@ -71,7 +71,7 @@ def user_payload(**overrides: str) -> dict[str, str]:
         "last_name": "Doe",
         "email": "Jane.Doe@Example.com",
         "password": "SecureP@ssword1",
-        "role": "staff",
+        "role": "player",
     }
     payload.update(overrides)
     return payload
@@ -236,12 +236,12 @@ async def test_head_coach_can_change_role(
 
     response = await client.patch(
         f"/api/v1/users/{target.id}/role",
-        json={"role": "staff"},
+        json={"role": "player"},
     )
 
     assert response.status_code == 200
-    assert response.json()["role"] == "staff"
-    assert target.role is UserRole.STAFF
+    assert response.json()["role"] == "player"
+    assert target.role is UserRole.PLAYER
     db_session.commit.assert_awaited_once_with()
 
 
@@ -257,7 +257,7 @@ async def test_role_change_audited(
 
     response = await client.patch(
         f"/api/v1/users/{target.id}/role",
-        json={"role": "staff"},
+        json={"role": "player"},
     )
 
     assert response.status_code == 200
@@ -272,7 +272,7 @@ async def test_assistant_coach_cannot_change_role(
     db_session: AsyncMock,
 ) -> None:
     assistant = make_user(role=UserRole.ASSISTANT_COACH)
-    target = make_user(role=UserRole.STAFF)
+    target = make_user(role=UserRole.PLAYER)
 
     async def override_get_current_user():
         return assistant, make_auth_session(assistant)
@@ -366,10 +366,10 @@ async def test_non_head_coach_cannot_disable(
     client: httpx.AsyncClient,
     db_session: AsyncMock,
 ) -> None:
-    staff = make_user(role=UserRole.STAFF)
+    player = make_user(role=UserRole.PLAYER)
 
     async def override_get_current_user():
-        return staff, make_auth_session(staff)
+        return player, make_auth_session(player)
 
     app.dependency_overrides[get_current_user] = override_get_current_user
     response = await client.post(f"/api/v1/users/{uuid4()}/disable")
@@ -448,11 +448,11 @@ async def test_non_head_coach_cannot_change_another_users_password(
     client: httpx.AsyncClient,
     db_session: AsyncMock,
 ) -> None:
-    staff = make_user(role=UserRole.STAFF)
+    player = make_user(role=UserRole.PLAYER)
     target = make_user()
 
     async def override_get_current_user():
-        return staff, make_auth_session(staff)
+        return player, make_auth_session(player)
 
     app.dependency_overrides[get_current_user] = override_get_current_user
     db_session.scalar.return_value = target

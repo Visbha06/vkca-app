@@ -8,7 +8,7 @@ class UserRole(StrEnum):
 
     HEAD_COACH = "head coach"
     ASSISTANT_COACH = "assistant coach"
-    STAFF = "staff"
+    PLAYER = "player"
 
 
 class BattingStyle(StrEnum):

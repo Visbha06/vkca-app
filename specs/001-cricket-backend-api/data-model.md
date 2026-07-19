@@ -39,7 +39,7 @@ DataSyncLogs (standalone audit table; no FKs)
 | last_name | VARCHAR(100) | NOT NULL | |
 | email | VARCHAR(255) | NOT NULL, UNIQUE | |
 | hashed_password | VARCHAR(255) | NOT NULL | Pre-hashed; hashing algorithm deferred to auth spec |
-| role | VARCHAR(20) | NOT NULL, CHECK (role IN ('head coach', 'assistant coach', 'staff')) | |
+| role | VARCHAR(20) | NOT NULL, CHECK (role IN ('head coach', 'assistant coach', 'player')) | |
 | is_active | BOOLEAN | NOT NULL, DEFAULT TRUE | Soft-deactivation support |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Server-generated |
 | updated_at | TIMESTAMPTZ | NOT NULL, DEFAULT NOW() | Server-generated; updated on every write |

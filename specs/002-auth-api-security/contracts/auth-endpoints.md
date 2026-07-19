@@ -160,7 +160,7 @@ Change a user's role. **Head Coach only.** Role change takes effect immediately.
 **Request**:
 ```json
 {
-  "role": "staff"
+  "role": "player"
 }
 ```
 
@@ -180,7 +180,7 @@ Disable a user account. Revokes all active sessions. **Head Coach only.**
 
 All existing routes (`/api/v1/players`, `/api/v1/teams`, `/api/v1/matches`, `/api/v1/performances`, `/api/v1/stats`) gain an `Authorization: Bearer <access_token>` header requirement and role-based access:
 
-| Endpoint | Method | Head Coach | Assistant Coach | Staff |
+| Endpoint | Method | Head Coach | Assistant Coach | Player |
 |----------|--------|------------|-----------------|-------|
 | `/players` | GET | ✅ | ✅ | ✅ |
 | `/players` | POST | ✅ | ✅ | ❌ |

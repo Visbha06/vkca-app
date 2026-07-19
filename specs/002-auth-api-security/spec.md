@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User description: "Authentication, Authorization, and API Security — password hashing (Argon2id), JWT access tokens, opaque refresh tokens with rotation and reuse detection, server-side sessions, role-based access control (Head Coach / Assistant Coach / Staff), rate limiting, audit logging, CSRF protection, and secure cookie handling."
+**Input**: User description: "Authentication, Authorization, and API Security — password hashing (Argon2id), JWT access tokens, opaque refresh tokens with rotation and reuse detection, server-side sessions, role-based access control (Head Coach / Assistant Coach / Player), rate limiting, audit logging, CSRF protection, and secure cookie handling."
 
 ## Clarifications
 
@@ -63,11 +63,11 @@ A user's access token is short-lived (30 minutes). When it expires, the browser 
 
 ### User Story 3 - Role-Based Access Control (Priority: P2)
 
-Every protected endpoint enforces role-based authorization. The system checks the authenticated user's role against the required permission for the operation. A head coach has full access including user management; an assistant coach can manage cricket data but not users; a staff member has read-only access. Access is denied by default when a route has no explicit authorization rule. Role changes and user disablement take effect immediately. Client-provided roles are never trusted.
+Every protected endpoint enforces role-based authorization. The system checks the authenticated user's role against the required permission for the operation. A head coach has full access including user management; an assistant coach can manage cricket data but not users; a player member has read-only access. Access is denied by default when a route has no explicit authorization rule. Role changes and user disablement take effect immediately. Client-provided roles are never trusted.
 
 **Why this priority**: Authorization enforces the security model. Without it, any authenticated user could perform any action, defeating the purpose of role separation.
 
-**Independent Test**: Can be tested by creating users with each role (head coach, assistant coach, staff) and verifying that each role can only perform operations permitted by the specification — both allowed actions succeed and denied actions return HTTP 403.
+**Independent Test**: Can be tested by creating users with each role (head coach, assistant coach, player) and verifying that each role can only perform operations permitted by the specification — both allowed actions succeed and denied actions return HTTP 403.
 
 **Acceptance Scenarios**:
 
@@ -75,9 +75,9 @@ Every protected endpoint enforces role-based authorization. The system checks th
 
 2. **Given** an assistant coach is authenticated, **When** they attempt to create a user, change a role, disable a user, or manage sessions, **Then** the system returns HTTP 403. When they attempt to create a player, create a team, create a match, submit a performance, or view any resource, those operations succeed.
 
-3. **Given** a staff member is authenticated, **When** they attempt any write operation (create/update player, team, match, performance, user), **Then** the system returns HTTP 403. When they view players, teams, matches, performances, or statistics, those operations succeed.
+3. **Given** a player member is authenticated, **When** they attempt any write operation (create/update player, team, match, performance, user), **Then** the system returns HTTP 403. When they view players, teams, matches, performances, or statistics, those operations succeed.
 
-4. **Given** a head coach changes an assistant coach's role to staff, **When** the affected user makes their next protected request, **Then** their access is limited to staff (read-only) permissions immediately — the role change takes effect without requiring re-login.
+4. **Given** a head coach changes an assistant coach's role to player, **When** the affected user makes their next protected request, **Then** their access is limited to player (read-only) permissions immediately — the role change takes effect without requiring re-login.
 
 5. **Given** an endpoint has no explicit authorization rule, **When** any authenticated user accesses it, **Then** the system denies access by default (HTTP 403).
 
@@ -89,7 +89,7 @@ Every protected endpoint enforces role-based authorization. The system checks th
 
 A head coach can create new user accounts, change user roles, and disable user accounts. Creating a user requires providing an email, password, and role. The password is accepted as plain text and hashed server-side using Argon2id — clients never generate or submit password hashes. Disabling a user revokes all their active sessions immediately and prevents future login and token refresh.
 
-**Why this priority**: User administration is essential for managing access to the system. Without it, new coaches and staff cannot be onboarded, and departing personnel cannot be deactivated.
+**Why this priority**: User administration is essential for managing access to the system. Without it, new coaches and player cannot be onboarded, and departing personnel cannot be deactivated.
 
 **Independent Test**: Can be tested in isolation by a head coach creating a user, verifying the new user can log in, changing the user's role and verifying the new permissions, disabling the user and verifying all sessions are revoked and login is blocked.
 
@@ -97,7 +97,7 @@ A head coach can create new user accounts, change user roles, and disable user a
 
 1. **Given** a head coach is authenticated, **When** they submit a new user with email, password, and role, **Then** the system creates the user account, hashes the password using Argon2id with a unique salt, and returns the user's profile (without the password hash). The new user can immediately log in.
 
-2. **Given** a head coach changes a user's role (e.g., assistant coach to staff), **When** the role change is saved, **Then** the role takes effect immediately on the user's next protected request, and the change is recorded in the audit log.
+2. **Given** a head coach changes a user's role (e.g., assistant coach to player), **When** the role change is saved, **Then** the role takes effect immediately on the user's next protected request, and the change is recorded in the audit log.
 
 3. **Given** a head coach disables a user account, **When** the disable operation completes, **Then** all active sessions for that user are revoked, the user can no longer log in, and their existing refresh tokens are invalidated. All revocations are recorded in the audit log.
 
@@ -261,7 +261,7 @@ All significant authentication and authorization events are recorded in an audit
 
 - **FR-025**: Assistant Coach users MUST be able to: create/update player profiles, create teams and modify rosters, create matches, submit match performances, and view all resources. They MUST NOT be able to: create/update/deactivate/list user accounts, change user roles, or revoke sessions belonging to other users.
 
-- **FR-026**: Staff users MUST have read-only access: view players, teams, matches, performances, and statistics. They MUST NOT perform any write operations or manage users, roles, or sessions.
+- **FR-026**: Player users MUST have read-only access: view players, teams, matches, performances, and statistics. They MUST NOT perform any write operations or manage users, roles, or sessions.
 
 - **FR-027**: Authorization failures MUST return HTTP 403 without exposing sensitive implementation details such as stack traces, database information, or internal permission structures.
 
@@ -317,7 +317,7 @@ All significant authentication and authorization events are recorded in an audit
 
 ### Key Entities
 
-- **User**: Represents a person who can authenticate and use the system. Key attributes: unique ID, email address, Argon2id password hash, role (head coach / assistant coach / staff), active/disabled status, creation timestamp, and last-modified timestamp. Relationships: has many AuthSessions; may create/update player profiles, teams, matches, and performances depending on role.
+- **User**: Represents a person who can authenticate and use the system. Key attributes: unique ID, email address, Argon2id password hash, role (head coach / assistant coach / player), active/disabled status, creation timestamp, and last-modified timestamp. Relationships: has many AuthSessions; may create/update player profiles, teams, matches, and performances depending on role.
 
 - **AuthSession**: Represents a single login session — not a single token. Key attributes: session ID, user ID (foreign key), token-family ID (shared by all tokens in a rotation chain), current refresh-token hash (the single valid token for the next refresh), previously used token hashes (stored for reuse detection — a match indicates token theft and triggers family-wide revocation), creation timestamp, last-used timestamp, inactivity-expiration timestamp, absolute-expiration timestamp, revocation timestamp (nullable), revocation reason (nullable), source IP address, and user agent. The model explicitly distinguishes: (a) the current valid refresh token, (b) previously used (rotated) tokens within the same family, and (c) the token-family identifier that links the rotation chain. Relationships: belongs to one User; within a token family, rotation chains link successive refresh tokens.
 
@@ -363,6 +363,6 @@ All significant authentication and authorization events are recorded in an audit
 
 - Existing endpoints (players, teams, matches, performances, stats) will have authorization dependencies retrofitted. The current-user endpoint is new.
 
-- Staff write permissions beyond read-only access, logout-all-devices, maximum simultaneous-session limits, and an administrative session dashboard are deferred to future specifications.
+- Player write permissions beyond read-only access, logout-all-devices, maximum simultaneous-session limits, and an administrative session dashboard are deferred to future specifications.
 
 - Specific configuration values — the SameSite policy (Lax vs. Strict), refresh-token cookie name, cookie path, CSRF header name, and CSRF cookie name — will be settled during the planning phase. These are operational deployment choices that do not affect the specification's functional requirements.

@@ -49,7 +49,7 @@ def test_user_create_rejects_invalid_required_fields(field: str, value: str) -> 
         "last_name": "Doe",
         "email": "john.doe@example.com",
         "password": "SecureP@ssword1",
-        "role": "staff",
+        "role": "player",
     }
     payload[field] = value
 
@@ -64,7 +64,7 @@ def test_password_field_accepted() -> None:
             "last_name": "Doe",
             "email": "john.doe@example.com",
             "password": "SecureP@ssword1",
-            "role": "staff",
+            "role": "player",
         }
     )
 
@@ -81,7 +81,7 @@ def test_hashed_password_field_rejected() -> None:
                 "email": "john.doe@example.com",
                 "password": "SecureP@ssword1",
                 "hashed_password": "$argon2id$client-supplied",
-                "role": "staff",
+                "role": "player",
             }
         )
 
@@ -104,7 +104,7 @@ def test_password_policy_enforced(password: str) -> None:
                 "last_name": "Doe",
                 "email": "john.doe@example.com",
                 "password": password,
-                "role": "staff",
+                "role": "player",
             }
         )
 

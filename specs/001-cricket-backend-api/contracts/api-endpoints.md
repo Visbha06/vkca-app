@@ -41,7 +41,7 @@ Create a new user account.
 - `last_name`: required, 1-100 chars
 - `email`: required, valid email format, unique
 - `hashed_password`: required, non-empty
-- `role`: required, one of `head coach`, `assistant coach`, `staff`
+- `role`: required, one of `head coach`, `assistant coach`, `player`
 
 **Response 201**:
 ```json

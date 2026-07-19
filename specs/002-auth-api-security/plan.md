@@ -6,7 +6,7 @@
 
 ## Summary
 
-Add password-based authentication with Argon2id hashing, HS256 JWT access tokens (30-minute TTL), opaque refresh tokens with rotation and reuse detection, server-side AuthSession storage, role-based access control (Head Coach / Assistant Coach / Staff), login rate limiting, CSRF protection on cookie-based endpoints, and comprehensive authentication audit logging. Replace the existing plaintext `hashed_password` field with proper server-side Argon2id password handling. Retrofits authorization dependencies on all existing protected routes.
+Add password-based authentication with Argon2id hashing, HS256 JWT access tokens (30-minute TTL), opaque refresh tokens with rotation and reuse detection, server-side AuthSession storage, role-based access control (Head Coach / Assistant Coach / Player), login rate limiting, CSRF protection on cookie-based endpoints, and comprehensive authentication audit logging. Replace the existing plaintext `hashed_password` field with proper server-side Argon2id password handling. Retrofits authorization dependencies on all existing protected routes.
 
 ## Technical Context
 
@@ -26,7 +26,7 @@ Add password-based authentication with Argon2id hashing, HS256 JWT access tokens
 
 **Constraints**: No credentials in API responses, logs, or error messages (FR-005, FR-044, FR-047). Generic error messages for all auth failures (FR-009). CSRF protection on refresh and logout endpoints (FR-020). No hardcoded secrets (FR-011).
 
-**Scale/Scope**: Small-scale cricket team management app (handful of coaches/staff per organization). Single-instance rate limiter acceptable per spec assumption.
+**Scale/Scope**: Small-scale cricket team management app (handful of coaches/player per organization). Single-instance rate limiter acceptable per spec assumption.
 
 ## Constitution Check
 

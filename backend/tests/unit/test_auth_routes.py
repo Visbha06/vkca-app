@@ -337,7 +337,7 @@ async def test_me_with_expired_token_returns_401(client: httpx.AsyncClient) -> N
         jwt_secret=TEST_JWT_SECRET,
         jwt_algorithm="HS256",
         access_token_expire_minutes=-1,
-    ).create_access_token(uuid4(), uuid4(), UserRole.STAFF)
+    ).create_access_token(uuid4(), uuid4(), UserRole.PLAYER)
 
     response = await client.get(
         "/api/v1/auth/me",
@@ -365,7 +365,7 @@ async def test_me_with_wrong_signature_returns_401(client: httpx.AsyncClient) ->
         jwt_secret="different-test-secret",
         jwt_algorithm="HS256",
         access_token_expire_minutes=30,
-    ).create_access_token(uuid4(), uuid4(), UserRole.STAFF)
+    ).create_access_token(uuid4(), uuid4(), UserRole.PLAYER)
 
     response = await client.get(
         "/api/v1/auth/me",
@@ -935,14 +935,14 @@ async def test_assistant_coach_denied_admin_operations() -> None:
 
 
 @pytest.mark.asyncio
-async def test_staff_read_only_enforcement() -> None:
-    user = make_user(role=UserRole.STAFF)
+async def test_player_read_only_enforcement() -> None:
+    user = make_user(role=UserRole.PLAYER)
     auth_session = make_auth_session(user)
 
     read_result = await require_role(
         UserRole.HEAD_COACH,
         UserRole.ASSISTANT_COACH,
-        UserRole.STAFF,
+        UserRole.PLAYER,
     )((user, auth_session), *role_dependency_context())
     with pytest.raises(HTTPException) as exc_info:
         await require_role(
@@ -971,7 +971,7 @@ async def test_role_from_jwt_not_trusted(
     client: httpx.AsyncClient,
     db_session: AsyncMock,
 ) -> None:
-    user = make_user(role=UserRole.STAFF)
+    user = make_user(role=UserRole.PLAYER)
     auth_session = make_auth_session(user)
     token = TokenService(
         jwt_secret=TEST_JWT_SECRET,
@@ -992,7 +992,7 @@ async def test_role_from_jwt_not_trusted(
 
 @pytest.mark.asyncio
 async def test_role_change_takes_effect_next_request() -> None:
-    user = make_user(role=UserRole.STAFF)
+    user = make_user(role=UserRole.PLAYER)
     auth_session = make_auth_session(user)
     cricket_data_access = require_role(
         UserRole.HEAD_COACH,
@@ -1039,35 +1039,35 @@ async def test_players_get_all_roles(
 
 
 @pytest.mark.asyncio
-async def test_players_post_staff_denied(client: httpx.AsyncClient) -> None:
-    await _assert_staff_write_denied(client, "/api/v1/players", json={})
+async def test_players_post_player_denied(client: httpx.AsyncClient) -> None:
+    await _assert_player_write_denied(client, "/api/v1/players", json={})
 
 
 @pytest.mark.asyncio
-async def test_teams_post_staff_denied(client: httpx.AsyncClient) -> None:
-    await _assert_staff_write_denied(client, "/api/v1/teams", json={})
+async def test_teams_post_player_denied(client: httpx.AsyncClient) -> None:
+    await _assert_player_write_denied(client, "/api/v1/teams", json={})
 
 
 @pytest.mark.asyncio
-async def test_matches_post_staff_denied(client: httpx.AsyncClient) -> None:
-    await _assert_staff_write_denied(client, "/api/v1/matches", json={})
+async def test_matches_post_player_denied(client: httpx.AsyncClient) -> None:
+    await _assert_player_write_denied(client, "/api/v1/matches", json={})
 
 
 @pytest.mark.asyncio
-async def test_performances_post_staff_denied(client: httpx.AsyncClient) -> None:
-    await _assert_staff_write_denied(
+async def test_performances_post_player_denied(client: httpx.AsyncClient) -> None:
+    await _assert_player_write_denied(
         client,
         f"/api/v1/matches/{uuid4()}/performances",
         json={"performances": []},
     )
 
 
-async def _assert_staff_write_denied(
+async def _assert_player_write_denied(
     client: httpx.AsyncClient,
     path: str,
     **request_kwargs,
 ) -> None:
-    user = make_user(role=UserRole.STAFF)
+    user = make_user(role=UserRole.PLAYER)
     auth_session = make_auth_session(user)
 
     async def override_get_current_user():

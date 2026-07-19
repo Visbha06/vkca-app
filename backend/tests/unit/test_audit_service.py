@@ -343,7 +343,7 @@ async def test_role_change_logged(mocker) -> None:
 
     await change_user_role(
         user.id,
-        UserRoleUpdate(role=UserRole.STAFF),
+        UserRoleUpdate(role=UserRole.PLAYER),
         session,
         None,
     )
@@ -433,7 +433,7 @@ async def test_rate_limit_logged(mocker) -> None:
 @pytest.mark.asyncio
 async def test_authorization_denial_logged(mocker) -> None:
     session = make_session()
-    user = make_user(role=UserRole.STAFF)
+    user = make_user(role=UserRole.PLAYER)
     auth_session = make_auth_session(user)
     log_event = mocker.patch.object(
         AuditService,

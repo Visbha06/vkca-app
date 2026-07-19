@@ -306,7 +306,7 @@ Task: "Create Player Pydantic schemas in backend/src/schemas/player.py"
 | Stage | Phases | What's New | Cumulative Value |
 |-------|--------|------------|------------------|
 | MVP | 1, 2, 3 | Player registry with OCC | Foundation for all features |
-| +Users | 4 | User account CRUD | Staff can be provisioned |
+| +Users | 4 | User account CRUD | Player can be provisioned |
 | +Teams | 5 | Squad management | Organize players into teams |
 | +Matches | 6 | Match events | Record game metadata |
 | +Performances | 7 | Batch stats entry + career stats | Full cricket data pipeline |

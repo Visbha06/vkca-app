@@ -124,14 +124,14 @@
 
 ## Phase 5: User Story 3 — Role-Based Access Control (Priority: P2)
 
-**Goal**: Every protected endpoint enforces role-based authorization. Head Coach = full access. Assistant Coach = cricket data management only. Staff = read-only. Default-deny for routes without explicit authorization rules. Role changes take effect on next request. Client-provided roles never trusted.
+**Goal**: Every protected endpoint enforces role-based authorization. Head Coach = full access. Assistant Coach = cricket data management only. Player = read-only. Default-deny for routes without explicit authorization rules. Role changes take effect on next request. Client-provided roles never trusted.
 
 **Independent Test**: Authenticate as each role → verify allowed operations succeed and denied operations return 403. Change a user's role → verify new permissions take effect on next request without re-login.
 
 ### Tests for User Story 3 (MANDATORY unit tests) ⚠️
 
-- [X] T035 [P] [US3] Write unit tests for require_role dependency: test_head_coach_access_to_admin_operations, test_assistant_coach_denied_admin_operations, test_staff_read_only_enforcement, test_default_deny_no_rule, test_role_from_jwt_not_trusted, test_role_change_takes_effect_next_request in `backend/tests/unit/test_auth_routes.py`
-- [X] T036 [P] [US3] Write unit tests for retrofitted routes: test_players_get_all_roles, test_players_post_staff_denied, test_teams_post_staff_denied, test_matches_post_staff_denied, test_performances_post_staff_denied, test_stats_get_all_roles in `backend/tests/unit/test_auth_routes.py`
+- [X] T035 [P] [US3] Write unit tests for require_role dependency: test_head_coach_access_to_admin_operations, test_assistant_coach_denied_admin_operations, test_player_read_only_enforcement, test_default_deny_no_rule, test_role_from_jwt_not_trusted, test_role_change_takes_effect_next_request in `backend/tests/unit/test_auth_routes.py`
+- [X] T036 [P] [US3] Write unit tests for retrofitted routes: test_players_get_all_roles, test_players_post_player_denied, test_teams_post_player_denied, test_matches_post_player_denied, test_performances_post_player_denied, test_stats_get_all_roles in `backend/tests/unit/test_auth_routes.py`
 
 ### Implementation for User Story 3
 
@@ -141,7 +141,7 @@
 - [X] T040 [P] [US3] Add `current_user: Annotated[User, Depends(get_current_user)]` to all existing route handlers in `backend/src/routes/matches.py`
 - [X] T041 [P] [US3] Add `current_user: Annotated[User, Depends(get_current_user)]` to all existing route handlers in `backend/src/routes/performances.py`
 - [X] T042 [P] [US3] Add `current_user: Annotated[User, Depends(get_current_user)]` to all existing route handlers in `backend/src/routes/stats.py`
-- [X] T043 [US3] Add role-based restrictions: POST/PUT operations on players/teams/matches/performances require `require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)` (Staff denied); GET operations on stats/players/teams/matches require authenticated user only, in each route file
+- [X] T043 [US3] Add role-based restrictions: POST/PUT operations on players/teams/matches/performances require `require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)` (Player denied); GET operations on stats/players/teams/matches require authenticated user only, in each route file
 
 **Checkpoint**: Role-based access control enforced on all existing routes. Each role has correct permissions per spec.
 

@@ -42,11 +42,11 @@ def test_create_access_token_has_required_claims(
 
 
 def test_decode_valid_token(token_service: TokenService) -> None:
-    token = token_service.create_access_token(uuid4(), uuid4(), UserRole.STAFF)
+    token = token_service.create_access_token(uuid4(), uuid4(), UserRole.PLAYER)
 
     claims = token_service.decode_and_verify_access_token(token)
 
-    assert claims["role"] == UserRole.STAFF.value
+    assert claims["role"] == UserRole.PLAYER.value
 
 
 def test_reject_expired_token() -> None:
@@ -55,7 +55,7 @@ def test_reject_expired_token() -> None:
         jwt_algorithm="HS256",
         access_token_expire_minutes=-1,
     )
-    token = service.create_access_token(uuid4(), uuid4(), UserRole.STAFF)
+    token = service.create_access_token(uuid4(), uuid4(), UserRole.PLAYER)
 
     with pytest.raises(ExpiredSignatureError):
         service.decode_and_verify_access_token(token)
@@ -72,7 +72,7 @@ def test_reject_wrong_signature(token_service: TokenService) -> None:
         jwt_algorithm="HS256",
         access_token_expire_minutes=30,
     )
-    token = other_service.create_access_token(uuid4(), uuid4(), UserRole.STAFF)
+    token = other_service.create_access_token(uuid4(), uuid4(), UserRole.PLAYER)
 
     with pytest.raises(JWTError):
         token_service.decode_and_verify_access_token(token)

@@ -254,7 +254,7 @@ async def test_full_eight_scenario_authentication_quickstart_flow() -> None:
                     "last_name": "Actor",
                     "email": f"bad-{run_id}@vkca.test",
                     "password": "BadP@ssword1",
-                    "role": "staff",
+                    "role": "player",
                 },
             )
             assert denied_user_creation.status_code == 403

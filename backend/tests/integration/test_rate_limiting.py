@@ -37,7 +37,7 @@ async def test_login_rate_limit_reset_and_account_independence() -> None:
                     last_name="Limited",
                     email=blocked_email,
                     hashed_password=PasswordService.hash_password(password),
-                    role=UserRole.STAFF,
+                    role=UserRole.PLAYER,
                     is_active=True,
                 ),
                 User(
@@ -46,7 +46,7 @@ async def test_login_rate_limit_reset_and_account_independence() -> None:
                     last_name="Reset",
                     email=reset_email,
                     hashed_password=PasswordService.hash_password(password),
-                    role=UserRole.STAFF,
+                    role=UserRole.PLAYER,
                     is_active=True,
                 ),
             ]
