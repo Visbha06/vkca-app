@@ -81,12 +81,12 @@
 
 ### Tests for User Story 2 (MANDATORY unit tests) ⚠️
 
-- [ ] T017 [P] [US2] Unit test for login error messages in `frontend/src/tests/LoginPage.test.tsx` (extend existing: test invalid-credentials message, test network-error message, test rate-limit message, verify raw errors not displayed)
+- [X] T017 [P] [US2] Unit test for login error messages in `frontend/src/tests/LoginPage.test.tsx` (extend existing: test invalid-credentials message, test network-error message, test rate-limit message, verify raw errors not displayed)
 
 ### Implementation for User Story 2
 
-- [ ] T018 [US2] Add error mapping logic to LoginPage: 401/credential errors → "Invalid email or password.", network/5xx → "Unable to sign in right now. Please try again.", 429 → "Too many sign-in attempts. Please wait and try again." in `frontend/src/pages/LoginPage.tsx`
-- [ ] T019 [US2] Add loading spinner + disabled-submit state to login button with accessible `aria-busy` communication in `frontend/src/pages/LoginPage.tsx`
+- [X] T018 [US2] Add error mapping logic to LoginPage: 401/credential errors → "Invalid email or password.", network/5xx → "Unable to sign in right now. Please try again.", 429 → "Too many sign-in attempts. Please wait and try again." in `frontend/src/pages/LoginPage.tsx`
+- [X] T019 [US2] Add loading spinner + disabled-submit state to login button with accessible `aria-busy` communication in `frontend/src/pages/LoginPage.tsx`
 
 **Checkpoint**: Login error handling complete — all error paths covered with safe, generic messages.
 
@@ -100,12 +100,12 @@
 
 ### Tests for User Story 3 (MANDATORY unit tests) ⚠️
 
-- [ ] T020 [P] [US3] Unit test for LogoutButton (renders with accessible label, calls logout action on click, handles pending state) in `frontend/src/tests/LogoutButton.test.tsx`
+- [X] T020 [P] [US3] Unit test for LogoutButton (renders with accessible label, calls logout action on click, handles pending state) in `frontend/src/tests/LogoutButton.test.tsx`
 
 ### Implementation for User Story 3
 
-- [ ] T021 [P] [US3] Build LogoutButton component (red exit icon, accessible label, calls `POST /api/v1/auth/logout` with CSRF token, clears state on success and failure) in `frontend/src/components/LogoutButton.tsx`
-- [ ] T022 [US3] Add LogoutButton to sidebar footer in `frontend/src/layouts/AppLayout.tsx` next to User Settings and collapse icons
+- [X] T021 [P] [US3] Build LogoutButton component (red exit icon, accessible label, calls `POST /api/v1/auth/logout` with CSRF token, clears state on success and failure) in `frontend/src/components/LogoutButton.tsx`
+- [X] T022 [US3] Add LogoutButton to sidebar footer in `frontend/src/layouts/AppLayout.tsx` next to User Settings and collapse icons
 
 **Checkpoint**: Logout fully functional — server session revoked, local state cleared, redirect to login.
 
@@ -119,12 +119,12 @@
 
 ### Tests for User Story 5 (MANDATORY unit tests) ⚠️
 
-- [ ] T023 [US5] Unit test for token refresh interceptor (successful refresh + retry, failed refresh clears state, deduplication of concurrent refreshes, no infinite loops) in `frontend/src/tests/client.test.ts`
+- [X] T023 [US5] Unit test for token refresh interceptor (successful refresh + retry, failed refresh clears state, deduplication of concurrent refreshes, no infinite loops) in `frontend/src/tests/client.test.ts`
 
 ### Implementation for User Story 5
 
-- [ ] T024 [US5] Add refresh interceptor to API client: on 401 → queue refresh (single-flight dedup) → retry original request on success OR clear auth state + redirect on failure in `frontend/src/api/client.ts`
-- [ ] T025 [US5] Add redirect with session-expired message on refresh failure in the API client (integrate with AuthContext logout action)
+- [X] T024 [US5] Add refresh interceptor to API client: on 401 → queue refresh (single-flight dedup) → retry original request on success OR clear auth state + redirect on failure in `frontend/src/api/client.ts`
+- [X] T025 [US5] Add redirect with session-expired message on refresh failure in the API client (integrate with AuthContext logout action)
 
 **Checkpoint**: Token refresh transparently recovers from expired access tokens without user disruption.
 

@@ -16,21 +16,22 @@ import AppLayout from '../layouts/AppLayout'
 
 afterEach(cleanup)
 
+const authValue: AuthContextValue = {
+  user: null,
+  accessToken: 'test-token',
+  isAuthenticated: true,
+  isInitializing: false,
+  isLoginPending: false,
+  isLogoutPending: false,
+  login: async () => undefined,
+  logout: async () => undefined,
+  refreshSession: async () => true,
+}
+
 function renderSidebar(initialPath = '/') {
   const router = createMemoryRouter(appRoutes, {
     initialEntries: [initialPath],
   })
-  const authValue: AuthContextValue = {
-    user: null,
-    accessToken: 'test-token',
-    isAuthenticated: true,
-    isInitializing: false,
-    isLoginPending: false,
-    isLogoutPending: false,
-    login: async () => undefined,
-    logout: async () => undefined,
-    refreshSession: async () => true,
-  }
 
   render(
     <AuthContext.Provider value={authValue}>
@@ -51,6 +52,12 @@ describe('sidebar', () => {
       'User Settings',
     )
     expect(screen.queryByText('User Settings')).not.toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('sidebar-footer-controls')).getByRole(
+        'button',
+        { name: 'Log out' },
+      ),
+    ).toBeInTheDocument()
   })
 
   it('collapses and expands while keeping navigation destinations available', () => {
@@ -89,14 +96,16 @@ describe('sidebar', () => {
 
   it('identifies the active destination and preserves collapsed state across navigation', async () => {
     render(
-      <MemoryRouter initialEntries={['/']}>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route index element={<h1>Home page</h1>} />
-            <Route path="teams" element={<h1>Teams page</h1>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>,
+      <AuthContext.Provider value={authValue}>
+        <MemoryRouter initialEntries={['/']}>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route index element={<h1>Home page</h1>} />
+              <Route path="teams" element={<h1>Teams page</h1>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>,
     )
 
     expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute(

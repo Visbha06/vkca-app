@@ -2,12 +2,25 @@
 
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { AuthContext, type AuthContextValue } from '../auth/AuthContext'
 import AppLayout from '../layouts/AppLayout'
 import { useSidebar } from '../layouts/SidebarContext'
 
 afterEach(cleanup)
+
+const authValue: AuthContextValue = {
+  user: null,
+  accessToken: null,
+  isAuthenticated: true,
+  isInitializing: false,
+  isLoginPending: false,
+  isLogoutPending: false,
+  login: vi.fn(),
+  logout: vi.fn(),
+  refreshSession: vi.fn(),
+}
 
 function ContextProbe() {
   const { expanded, mobileOpen } = useSidebar()
@@ -22,13 +35,15 @@ function ContextProbe() {
 
 function renderLayout(child = <h1>Test content</h1>) {
   render(
-    <MemoryRouter initialEntries={['/']}>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route index element={child} />
-        </Route>
-      </Routes>
-    </MemoryRouter>,
+    <AuthContext.Provider value={authValue}>
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route index element={child} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    </AuthContext.Provider>,
   )
 }
 
@@ -45,6 +60,7 @@ describe('AppLayout', () => {
       screen.getByRole('link', { name: 'Skip to main content' }),
     ).toHaveAttribute('href', '#main-content')
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content')
+    expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument()
   })
 
   it('provides the default sidebar state to routed content', () => {

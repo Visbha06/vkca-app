@@ -142,4 +142,23 @@ describe('AuthProvider', () => {
     expect(screen.getByTestId('user-email')).toHaveTextContent('none')
     expect(setAccessToken).toHaveBeenLastCalledWith(null)
   })
+
+  it('clears local authentication when server-side logout fails', async () => {
+    const request = vi
+      .spyOn(apiClient, 'request')
+      .mockResolvedValueOnce({ access_token: 'restored-token', token_type: 'bearer' })
+      .mockResolvedValueOnce(authenticatedUser)
+    const setAccessToken = vi.spyOn(apiClient, 'setAccessToken')
+
+    renderProvider()
+    await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('true'))
+
+    request.mockRejectedValueOnce(new Error('Network unavailable'))
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }))
+
+    await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('false'))
+    expect(screen.getByTestId('access-token')).toHaveTextContent('none')
+    expect(screen.getByTestId('user-email')).toHaveTextContent('none')
+    expect(setAccessToken).toHaveBeenLastCalledWith(null)
+  })
 })

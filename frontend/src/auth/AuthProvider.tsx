@@ -35,6 +35,7 @@ type AuthAction =
   | { type: 'loginFailed' }
   | { type: 'logoutStarted' }
   | { type: 'authenticated'; user: AuthUser; accessToken: string }
+  | { type: 'accessTokenRefreshed'; accessToken: string }
   | { type: 'authenticationCleared' }
   | { type: 'initializationFinished' }
 
@@ -55,6 +56,10 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         isLoginPending: false,
         isLogoutPending: false,
       }
+    case 'accessTokenRefreshed':
+      return state.isAuthenticated
+        ? { ...state, accessToken: action.accessToken }
+        : state
     case 'authenticationCleared':
       return {
         ...state,
@@ -73,18 +78,26 @@ export default function AuthProvider({ children }: PropsWithChildren) {
   const [state, dispatch] = useReducer(authReducer, initialState)
   const restoreStarted = useRef(false)
 
+  const clearAuthentication = useCallback(() => {
+    apiClient.setAccessToken(null)
+    dispatch({ type: 'authenticationCleared' })
+  }, [])
+
   const authenticateWithToken = useCallback(async (accessToken: string) => {
     apiClient.setAccessToken(accessToken)
 
     try {
       const user = await apiClient.request<AuthUser>(ME_PATH)
-      dispatch({ type: 'authenticated', user, accessToken })
+      dispatch({
+        type: 'authenticated',
+        user,
+        accessToken: apiClient.getAccessToken() ?? accessToken,
+      })
     } catch (error) {
-      apiClient.setAccessToken(null)
-      dispatch({ type: 'authenticationCleared' })
+      clearAuthentication()
       throw error
     }
-  }, [])
+  }, [clearAuthentication])
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -113,10 +126,9 @@ export default function AuthProvider({ children }: PropsWithChildren) {
     } catch {
       // Local authentication is cleared even when session revocation fails.
     } finally {
-      apiClient.setAccessToken(null)
-      dispatch({ type: 'authenticationCleared' })
+      clearAuthentication()
     }
-  }, [])
+  }, [clearAuthentication])
 
   const refreshSession = useCallback(async () => {
     try {
@@ -126,11 +138,21 @@ export default function AuthProvider({ children }: PropsWithChildren) {
       await authenticateWithToken(response.access_token)
       return true
     } catch {
-      apiClient.setAccessToken(null)
-      dispatch({ type: 'authenticationCleared' })
+      clearAuthentication()
       return false
     }
-  }, [authenticateWithToken])
+  }, [authenticateWithToken, clearAuthentication])
+
+  useEffect(() => {
+    apiClient.setAuthHandlers({
+      onAccessTokenRefreshed: (accessToken) => {
+        dispatch({ type: 'accessTokenRefreshed', accessToken })
+      },
+      onSessionExpired: clearAuthentication,
+    })
+
+    return () => apiClient.setAuthHandlers(null)
+  }, [clearAuthentication])
 
   useEffect(() => {
     if (restoreStarted.current) {

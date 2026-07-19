@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import MobileNavCloseButton from '../components/MobileNavCloseButton'
 import MobileNavToggle from '../components/MobileNavToggle'
+import LogoutButton from '../components/LogoutButton'
 import SidebarBrand from '../components/SidebarBrand'
 import {
   CalendarIcon,
@@ -202,6 +203,7 @@ function AppLayoutShell() {
             icon={<SettingsIcon className="size-6" />}
             iconOnly
           />
+          <LogoutButton />
           <SidebarToggle />
         </div>
       </aside>

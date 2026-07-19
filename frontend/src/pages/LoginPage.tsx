@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { ApiClientError } from '../api/client'
 import academyLogo from '../assets/placeholderLogo.png'
 import { useAuth } from '../auth/AuthContext'
 
@@ -10,6 +11,20 @@ interface FieldErrors {
 
 function getRedirectTarget(redirect: string | null) {
   return redirect?.startsWith('/') && !redirect.startsWith('//') ? redirect : '/'
+}
+
+function getLoginErrorMessage(error: unknown) {
+  if (error instanceof ApiClientError) {
+    if (error.status === 429) {
+      return 'Too many sign-in attempts. Please wait and try again.'
+    }
+
+    if (error.status === 401 || error.status === 403) {
+      return 'Invalid email or password.'
+    }
+  }
+
+  return 'Unable to sign in right now. Please try again.'
 }
 
 function VisibilityIcon({ visible }: { visible: boolean }) {
@@ -49,6 +64,7 @@ export default function LoginPage() {
   const [passwordVisible, setPasswordVisible] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const sessionExpired = searchParams.get('reason') === 'session-expired'
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -64,8 +80,8 @@ export default function LoginPage() {
     try {
       await login(email.trim(), password)
       navigate(getRedirectTarget(searchParams.get('redirect')), { replace: true })
-    } catch {
-      setSubmitError('Sign-in failed. Please try again.')
+    } catch (error) {
+      setSubmitError(getLoginErrorMessage(error))
     }
   }
 
@@ -118,6 +134,15 @@ export default function LoginPage() {
                 Use your academy credentials to continue.
               </p>
             </header>
+
+            {sessionExpired && (
+              <p
+                className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-900"
+                role="status"
+              >
+                Your session has expired. Please sign in again.
+              </p>
+            )}
 
             <form className="mt-8 space-y-5" noValidate onSubmit={handleSubmit}>
               <div>
@@ -184,10 +209,43 @@ export default function LoginPage() {
 
               <button
                 type="submit"
+                aria-busy={isLoginPending}
+                aria-label={isLoginPending ? 'Logging in' : undefined}
                 className="flex min-h-11 w-full items-center justify-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-500"
                 disabled={isLoginPending}
               >
-                {isLoginPending ? 'Logging in' : 'Log in'}
+                {isLoginPending ? (
+                  <>
+                    <svg
+                      aria-hidden="true"
+                      className="mr-2 size-4 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="9"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                      />
+                      <path
+                        className="opacity-75"
+                        d="M21 12a9 9 0 0 0-9-9"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeWidth="3"
+                      />
+                    </svg>
+                    Logging in
+                    <span className="sr-only" role="status">
+                      Signing in…
+                    </span>
+                  </>
+                ) : (
+                  'Log in'
+                )}
               </button>
             </form>
           </div>
