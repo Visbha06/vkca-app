@@ -7,6 +7,7 @@ interface SidebarNavLinkProps {
   label: string
   icon: ReactNode
   iconOnly?: boolean
+  state?: { from: string }
 }
 
 export default function SidebarNavLink({
@@ -14,6 +15,7 @@ export default function SidebarNavLink({
   label,
   icon,
   iconOnly = false,
+  state,
 }: SidebarNavLinkProps) {
   const { closeMobile, expanded } = useSidebar()
 
@@ -37,6 +39,7 @@ export default function SidebarNavLink({
       end={to === '/'}
       onClick={closeMobile}
       title={iconOnly || !expanded ? label : undefined}
+      state={state}
       to={to}
     >
       <span className="size-6 shrink-0" aria-hidden="true">

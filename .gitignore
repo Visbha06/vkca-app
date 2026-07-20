@@ -18,6 +18,7 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
 
 # Environments & Dependencies
 .venv/
@@ -75,6 +76,7 @@ pgdata/
 .env
 .env.local
 .env.*.local
+.env*
 !.env.example
 
 # ==========================================

@@ -3,10 +3,13 @@ import {
   createMemoryRouter,
   type RouteObject,
 } from 'react-router-dom'
+import GuestRoute from './auth/GuestRoute'
+import ProtectedRoute from './auth/ProtectedRoute'
 import AppLayout from './layouts/AppLayout'
 import CalendarPage from './pages/CalendarPage'
 import CoachesPage from './pages/CoachesPage'
 import HomePage from './pages/HomePage'
+import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
 import PlayersPage from './pages/PlayersPage'
 import RouteErrorPage from './pages/RouteErrorPage'
@@ -15,8 +18,21 @@ import TeamsPage from './pages/TeamsPage'
 
 export const appRoutes: RouteObject[] = [
   {
+    path: '/login',
+    element: (
+      <GuestRoute>
+        <LoginPage />
+      </GuestRoute>
+    ),
+    errorElement: <RouteErrorPage />,
+  },
+  {
     path: '/',
-    element: <AppLayout />,
+    element: (
+      <ProtectedRoute>
+        <AppLayout />
+      </ProtectedRoute>
+    ),
     errorElement: <RouteErrorPage />,
     children: [
       {

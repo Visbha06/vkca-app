@@ -10,20 +10,36 @@ import {
 } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { AuthContext, type AuthContextValue } from '../auth/AuthContext'
 import AppLayout from '../layouts/AppLayout'
 
 afterEach(cleanup)
 
+const authValue: AuthContextValue = {
+  user: null,
+  accessToken: 'test-token',
+  isAuthenticated: true,
+  isInitializing: false,
+  isLoginPending: false,
+  isLogoutPending: false,
+  login: async () => undefined,
+  logout: async () => undefined,
+  refreshSession: async () => true,
+  updateUser: () => undefined,
+}
+
 function renderResponsiveLayout() {
   render(
-    <MemoryRouter initialEntries={['/']}>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route index element={<h1 tabIndex={-1}>Home page</h1>} />
-          <Route path="teams" element={<h1 tabIndex={-1}>Teams page</h1>} />
-        </Route>
-      </Routes>
-    </MemoryRouter>,
+    <AuthContext.Provider value={authValue}>
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route index element={<h1 tabIndex={-1}>Home page</h1>} />
+            <Route path="teams" element={<h1 tabIndex={-1}>Teams page</h1>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    </AuthContext.Provider>,
   )
 }
 
@@ -104,11 +120,11 @@ describe('responsive navigation', () => {
     const closeButton = screen.getByRole('button', {
       name: 'Close navigation menu',
     })
-    const settingsLink = screen.getByRole('link', { name: 'User Settings' })
+    const logoutButton = screen.getByRole('button', { name: 'Log out' })
 
     expect(closeButton).toHaveFocus()
     fireEvent.keyDown(document, { key: 'Tab', shiftKey: true })
-    expect(settingsLink).toHaveFocus()
+    expect(logoutButton).toHaveFocus()
 
     fireEvent.keyDown(document, { key: 'Tab' })
     expect(closeButton).toHaveFocus()

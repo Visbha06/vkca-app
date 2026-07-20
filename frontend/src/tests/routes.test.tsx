@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { appRoutes } from '../App'
+import { AuthContext, type AuthContextValue } from '../auth/AuthContext'
 
 const routeCases = [
   ['/', 'Good evening, Coach'],
@@ -16,8 +17,24 @@ const routeCases = [
 
 function renderRoute(path: string) {
   const router = createMemoryRouter(appRoutes, { initialEntries: [path] })
+  const authValue: AuthContextValue = {
+    user: null,
+    accessToken: path === '/login' ? null : 'test-token',
+    isAuthenticated: path !== '/login',
+    isInitializing: false,
+    isLoginPending: false,
+    isLogoutPending: false,
+    login: async () => undefined,
+    logout: async () => undefined,
+    refreshSession: async () => false,
+    updateUser: () => undefined,
+  }
 
-  return renderToStaticMarkup(<RouterProvider router={router} />)
+  return renderToStaticMarkup(
+    <AuthContext.Provider value={authValue}>
+      <RouterProvider router={router} />
+    </AuthContext.Provider>,
+  )
 }
 
 describe('application routes', () => {

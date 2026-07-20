@@ -1,12 +1,30 @@
+import { useCallback } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import AccountSettingsModal from '../components/AccountSettingsModal'
+
+function getReturnPath(state: unknown) {
+  if (
+    typeof state === 'object' &&
+    state !== null &&
+    'from' in state &&
+    typeof state.from === 'string' &&
+    state.from.startsWith('/') &&
+    !state.from.startsWith('//') &&
+    state.from !== '/settings'
+  ) {
+    return state.from
+  }
+
+  return '/'
+}
+
 export default function SettingsPage() {
-  return (
-    <section className="mx-auto max-w-3xl py-12">
-      <h1 className="text-3xl font-bold text-slate-900" tabIndex={-1}>
-        User Settings
-      </h1>
-      <p className="mt-4 text-slate-600">
-        This section will be available in a future update.
-      </p>
-    </section>
-  )
+  const location = useLocation()
+  const navigate = useNavigate()
+  const returnPath = getReturnPath(location.state)
+  const handleClose = useCallback(() => {
+    navigate(returnPath, { replace: true })
+  }, [navigate, returnPath])
+
+  return <AccountSettingsModal onClose={handleClose} />
 }

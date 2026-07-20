@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import MobileNavCloseButton from '../components/MobileNavCloseButton'
 import MobileNavToggle from '../components/MobileNavToggle'
+import LogoutButton from '../components/LogoutButton'
 import SidebarBrand from '../components/SidebarBrand'
 import {
   CalendarIcon,
@@ -14,6 +15,7 @@ import {
 import SidebarNavLink from '../components/SidebarNavLink'
 import SidebarToggle from '../components/SidebarToggle'
 import { SidebarProvider, useSidebar } from './SidebarContext'
+import { useAppLayoutEffects } from './useAppLayoutEffects'
 
 const navigationItems = [
   { to: '/', label: 'Home', icon: <HomeIcon className="size-6" /> },
@@ -35,122 +37,11 @@ const navigationItems = [
   },
 ]
 
-const pageTitles: Record<string, string> = {
-  '/': 'Home',
-  '/players': 'Player Directory',
-  '/teams': 'Teams',
-  '/coaches': 'Coaches Portal',
-  '/calendar': 'Calendar',
-  '/settings': 'User Settings',
-}
-
-const mobileViewportQuery = '(max-width: 47.999rem)'
-
-function getPageTitle(pathname: string) {
-  const normalizedPath =
-    pathname === '/' ? pathname : pathname.replace(/\/+$/, '')
-  return pageTitles[normalizedPath] ?? 'Page Not Found'
-}
-
 function AppLayoutShell() {
   const { closeMobile, expanded, mobileOpen } = useSidebar()
   const { pathname } = useLocation()
   const sidebarRef = useRef<HTMLElement>(null)
-  const previousFocusRef = useRef<HTMLElement | null>(null)
-  const previousPathRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    const pageTitle = getPageTitle(pathname)
-    document.title = `${pageTitle} | VK Cricket Academy`
-
-    if (previousPathRef.current !== null && previousPathRef.current !== pathname) {
-      const focusTimer = window.setTimeout(() => {
-        document.querySelector<HTMLElement>('#main-content h1')?.focus()
-      }, 0)
-
-      previousPathRef.current = pathname
-      return () => window.clearTimeout(focusTimer)
-    }
-
-    previousPathRef.current = pathname
-  }, [pathname])
-
-  useEffect(() => {
-    if (!mobileOpen) {
-      return
-    }
-
-    const mobileMedia = window.matchMedia?.(mobileViewportQuery)
-    if (mobileMedia && !mobileMedia.matches) {
-      closeMobile()
-      return
-    }
-
-    const previousBodyOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    const activeElement = document.activeElement as HTMLElement | null
-    previousFocusRef.current =
-      activeElement && activeElement !== document.body
-        ? activeElement
-        : document.querySelector<HTMLElement>('#mobile-navigation-toggle')
-    const sidebar = sidebarRef.current
-    const focusableElements = Array.from(
-      sidebar?.querySelectorAll<HTMLElement>('[data-mobile-drawer-focus]') ?? [],
-    )
-    focusableElements[0]?.focus()
-
-    function handleDrawerKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        closeMobile()
-        return
-      }
-
-      if (event.key !== 'Tab' || focusableElements.length === 0) {
-        return
-      }
-
-      const firstElement = focusableElements[0]
-      const lastElement = focusableElements[focusableElements.length - 1]
-
-      if (event.shiftKey && document.activeElement === firstElement) {
-        event.preventDefault()
-        lastElement.focus()
-      } else if (!event.shiftKey && document.activeElement === lastElement) {
-        event.preventDefault()
-        firstElement.focus()
-      }
-    }
-
-    document.addEventListener('keydown', handleDrawerKeyDown)
-    return () => {
-      document.removeEventListener('keydown', handleDrawerKeyDown)
-      document.body.style.overflow = previousBodyOverflow
-      const stillMobile = window.matchMedia?.(mobileViewportQuery).matches ?? true
-      if (stillMobile && previousFocusRef.current?.isConnected) {
-        previousFocusRef.current.focus()
-      }
-    }
-  }, [closeMobile, mobileOpen])
-
-  useEffect(() => {
-    const mobileMedia = window.matchMedia?.(mobileViewportQuery)
-    if (!mobileMedia) {
-      return
-    }
-
-    const closeAtDesktop = (event: MediaQueryListEvent) => {
-      if (!event.matches) {
-        sidebarRef.current
-          ?.querySelector<HTMLElement>('a[aria-current="page"]')
-          ?.focus()
-        closeMobile()
-      }
-    }
-
-    mobileMedia.addEventListener('change', closeAtDesktop)
-    return () => mobileMedia.removeEventListener('change', closeAtDesktop)
-  }, [closeMobile])
+  useAppLayoutEffects(pathname, sidebarRef, mobileOpen, closeMobile)
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-white text-slate-900">
@@ -201,7 +92,9 @@ function AppLayoutShell() {
             label="User Settings"
             icon={<SettingsIcon className="size-6" />}
             iconOnly
+            state={pathname === '/settings' ? undefined : { from: pathname }}
           />
+          <LogoutButton />
           <SidebarToggle />
         </div>
       </aside>

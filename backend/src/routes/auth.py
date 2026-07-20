@@ -31,6 +31,7 @@ from src.schemas.auth import (
     CurrentSessionResponse,
     CurrentUserResponse,
     LoginRequest,
+    ProfileUpdate,
     TokenResponse,
 )
 from src.services.auth_service import (
@@ -131,6 +132,28 @@ def _invalid_session_error() -> HTTPException:
     )
 
 
+def _current_user_response(current: AuthenticatedUser) -> CurrentUserResponse:
+    """Serialize an authenticated user and the session serving the request."""
+
+    user, auth_session = current
+    return CurrentUserResponse(
+        id=user.id,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        email=user.email,
+        role=user.role,
+        is_active=user.is_active,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+        session=CurrentSessionResponse(
+            session_id=auth_session.id,
+            created_at=auth_session.created_at,
+            last_used_at=auth_session.last_used_at,
+            expires_at=auth_session.expires_at,
+        ),
+    )
+
+
 @router.post("/login", response_model=TokenResponse)
 async def login(
     payload: LoginRequest,
@@ -205,23 +228,23 @@ async def get_me(
 ) -> CurrentUserResponse:
     """Return the authenticated profile and current-session metadata."""
 
-    user, auth_session = current
-    return CurrentUserResponse(
-        id=user.id,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        email=user.email,
-        role=user.role,
-        is_active=user.is_active,
-        created_at=user.created_at,
-        updated_at=user.updated_at,
-        session=CurrentSessionResponse(
-            session_id=auth_session.id,
-            created_at=auth_session.created_at,
-            last_used_at=auth_session.last_used_at,
-            expires_at=auth_session.expires_at,
-        ),
-    )
+    return _current_user_response(current)
+
+
+@router.patch("/me", response_model=CurrentUserResponse)
+async def update_me(
+    payload: ProfileUpdate,
+    current: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> CurrentUserResponse:
+    """Update the authenticated user's editable profile fields."""
+
+    user, _ = current
+    user.first_name = payload.first_name
+    user.last_name = payload.last_name
+    user.version_number += 1
+    await session.commit()
+    return _current_user_response(current)
 
 
 @router.get("/audit-log", response_model=list[AuditLogResponse])
