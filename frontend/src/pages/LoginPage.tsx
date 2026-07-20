@@ -1,33 +1,15 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ApiClientError } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { DesktopLoginBrand, MobileLoginBrand } from '../components/LoginBrand'
 import LoginSubmitContent from '../components/LoginSubmitContent'
 import PasswordVisibilityIcon from '../components/PasswordVisibilityIcon'
-
-interface FieldErrors {
-  email?: string
-  password?: string
-}
-
-function getRedirectTarget(redirect: string | null) {
-  return redirect?.startsWith('/') && !redirect.startsWith('//') ? redirect : '/'
-}
-
-function getLoginErrorMessage(error: unknown) {
-  if (error instanceof ApiClientError) {
-    if (error.status === 429) {
-      return 'Too many sign-in attempts. Please wait and try again.'
-    }
-
-    if (error.status === 401 || error.status === 403) {
-      return 'Invalid email or password.'
-    }
-  }
-
-  return 'Unable to sign in right now. Please try again.'
-}
+import {
+  getLoginErrorMessage,
+  getRedirectTarget,
+  validateCredentials,
+  type FieldErrors,
+} from './loginPageUtils'
 
 export default function LoginPage() {
   const { isLoginPending, login } = useAuth()
@@ -38,6 +20,8 @@ export default function LoginPage() {
   const [passwordVisible, setPasswordVisible] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const emailInputRef = useRef<HTMLInputElement>(null)
+  const passwordInputRef = useRef<HTMLInputElement>(null)
   const reason = searchParams.get('reason')
   const accountNotice =
     reason === 'session-expired'
@@ -52,19 +36,40 @@ export default function LoginPage() {
           }
         : null
 
+  function handleCredentialChange(field: keyof FieldErrors, value: string) {
+    if (field === 'email') setEmail(value)
+    else setPassword(value)
+
+    setFieldErrors((currentErrors) => {
+      if (!currentErrors[field]) return currentErrors
+      return field === 'email'
+        ? { password: currentErrors.password }
+        : { email: currentErrors.email }
+    })
+    setSubmitError(null)
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    const errors: FieldErrors = {}
-    if (email.trim() === '') errors.email = 'Email is required.'
-    if (password === '') errors.password = 'Password is required.'
+    const normalizedEmail = email.trim()
+    const errors = validateCredentials(normalizedEmail, password)
 
     setFieldErrors(errors)
     setSubmitError(null)
-    if (Object.keys(errors).length > 0 || isLoginPending) return
+    const firstInvalidInput = errors.email
+      ? emailInputRef.current
+      : errors.password
+        ? passwordInputRef.current
+        : null
+    if (firstInvalidInput) {
+      firstInvalidInput.focus()
+      return
+    }
+    if (isLoginPending) return
 
     try {
-      await login(email.trim(), password)
+      await login(normalizedEmail, password)
       navigate(getRedirectTarget(searchParams.get('redirect')), { replace: true })
     } catch (error) {
       setSubmitError(getLoginErrorMessage(error))
@@ -104,16 +109,16 @@ export default function LoginPage() {
                   Email address
                 </label>
                 <input
+                  ref={emailInputRef}
                   id="login-email"
                   type="email"
                   autoComplete="email"
-                  autoFocus
                   aria-describedby={fieldErrors.email ? 'login-email-error' : undefined}
                   aria-invalid={fieldErrors.email ? 'true' : undefined}
                   className="mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 outline-none transition-colors placeholder:text-slate-500 focus:border-academy focus:ring-2 focus:ring-academy/40"
                   disabled={isLoginPending}
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => handleCredentialChange('email', event.target.value)}
                 />
                 {fieldErrors.email && (
                   <p id="login-email-error" className="mt-2 text-sm font-medium text-red-700">
@@ -128,6 +133,7 @@ export default function LoginPage() {
                 </label>
                 <div className="relative mt-2">
                   <input
+                    ref={passwordInputRef}
                     id="login-password"
                     type={passwordVisible ? 'text' : 'password'}
                     autoComplete="current-password"
@@ -136,7 +142,7 @@ export default function LoginPage() {
                     className="min-h-11 w-full rounded-lg border border-slate-300 bg-white py-2 pl-3 pr-12 text-base text-slate-900 outline-none transition-colors focus:border-academy focus:ring-2 focus:ring-academy/40"
                     disabled={isLoginPending}
                     value={password}
-                    onChange={(event) => setPassword(event.target.value)}
+                    onChange={(event) => handleCredentialChange('password', event.target.value)}
                   />
                   <button
                     type="button"

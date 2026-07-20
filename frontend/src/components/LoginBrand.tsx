@@ -23,15 +23,23 @@ function AcademyIdentity({ compact = false }: { compact?: boolean }) {
 
 export function DesktopLoginBrand() {
   return (
-    <div className="hidden bg-slate-900 p-12 text-white ring-2 ring-inset ring-academy lg:flex lg:flex-col lg:justify-between">
+    <div className="hidden bg-slate-900 px-12 pb-8 pt-12 text-white ring-2 ring-inset ring-academy lg:flex lg:flex-col lg:justify-between">
       <AcademyIdentity />
       <div className="max-w-sm">
-        <h2 className="text-3xl font-bold tracking-tight text-white">
-          Keep the academy moving.
+        <h2 className="max-w-xs text-4xl font-bold leading-tight tracking-tight text-white">
+          One player. One continuous coaching record.
         </h2>
-        <p className="mt-4 leading-7 text-slate-300">
-          Organize teams, support player development, and stay ready for the next session.
+        <p className="mt-5 max-w-xs leading-7 text-slate-300">
+          Keep session notes, match performances, and progress in view so every coach can pick up
+          where the last session left off.
         </p>
+
+        <div className="mt-8 border-t border-slate-700 pt-5">
+          <p className="text-sm font-semibold text-white">Built around academy rhythm</p>
+          <p className="mt-2 text-sm leading-6 text-slate-300">
+            U11 batting fundamentals in Lane 3, carried into the next match review.
+          </p>
+        </div>
       </div>
     </div>
   )

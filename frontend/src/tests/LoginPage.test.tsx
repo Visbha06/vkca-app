@@ -61,10 +61,15 @@ describe('LoginPage', () => {
   it('renders the branded email and password form', () => {
     renderLogin()
 
+    const email = screen.getByRole('textbox', { name: 'Email address' })
+    const password = screen.getByLabelText('Password')
+
     expect(screen.getByRole('heading', { name: 'Sign in to your account' })).toBeInTheDocument()
     expect(screen.getAllByText('VK Cricket Academy')).not.toHaveLength(0)
-    expect(screen.getByRole('textbox', { name: 'Email address' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Password')).toHaveAttribute('type', 'password')
+    expect(email).toHaveAttribute('autocomplete', 'email')
+    expect(email).not.toHaveFocus()
+    expect(password).toHaveAttribute('type', 'password')
+    expect(password).toHaveAttribute('autocomplete', 'current-password')
     expect(screen.getByRole('button', { name: 'Log in' })).toBeInTheDocument()
   })
 
@@ -92,6 +97,51 @@ describe('LoginPage', () => {
     expect(screen.getByText('Email is required.')).toBeInTheDocument()
     expect(screen.getByText('Password is required.')).toBeInTheDocument()
     expect(login).not.toHaveBeenCalled()
+  })
+
+  it('validates email syntax before submitting', () => {
+    const { login } = renderLogin()
+    const email = screen.getByRole('textbox', { name: 'Email address' })
+
+    fireEvent.change(email, { target: { value: 'coach@vkca' } })
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'StrongPassword!1' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+
+    expect(screen.getByText('Enter a valid email address.')).toBeInTheDocument()
+    expect(email).toHaveFocus()
+    expect(login).not.toHaveBeenCalled()
+  })
+
+  it('focuses the password when it is the first invalid field', () => {
+    renderLogin()
+    const password = screen.getByLabelText('Password')
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Email address' }), {
+      target: { value: 'coach@vkca.test' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+
+    expect(password).toHaveFocus()
+  })
+
+  it('clears only a field\'s own validation error when that field changes', () => {
+    renderLogin()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'StrongPassword!1' },
+    })
+
+    expect(screen.queryByText('Password is required.')).not.toBeInTheDocument()
+    expect(screen.getByText('Email is required.')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Email address' }), {
+      target: { value: 'coach@vkca.test' },
+    })
+
+    expect(screen.queryByText('Email is required.')).not.toBeInTheDocument()
   })
 
   it('submits from the form when Enter is used and returns to the preserved route', async () => {
@@ -140,6 +190,21 @@ describe('LoginPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Invalid email or password.')
     expect(screen.queryByText(/user does not exist/i)).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['Email address', 'coach.updated@vkca.test'],
+    ['Password', 'UpdatedPassword!1'],
+  ])('clears the credential alert when %s changes', async (fieldLabel, value) => {
+    renderLogin({
+      login: vi.fn().mockRejectedValue(new ApiClientError(401, { detail: 'Unauthorized' })),
+    })
+    submitCredentials()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Invalid email or password.')
+
+    fireEvent.change(screen.getByLabelText(fieldLabel), { target: { value } })
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('shows a safe generic error for network and server failures', async () => {
