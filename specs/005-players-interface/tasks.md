@@ -25,7 +25,7 @@
 
 **Purpose**: Confirm dev environment is operational before extending
 
-- [ ] T001 Verify backend and frontend dev environments run cleanly: `cd backend && uv run ruff check . && cd ../frontend && npm run lint && npm run test -- --run`
+- [X] T001 Verify backend and frontend dev environments run cleanly: `cd backend && uv run ruff check . && cd ../frontend && npm run lint && npm run test -- --run`
 
 ---
 
@@ -37,20 +37,20 @@
 
 ### Backend Schemas & Service
 
-- [ ] T002 [P] Add `TeamSummary` and `PaginatedPlayerResponse` schemas in `backend/src/schemas/player.py`
-- [ ] T003 [P] Extend `PlayerResponse` with `teams: list[TeamSummary]` field in `backend/src/schemas/player.py`
-- [ ] T004 Extend `PlayerService.list_players` with `page`, `page_size`, `team_id`, `unassigned` parameters and pagination metadata in `backend/src/services/player_service.py`
-- [ ] T005 Extend `GET /api/v1/players` route with query parameters (`page`, `page_size`, `team_id`, `unassigned`) returning `PaginatedPlayerResponse` in `backend/src/routes/players.py`
-- [ ] T006 [P] Write backend unit tests for `PaginatedPlayerResponse` schema validation in `backend/tests/unit/test_player_schemas.py`
-- [ ] T007 [P] Write backend unit tests for paginated/filtered list route in `backend/tests/unit/test_player_routes.py`
+- [X] T002 [P] Add `TeamSummary` and `PaginatedPlayerResponse` schemas in `backend/src/schemas/player.py`
+- [X] T003 [P] Extend `PlayerResponse` with `teams: list[TeamSummary]` field in `backend/src/schemas/player.py`
+- [X] T004 Extend `PlayerService.list_players` with `page`, `page_size`, `team_id`, `unassigned` parameters and pagination metadata in `backend/src/services/player_service.py`
+- [X] T005 Extend `GET /api/v1/players` route with query parameters (`page`, `page_size`, `team_id`, `unassigned`) returning `PaginatedPlayerResponse` in `backend/src/routes/players.py`
+- [X] T006 [P] Write backend unit tests for `PaginatedPlayerResponse` schema validation in `backend/tests/unit/test_player_schemas.py`
+- [X] T007 [P] Write backend unit tests for paginated/filtered list route in `backend/tests/unit/test_player_routes.py`
 
 ### Frontend Types & API Layer
 
-- [ ] T008 [P] Create TypeScript types (`TeamSummary`, `PlayerResponse`, `PaginatedPlayerResponse`, `PlayerCreatePayload`, `PlayerUpdatePayload`, enum types) in `frontend/src/types/player.ts`
-- [ ] T009 [P] Create player API client functions (`fetchPlayers`, `fetchPlayer`, `createPlayer`, `updatePlayer`) in `frontend/src/api/playerApi.ts`
-- [ ] T010 [P] Create enum label mappings and `formatEnum` utility in `frontend/src/utils/enumLabels.ts`
-- [ ] T011 [P] Create `toDisplayDate` and `toApiDate` formatting utilities in `frontend/src/utils/formatDate.ts`
-- [ ] T012 [P] Create `useUnsavedChanges` hook for form exit confirmation in `frontend/src/hooks/useUnsavedChanges.ts`
+- [X] T008 [P] Create TypeScript types (`TeamSummary`, `PlayerResponse`, `PaginatedPlayerResponse`, `PlayerCreatePayload`, `PlayerUpdatePayload`, enum types) in `frontend/src/types/player.ts`
+- [X] T009 [P] Create player API client functions (`fetchPlayers`, `fetchPlayer`, `createPlayer`, `updatePlayer`) in `frontend/src/api/playerApi.ts`
+- [X] T010 [P] Create enum label mappings and `formatEnum` utility in `frontend/src/utils/enumLabels.ts`
+- [X] T011 [P] Create `toDisplayDate` and `toApiDate` formatting utilities in `frontend/src/utils/formatDate.ts`
+- [X] T012 [P] Create `useUnsavedChanges` hook for form exit confirmation in `frontend/src/hooks/useUnsavedChanges.ts`
 
 **Checkpoint**: Foundation ready — paginated/team-filtered API works, frontend types and utilities available
 

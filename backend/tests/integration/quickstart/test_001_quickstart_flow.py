@@ -217,7 +217,9 @@ async def test_full_twelve_step_quickstart_flow(
         )
         assert deactivate.status_code == 200
         active_players = await client.get("/api/v1/players")
-        assert str(player_id) not in {item["id"] for item in active_players.json()}
+        assert str(player_id) not in {
+            item["id"] for item in active_players.json()["players"]
+        }
         direct_player = await client.get(f"/api/v1/players/{player_id}")
         assert direct_player.status_code == 200
         assert direct_player.json()["is_active"] is False
