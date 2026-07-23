@@ -68,6 +68,16 @@ const headCoach: AuthUser = {
   },
 }
 
+function deferred<Value>() {
+  let resolve!: (value: Value) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<Value>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, reject, resolve }
+}
+
 function authValue(user: AuthUser): AuthContextValue {
   return {
     user,
@@ -189,6 +199,9 @@ describe('PlayersPage', () => {
     })
     const { unmount } = renderPage()
     expect(await screen.findByText('No active players are available.')).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Add your first player' }),
+    ).toBeVisible()
     unmount()
 
     vi.mocked(fetchPlayers)
@@ -201,6 +214,52 @@ describe('PlayersPage', () => {
     expect(screen.queryByText(/raw backend/i)).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(await screen.findByText('Asha Singh')).toBeVisible()
+  })
+
+  it('distinguishes filtered no-results from a truly empty directory', async () => {
+    vi.mocked(fetchPlayers)
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValueOnce({
+        ...firstPage,
+        players: [],
+        total_players: 0,
+        total_pages: 0,
+        has_next: false,
+      })
+    renderPage()
+    await screen.findByText('Asha Singh')
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by team' }), {
+      target: { value: 'team-1' },
+    })
+
+    expect(
+      await screen.findByText('No players match this team filter.'),
+    ).toBeVisible()
+    expect(
+      screen.getByText('Choose another team or view all players.'),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: 'Add your first player' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('communicates loading and responses within 500ms of each transition', async () => {
+    const pendingPlayers = deferred<PaginatedPlayerResponse>()
+    vi.mocked(fetchPlayers).mockReturnValueOnce(pendingPlayers.promise)
+    const loadingStartedAt = performance.now()
+
+    renderPage()
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading players')
+    expect(performance.now() - loadingStartedAt).toBeLessThan(500)
+
+    const responseStartedAt = performance.now()
+    pendingPlayers.resolve(firstPage)
+    expect(
+      await screen.findByText('Asha Singh', {}, { timeout: 500 }),
+    ).toBeVisible()
+    expect(performance.now() - responseStartedAt).toBeLessThan(500)
   })
 
   it('hides Add and Edit Player controls from player-role users', async () => {

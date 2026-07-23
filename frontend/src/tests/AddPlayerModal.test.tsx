@@ -85,11 +85,30 @@ describe('AddPlayerModal', () => {
     expect(screen.getByRole('dialog', { name: 'Add player' })).toBeVisible()
 
     fillRequiredFields()
+    const submittedAt = performance.now()
     fireEvent.click(screen.getByRole('button', { name: 'Create player' }))
 
-    await waitFor(() => expect(createPlayer).toHaveBeenCalledTimes(1))
+    await waitFor(
+      () => expect(createPlayer).toHaveBeenCalledTimes(1),
+      { timeout: 500 },
+    )
     expect(onCreated).toHaveBeenCalledWith(createdPlayer)
+    expect(performance.now() - submittedAt).toBeLessThan(500)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('disables submit within 500ms while creation is pending', () => {
+    vi.mocked(createPlayer).mockReturnValue(new Promise(() => {}))
+    render(<AddPlayerModal onClose={vi.fn()} onCreated={vi.fn()} />)
+    fillRequiredFields()
+
+    const submittedAt = performance.now()
+    fireEvent.click(screen.getByRole('button', { name: 'Create player' }))
+
+    expect(
+      screen.getByRole('button', { name: 'Creating player…' }),
+    ).toBeDisabled()
+    expect(performance.now() - submittedAt).toBeLessThan(500)
   })
 
   it('keeps validation errors in the form without posting', () => {
@@ -107,11 +126,15 @@ describe('AddPlayerModal', () => {
     render(<AddPlayerModal onClose={vi.fn()} onCreated={vi.fn()} />)
     fillRequiredFields()
 
+    const submittedAt = performance.now()
     fireEvent.click(screen.getByRole('button', { name: 'Create player' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    expect(
+      await screen.findByRole('alert', {}, { timeout: 500 }),
+    ).toHaveTextContent(
       'Unable to create player. Please try again.',
     )
+    expect(performance.now() - submittedAt).toBeLessThan(500)
     expect(screen.queryByText(/database host leaked/i)).not.toBeInTheDocument()
     expect(screen.getByRole('dialog')).toBeVisible()
   })

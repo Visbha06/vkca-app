@@ -2,6 +2,7 @@
 
 import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import PlayerForm from '../components/PlayerForm'
 
@@ -135,6 +136,29 @@ describe('PlayerForm', () => {
     expect(screen.getByRole('textbox', { name: 'First name' })).toBeDisabled()
   })
 
+  it('disables submit immediately when a valid submission starts', () => {
+    function Harness() {
+      const [isSubmitting, setIsSubmitting] = useState(false)
+      return (
+        <PlayerForm
+          onSubmit={() => setIsSubmitting(true)}
+          onCancel={vi.fn()}
+          isSubmitting={isSubmitting}
+        />
+      )
+    }
+
+    render(<Harness />)
+    fillRequiredFields()
+    const startedAt = performance.now()
+    fireEvent.click(screen.getByRole('button', { name: 'Create player' }))
+
+    expect(
+      screen.getByRole('button', { name: 'Creating player…' }),
+    ).toBeDisabled()
+    expect(performance.now() - startedAt).toBeLessThan(500)
+  })
+
   it('shows server feedback accessibly', () => {
     render(
       <PlayerForm
@@ -147,6 +171,21 @@ describe('PlayerForm', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Unable to create player. Please try again.',
     )
+  })
+
+  it('shows permission feedback accessibly without exposing raw details', () => {
+    render(
+      <PlayerForm
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+        errorMessage="You do not have permission to add players."
+      />,
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'You do not have permission to add players.',
+    )
+    expect(screen.queryByText(/raw forbidden detail/i)).not.toBeInTheDocument()
   })
 
   it('prompts before discarding unsaved changes', () => {

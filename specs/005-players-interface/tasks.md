@@ -152,14 +152,14 @@
 
 ### Tests for User Story 5 (MANDATORY) ⚠️
 
-- [ ] T037 [P] [US5] Write unit tests for loading/empty/error/filtered-no-results states in `PlayersPage` in `frontend/src/tests/PlayersPage.test.tsx`
-- [ ] T038 [P] [US5] Write unit tests for form submission loading/validation/success/403 states in `PlayerForm` in `frontend/src/tests/PlayerForm.test.tsx`
+- [X] T037 [P] [US5] Write unit tests for loading/empty/error/filtered-no-results states in `PlayersPage` in `frontend/src/tests/PlayersPage.test.tsx`
+- [X] T038 [P] [US5] Write unit tests for form submission loading/validation/success/403 states in `PlayerForm` in `frontend/src/tests/PlayerForm.test.tsx`
 
 ### Implementation for User Story 5
 
-- [ ] T039 [P] [US5] Implement loading state (accessible spinner/skeleton) and empty state (message + Add Player action for coaches) in `PlayersPage` in `frontend/src/pages/PlayersPage.tsx`
-- [ ] T040 [P] [US5] Implement filtered-no-results state (distinct from empty state) and error state (message + retry button) in `PlayersPage` in `frontend/src/pages/PlayersPage.tsx`
-- [ ] T041 [US5] Write Vitest timing assertions for state transitions: assert loading indicator renders within 500ms of fetch start, assert success/error messages appear within 500ms of response, assert submit button disables immediately on click — across `PlayersPage`, `PlayerForm`, `AddPlayerModal`, `EditPlayerModal` in their respective test files
+- [X] T039 [P] [US5] Implement loading state (accessible spinner/skeleton) and empty state (message + Add Player action for coaches) in `PlayersPage` in `frontend/src/pages/PlayersPage.tsx`
+- [X] T040 [P] [US5] Implement filtered-no-results state (distinct from empty state) and error state (message + retry button) in `frontend/src/pages/PlayersPage.tsx`
+- [X] T041 [US5] Write Vitest timing assertions for state transitions: assert loading indicator renders within 500ms of fetch start, assert success/error messages appear within 500ms of response, assert submit button disables immediately on click — across `PlayersPage`, `PlayerForm`, `AddPlayerModal`, `EditPlayerModal` in their respective test files
 
 **Checkpoint**: All states handled — US1 through US5 complete
 
@@ -171,20 +171,20 @@
 
 ### Backend Quickstart Test
 
-- [ ] T042 Write integration quickstart test covering pagination, default ordering, team filtering, unassigned filtering, inactive exclusion, OCC conflict — executes scenarios from `quickstart.md` against real PostgreSQL test database in `backend/tests/integration/quickstart/test_005_quickstart_flow.py`
+- [X] T042 Write integration quickstart test covering pagination, default ordering, team filtering, unassigned filtering, inactive exclusion, OCC conflict — executes scenarios from `quickstart.md` against real PostgreSQL test database in `backend/tests/integration/quickstart/test_005_quickstart_flow.py`
 
 ### Frontend E2E Test
 
-- [ ] T043 Write Playwright E2E test covering login → Players page → team filter → open details modal → create/edit player as coach. Include viewport tests at 320px (mobile) and 1280px (desktop) to verify responsive grid reflow and no horizontal overflow per spec FR-066–070 / SC-005. in `frontend/e2e/players-flow.spec.ts`
+- [X] T043 Write Playwright E2E test covering login → Players page → team filter → open details modal → create/edit player as coach. Include viewport tests at 320px (mobile) and 1280px (desktop) to verify responsive grid reflow and no horizontal overflow per spec FR-066–070 / SC-005. in `frontend/e2e/players-flow.spec.ts`
 
 ### Documentation
 
-- [ ] T044 Write feature documentation (concise version of spec, capturing purpose, key flows, API surface, configuration) in `docs/players-interface.md`
+- [X] T044 Write feature documentation (concise version of spec, capturing purpose, key flows, API surface, configuration) in `docs/players-interface.md`
 
 ### Final Validation
 
-- [ ] T045 Run full test suites: `cd backend && uv run pytest && cd ../frontend && npm run test -- --run && npm run test:e2e`
-- [ ] T046 Run quickstart validation: `cd backend && uv run python -m pytest tests/integration/quickstart/test_005_quickstart_flow.py -v`
+- [X] T045 Run full test suites: `cd backend && uv run pytest && cd ../frontend && npm run test -- --run && npm run test:e2e`
+- [X] T046 Run quickstart validation: `cd backend && uv run python -m pytest tests/integration/quickstart/test_005_quickstart_flow.py -v`
 
 ---
 

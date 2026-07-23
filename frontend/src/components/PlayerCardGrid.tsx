@@ -6,6 +6,9 @@ interface PlayerCardGridProps {
   isLoading: boolean
   onSelect: (player: PlayerResponse) => void
   emptyMessage?: string
+  emptyDescription?: string
+  emptyActionLabel?: string
+  onEmptyAction?: () => void
 }
 
 function LoadingGrid() {
@@ -36,6 +39,9 @@ export default function PlayerCardGrid({
   isLoading,
   onSelect,
   emptyMessage = 'No players found.',
+  emptyDescription = 'Player profiles will appear here when they are available.',
+  emptyActionLabel,
+  onEmptyAction,
 }: PlayerCardGridProps) {
   if (isLoading) return <LoadingGrid />
 
@@ -44,8 +50,17 @@ export default function PlayerCardGrid({
       <div className="rounded-xl border border-slate-200 bg-white px-5 py-12 text-center sm:px-6">
         <p className="font-semibold text-slate-900">{emptyMessage}</p>
         <p className="mx-auto mt-2 max-w-prose text-sm leading-6 text-slate-600">
-          Player profiles will appear here when they are available.
+          {emptyDescription}
         </p>
+        {emptyActionLabel !== undefined && onEmptyAction !== undefined ? (
+          <button
+            type="button"
+            className="mt-5 inline-flex min-h-11 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2"
+            onClick={onEmptyAction}
+          >
+            {emptyActionLabel}
+          </button>
+        ) : null}
       </div>
     )
   }

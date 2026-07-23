@@ -7,11 +7,7 @@ import PlayerCardGrid from '../components/PlayerCardGrid'
 import PlayersPageHeader from '../components/PlayersPageHeader'
 import PlayersPageModals from '../components/PlayersPageModals'
 import { UNASSIGNED_FILTER } from '../components/TeamFilter'
-import type {
-  PaginatedPlayerResponse,
-  PlayerResponse,
-  TeamSummary,
-} from '../types/player'
+import type { PaginatedPlayerResponse, PlayerResponse, TeamSummary } from '../types/player'
 
 const PAGE_SIZE = 20
 
@@ -56,10 +52,8 @@ export default function PlayersPage() {
       })
     return () => controller.abort()
   }, [])
-
   useEffect(() => {
     const controller = new AbortController()
-
     const params = {
       page,
       pageSize: PAGE_SIZE,
@@ -69,7 +63,6 @@ export default function PlayersPage() {
           ? {}
           : { teamId: teamFilter }),
     }
-
     void fetchPlayers(params, controller.signal)
       .then((response) => {
         if (!controller.signal.aborted) setResult(response)
@@ -83,7 +76,6 @@ export default function PlayersPage() {
       .finally(() => {
         if (!controller.signal.aborted) setIsLoading(false)
       })
-
     return () => controller.abort()
   }, [page, refreshKey, retryKey, teamFilter])
 
@@ -129,6 +121,10 @@ export default function PlayersPage() {
     teamFilter === null
       ? 'No active players are available.'
       : 'No players match this team filter.'
+  const emptyDescription =
+    teamFilter === null
+      ? 'Add the first player profile to begin building the active directory.'
+      : 'Choose another team or view all players.'
 
   return (
     <section className="mx-auto w-full max-w-7xl">
@@ -168,6 +164,13 @@ export default function PlayersPage() {
             players={result?.players ?? []}
             isLoading={isLoading}
             emptyMessage={emptyMessage}
+            emptyDescription={emptyDescription}
+            emptyActionLabel={
+              canManagePlayers && teamFilter === null
+                ? 'Add your first player'
+                : undefined
+            }
+            onEmptyAction={() => setIsAddPlayerOpen(true)}
             onSelect={setSelectedPlayer}
           />
         )}

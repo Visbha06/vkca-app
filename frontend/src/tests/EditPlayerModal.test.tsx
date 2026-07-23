@@ -108,22 +108,26 @@ describe('EditPlayerModal', () => {
     fireEvent.change(screen.getByRole('textbox', { name: /^Bio/ }), {
       target: { value: 'Opening batter and vice-captain' },
     })
+    const submittedAt = performance.now()
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
-    await waitFor(() =>
-      expect(updatePlayer).toHaveBeenCalledWith('player-1', {
-        first_name: 'Asha',
-        last_name: 'Singh',
-        date_of_birth: '2008-04-24',
-        bio: 'Opening batter and vice-captain',
-        batting_style: 'right',
-        bowling_style: 'right-arm medium',
-        player_type: 'all-rounder',
-        player_metadata: { squad_number: 12 },
-        version_number: 3,
-      }),
+    await waitFor(
+      () =>
+        expect(updatePlayer).toHaveBeenCalledWith('player-1', {
+          first_name: 'Asha',
+          last_name: 'Singh',
+          date_of_birth: '2008-04-24',
+          bio: 'Opening batter and vice-captain',
+          batting_style: 'right',
+          bowling_style: 'right-arm medium',
+          player_type: 'all-rounder',
+          player_metadata: { squad_number: 12 },
+          version_number: 3,
+        }),
+      { timeout: 500 },
     )
     expect(onUpdated).toHaveBeenCalledWith(updatedPlayer)
+    expect(performance.now() - submittedAt).toBeLessThan(500)
   })
 
   it('handles a 409 conflict and reloads the latest player into the form', async () => {
@@ -149,12 +153,14 @@ describe('EditPlayerModal', () => {
     fireEvent.change(screen.getByRole('textbox', { name: 'First name' }), {
       target: { value: 'Local edit' },
     })
+    const submittedAt = performance.now()
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
-    const alert = await screen.findByRole('alert')
+    const alert = await screen.findByRole('alert', {}, { timeout: 500 })
     expect(alert).toHaveTextContent(
       'This player was updated by another user.',
     )
+    expect(performance.now() - submittedAt).toBeLessThan(500)
     expect(alert).toHaveFocus()
     fireEvent.click(screen.getByRole('button', { name: 'Reload latest player' }))
 
