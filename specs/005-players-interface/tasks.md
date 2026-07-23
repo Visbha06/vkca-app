@@ -64,21 +64,21 @@
 
 ### Tests for User Story 1 (MANDATORY) ⚠️
 
-- [ ] T013 [P] [US1] Write unit tests for `PlayerCard` (renders name, teams/"Unassigned", date, keyboard access) in `frontend/src/tests/PlayerCard.test.tsx`
-- [ ] T014 [P] [US1] Write unit tests for `PlayerCardGrid` (renders cards, responsive grid, empty state) in `frontend/src/tests/PlayerCardGrid.test.tsx`
-- [ ] T015 [P] [US1] Write unit tests for `PlayerDetailsModal` (displays all fields, opens on card click, closes on Escape/close button, focus trapping, stats placeholder) in `frontend/src/tests/PlayerDetailsModal.test.tsx`
-- [ ] T016 [P] [US1] Write unit tests for `Pagination` (renders page numbers, disables prev/next at boundaries, calls onPageChange) in `frontend/src/tests/Pagination.test.tsx`
-- [ ] T017 [P] [US1] Write unit tests for `TeamFilter` (renders All/team/Unassigned options, calls onChange, keyboard accessible) in `frontend/src/tests/TeamFilter.test.tsx`
-- [ ] T018 [US1] Write unit tests for `PlayersPage` container (fetches players, passes data to children, loading/empty/error states, role-based controls) in `frontend/src/tests/PlayersPage.test.tsx`
+- [X] T013 [P] [US1] Write unit tests for `PlayerCard` (renders name, teams/"Unassigned", date, keyboard access) in `frontend/src/tests/PlayerCard.test.tsx`
+- [X] T014 [P] [US1] Write unit tests for `PlayerCardGrid` (renders cards, responsive grid, empty state) in `frontend/src/tests/PlayerCardGrid.test.tsx`
+- [X] T015 [P] [US1] Write unit tests for `PlayerDetailsModal` (displays all fields, opens on card click, closes on Escape/close button, focus trapping, stats placeholder) in `frontend/src/tests/PlayerDetailsModal.test.tsx`
+- [X] T016 [P] [US1] Write unit tests for `Pagination` (renders page numbers, disables prev/next at boundaries, calls onPageChange) in `frontend/src/tests/Pagination.test.tsx`
+- [X] T017 [P] [US1] Write unit tests for `TeamFilter` (renders All/team/Unassigned options, calls onChange, keyboard accessible) in `frontend/src/tests/TeamFilter.test.tsx`
+- [X] T018 [US1] Write unit tests for `PlayersPage` container (fetches players, passes data to children, loading/empty/error states, role-based controls) in `frontend/src/tests/PlayersPage.test.tsx`
 
 ### Implementation for User Story 1
 
-- [ ] T019 [P] [US1] Create `PlayerCard` component (full name, team names or "Unassigned", date display, keyboard-focusable, Enter/Space to open) in `frontend/src/components/PlayerCard.tsx`
-- [ ] T020 [P] [US1] Create `PlayerCardGrid` component (responsive grid of `PlayerCard`, loading/empty states) in `frontend/src/components/PlayerCardGrid.tsx`
-- [ ] T021 [P] [US1] Create `Pagination` component (page controls, prev/next, disabled-at-bounds, accessible labels, loading state). In `PlayersPage`, guard pagination fetches with an AbortController — cancel in-flight request on rapid re-clicks so only the most recent page request is honored (spec edge case L123)
-- [ ] T022 [P] [US1] Create `TeamFilter` component (select dropdown: All Players, each team, Unassigned Players, resets to page 1 on change) in `frontend/src/components/TeamFilter.tsx`
-- [ ] T023 [US1] Create `PlayerDetailsModal` component (reuses `useModalDialog`, shows heading/DOB/batting/bowling/type/teams/stats-placeholder, Escape/close-button/backdrop-close, focus trapping, responsive scroll) in `frontend/src/components/PlayerDetailsModal.tsx`
-- [ ] T024 [US1] Rewrite `PlayersPage` container (fetches paginated players with team filter, manages `page`/`teamFilter` state, renders `TeamFilter` + `PlayerCardGrid` + `Pagination`, handles `PlayerDetailsModal` open/close, role-based "Add Player" visibility). After successful create/edit mutations, increment a `refreshKey` counter to invalidate stale cached list data and trigger a fresh fetch (spec FR-035). in `frontend/src/pages/PlayersPage.tsx`
+- [X] T019 [P] [US1] Create `PlayerCard` component (full name, team names or "Unassigned", date display, keyboard-focusable, Enter/Space to open) in `frontend/src/components/PlayerCard.tsx`
+- [X] T020 [P] [US1] Create `PlayerCardGrid` component (responsive grid of `PlayerCard`, loading/empty states) in `frontend/src/components/PlayerCardGrid.tsx`
+- [X] T021 [P] [US1] Create `Pagination` component (page controls, prev/next, disabled-at-bounds, accessible labels, loading state). In `PlayersPage`, guard pagination fetches with an AbortController — cancel in-flight request on rapid re-clicks so only the most recent page request is honored (spec edge case L123)
+- [X] T022 [P] [US1] Create `TeamFilter` component (select dropdown: All Players, each team, Unassigned Players, resets to page 1 on change) in `frontend/src/components/TeamFilter.tsx`
+- [X] T023 [US1] Create `PlayerDetailsModal` component (reuses `useModalDialog`, shows heading/DOB/batting/bowling/type/teams/stats-placeholder, Escape/close-button/backdrop-close, focus trapping, responsive scroll) in `frontend/src/components/PlayerDetailsModal.tsx`
+- [X] T024 [US1] Rewrite `PlayersPage` container (fetches paginated players with team filter, manages `page`/`teamFilter` state, renders `TeamFilter` + `PlayerCardGrid` + `Pagination`, handles `PlayerDetailsModal` open/close, role-based "Add Player" visibility). After successful create/edit mutations, increment a `refreshKey` counter to invalidate stale cached list data and trigger a fresh fetch (spec FR-035). in `frontend/src/pages/PlayersPage.tsx`
 
 **Checkpoint**: User Story 1 fully functional — paginated player list with team filtering, player cards, and details modal all work end-to-end
 

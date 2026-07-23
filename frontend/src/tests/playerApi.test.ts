@@ -4,6 +4,7 @@ import {
   createPlayer,
   fetchPlayer,
   fetchPlayers,
+  fetchTeamsForFilter,
   updatePlayer,
 } from '../api/playerApi'
 import type { PlayerCreatePayload, PlayerUpdatePayload } from '../types/player'
@@ -47,6 +48,15 @@ describe('player API client', () => {
     await fetchPlayer('player/1')
 
     expect(request).toHaveBeenCalledWith('/api/v1/players/player%2F1')
+  })
+
+  it('fetches typed team options for the player filter', async () => {
+    const response = [{ id: 'team-1', name: 'Junior XI' }]
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue(response)
+    const signal = new AbortController().signal
+
+    await expect(fetchTeamsForFilter(signal)).resolves.toBe(response)
+    expect(request).toHaveBeenCalledWith('/api/v1/teams', { signal })
   })
 
   it('creates a player with the typed payload', async () => {

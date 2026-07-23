@@ -4,9 +4,11 @@ import type {
   PlayerCreatePayload,
   PlayerResponse,
   PlayerUpdatePayload,
+  TeamSummary,
 } from '../types/player'
 
 const PLAYERS_PATH = '/api/v1/players'
+const TEAMS_PATH = '/api/v1/teams'
 
 export interface PlayerListParams {
   page?: number
@@ -51,6 +53,13 @@ export function fetchPlayer(playerId: string, signal?: AbortSignal) {
     return apiClient.request<PlayerResponse>(path, { signal })
   }
   return apiClient.request<PlayerResponse>(path)
+}
+
+export function fetchTeamsForFilter(signal?: AbortSignal) {
+  if (signal !== undefined) {
+    return apiClient.request<TeamSummary[]>(TEAMS_PATH, { signal })
+  }
+  return apiClient.request<TeamSummary[]>(TEAMS_PATH)
 }
 
 export function createPlayer(payload: PlayerCreatePayload) {
