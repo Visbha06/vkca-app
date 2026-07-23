@@ -13,7 +13,7 @@ from src.enums import BattingStyle, BowlingStyle, PlayerType, UserRole
 from src.main import app
 from src.middleware.auth import get_current_user
 from src.models.player import Player
-from src.schemas.player import PlayerResponse
+from src.schemas.player import PaginatedPlayerResponse, PlayerResponse, TeamSummary
 from src.services.occ import StaleVersionError
 
 
@@ -35,6 +35,7 @@ def make_player_response(player_id: UUID | None = None) -> PlayerResponse:
         created_at=now,
         updated_at=now,
         version_number=1,
+        teams=[TeamSummary(id=uuid4(), name="Senior XI")],
     )
 
 
@@ -90,15 +91,117 @@ async def test_create_player_returns_created_profile(client, service_mock) -> No
 
 
 @pytest.mark.asyncio
-async def test_list_players_returns_active_profiles(client, service_mock) -> None:
+async def test_list_players_returns_default_paginated_profiles(
+    client, service_mock
+) -> None:
     player = make_player_response()
-    service_mock.list_players.return_value = [player]
+    response = PaginatedPlayerResponse(
+        players=[player],
+        page=1,
+        page_size=20,
+        total_players=1,
+        total_pages=1,
+        has_previous=False,
+        has_next=False,
+    )
+    service_mock.list_players.return_value = response
 
     result = await client.get("/api/v1/players")
 
     assert result.status_code == 200
-    assert result.json() == [player.model_dump(mode="json")]
-    service_mock.list_players.assert_awaited_once_with()
+    assert result.json() == response.model_dump(mode="json")
+    service_mock.list_players.assert_awaited_once_with(
+        page=1,
+        page_size=20,
+        team_id=None,
+        unassigned=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_list_players_forwards_pagination_and_team_filter(
+    client, service_mock
+) -> None:
+    team_id = uuid4()
+    response = PaginatedPlayerResponse(
+        players=[],
+        page=2,
+        page_size=5,
+        total_players=6,
+        total_pages=2,
+        has_previous=True,
+        has_next=False,
+    )
+    service_mock.list_players.return_value = response
+
+    result = await client.get(f"/api/v1/players?page=2&page_size=5&team_id={team_id}")
+
+    assert result.status_code == 200
+    assert result.json() == response.model_dump(mode="json")
+    service_mock.list_players.assert_awaited_once_with(
+        page=2,
+        page_size=5,
+        team_id=team_id,
+        unassigned=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_list_players_forwards_unassigned_filter(client, service_mock) -> None:
+    response = PaginatedPlayerResponse(
+        players=[],
+        page=1,
+        page_size=20,
+        total_players=0,
+        total_pages=0,
+        has_previous=False,
+        has_next=False,
+    )
+    service_mock.list_players.return_value = response
+
+    result = await client.get("/api/v1/players?unassigned=true")
+
+    assert result.status_code == 200
+    service_mock.list_players.assert_awaited_once_with(
+        page=1,
+        page_size=20,
+        team_id=None,
+        unassigned=True,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("query", ["page=0", "page_size=0", "page_size=101"])
+async def test_list_players_rejects_invalid_pagination(
+    client, service_mock, query: str
+) -> None:
+    result = await client.get(f"/api/v1/players?{query}")
+
+    assert result.status_code == 422
+    service_mock.list_players.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_list_players_rejects_conflicting_team_filters(
+    client, service_mock
+) -> None:
+    result = await client.get(f"/api/v1/players?team_id={uuid4()}&unassigned=true")
+
+    assert result.status_code == 422
+    assert result.json() == {"detail": "team_id and unassigned are mutually exclusive"}
+    service_mock.list_players.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_player_returns_profile_with_teams(client, service_mock) -> None:
+    player = make_player_response()
+    service_mock.get_player_by_id.return_value = player
+
+    result = await client.get(f"/api/v1/players/{player.id}")
+
+    assert result.status_code == 200
+    assert result.json() == player.model_dump(mode="json")
+    service_mock.get_player_by_id.assert_awaited_once_with(player.id)
 
 
 @pytest.mark.asyncio

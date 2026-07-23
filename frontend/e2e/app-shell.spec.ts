@@ -120,8 +120,15 @@ test.describe('application shell primary journey', () => {
   test('renders direct placeholder routes and the recoverable 404 page', async ({
     page,
   }) => {
+    await page.goto('/players')
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Player Directory' }),
+    ).toBeVisible()
+    await expect(
+      page.getByText('This section will be available in a future update.'),
+    ).toHaveCount(0)
+
     const routes = [
-      ['/players', 'Player Directory'],
       ['/teams', 'Teams'],
       ['/coaches', 'Coaches Portal'],
       ['/calendar', 'Calendar'],

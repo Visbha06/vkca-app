@@ -59,7 +59,7 @@ describe('HomePage', () => {
     const actions = screen.getByRole('navigation', { name: 'Quick actions' })
     expect(within(actions).getByRole('link', { name: 'Add player' })).toHaveAttribute(
       'href',
-      '/players',
+      '/players?action=add',
     )
     expect(within(actions).getByRole('link', { name: 'Create match' })).toHaveAttribute(
       'href',

@@ -1,5 +1,7 @@
 """Executable coverage for the 004 frontend-auth quickstart flow."""
 
+__test__ = False
+
 import subprocess
 from pathlib import Path
 

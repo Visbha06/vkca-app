@@ -3,13 +3,18 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
 from src.enums import UserRole
 from src.middleware.auth import AuthenticatedUser, get_current_user, require_role
-from src.schemas.player import PlayerCreate, PlayerResponse, PlayerUpdate
+from src.schemas.player import (
+    PaginatedPlayerResponse,
+    PlayerCreate,
+    PlayerResponse,
+    PlayerUpdate,
+)
 from src.services.player_service import (
     PlayerAlreadyExistsError,
     PlayerNotFoundError,
@@ -41,15 +46,29 @@ async def create_player(
     return PlayerResponse.model_validate(player)
 
 
-@router.get("", response_model=list[PlayerResponse])
+@router.get("", response_model=PaginatedPlayerResponse)
 async def list_players(
     session: Annotated[AsyncSession, Depends(get_db)],
     current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
-) -> list[PlayerResponse]:
-    """List active player profiles."""
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    team_id: UUID | None = None,
+    unassigned: bool = False,
+) -> PaginatedPlayerResponse:
+    """List a filtered page of active player profiles."""
 
-    players = await PlayerService(session).list_players()
-    return [PlayerResponse.model_validate(player) for player in players]
+    if team_id is not None and unassigned:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="team_id and unassigned are mutually exclusive",
+        )
+
+    return await PlayerService(session).list_players(
+        page=page,
+        page_size=page_size,
+        team_id=team_id,
+        unassigned=unassigned,
+    )
 
 
 @router.get("/{player_id}", response_model=PlayerResponse)

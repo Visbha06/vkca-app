@@ -15,6 +15,7 @@ from src.main import app
 from src.middleware.auth import get_current_user, get_logout_user, require_role
 from src.models.auth_session import AuthSession
 from src.models.user import User
+from src.schemas.player import PaginatedPlayerResponse
 from src.services.auth_service import (
     AuthService,
     InvalidCredentialsError,
@@ -354,15 +355,11 @@ async def test_patch_me_updates_profile(
         "updated_at": user.updated_at.isoformat().replace("+00:00", "Z"),
         "session": {
             "session_id": str(auth_session.id),
-            "created_at": auth_session.created_at.isoformat().replace(
-                "+00:00", "Z"
-            ),
+            "created_at": auth_session.created_at.isoformat().replace("+00:00", "Z"),
             "last_used_at": auth_session.last_used_at.isoformat().replace(
                 "+00:00", "Z"
             ),
-            "expires_at": auth_session.expires_at.isoformat().replace(
-                "+00:00", "Z"
-            ),
+            "expires_at": auth_session.expires_at.isoformat().replace("+00:00", "Z"),
         },
     }
     assert user.first_name == "Jane"
@@ -1122,14 +1119,23 @@ async def test_players_get_all_roles(
         return user, auth_session
 
     service = mocker.Mock()
-    service.list_players = AsyncMock(return_value=[])
+    empty_page = PaginatedPlayerResponse(
+        players=[],
+        page=1,
+        page_size=20,
+        total_players=0,
+        total_pages=0,
+        has_previous=False,
+        has_next=False,
+    )
+    service.list_players = AsyncMock(return_value=empty_page)
     mocker.patch("src.routes.players.PlayerService", return_value=service)
     app.dependency_overrides[get_current_user] = override_get_current_user
 
     response = await client.get("/api/v1/players")
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == empty_page.model_dump(mode="json")
 
 
 @pytest.mark.asyncio
