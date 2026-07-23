@@ -13,6 +13,7 @@ import { useModalDialog } from './useModalDialog'
 interface PlayerDetailsModalProps {
   player: PlayerResponse
   onClose: () => void
+  onEdit?: () => void
 }
 
 interface DetailItemProps {
@@ -32,6 +33,7 @@ function DetailItem({ label, value }: DetailItemProps) {
 export default function PlayerDetailsModal({
   player,
   onClose,
+  onEdit,
 }: PlayerDetailsModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   useModalDialog(dialogRef, onClose)
@@ -103,6 +105,18 @@ export default function PlayerDetailsModal({
               Player statistics deferred to a future specification.
             </p>
           </section>
+
+          {onEdit !== undefined ? (
+            <div className="mt-6 flex justify-end border-t border-slate-200 pt-5">
+              <button
+                type="button"
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2"
+                onClick={onEdit}
+              >
+                Edit Player
+              </button>
+            </div>
+          ) : null}
         </div>
 
         <button

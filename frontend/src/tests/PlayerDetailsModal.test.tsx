@@ -82,6 +82,25 @@ describe('PlayerDetailsModal', () => {
     expect(onClose).toHaveBeenCalledTimes(3)
   })
 
+  it('shows the Edit Player control only when editing is available', () => {
+    const onEdit = vi.fn()
+    const { rerender } = render(
+      <PlayerDetailsModal
+        player={player}
+        onClose={vi.fn()}
+        onEdit={onEdit}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Player' }))
+    expect(onEdit).toHaveBeenCalledTimes(1)
+
+    rerender(<PlayerDetailsModal player={player} onClose={vi.fn()} />)
+    expect(
+      screen.queryByRole('button', { name: 'Edit Player' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('traps keyboard focus inside the modal', () => {
     render(<PlayerDetailsModal player={player} onClose={vi.fn()} />)
     const close = screen.getByRole('button', { name: 'Close player details' })

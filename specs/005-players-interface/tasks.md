@@ -132,13 +132,13 @@
 
 ### Tests for User Story 4 (MANDATORY) ⚠️
 
-- [ ] T033 [P] [US4] Write unit tests for `EditPlayerModal` (pre-fills from player data, human-readable enum labels, date display format, submits with `version_number`, handles 409 conflict with reload action, handles 403 permissions, unsaved-changes prompt) in `frontend/src/tests/EditPlayerModal.test.tsx`
+- [X] T033 [P] [US4] Write unit tests for `EditPlayerModal` (pre-fills from player data, human-readable enum labels, date display format, submits with `version_number`, handles 409 conflict with reload action, handles 403 permissions, unsaved-changes prompt) in `frontend/src/tests/EditPlayerModal.test.tsx`
 
 ### Implementation for User Story 4
 
-- [ ] T034 [US4] Add "Edit Player" control to `PlayerDetailsModal` (visible to Head Coach/Assistant Coach only, closes details before opening edit) in `frontend/src/components/PlayerDetailsModal.tsx`
-- [ ] T035 [US4] Create `EditPlayerModal` component (wraps `PlayerForm` with `player` prop for pre-fill, `PUT /api/v1/players/{id}` on submit with `version_number`, handles 409 with conflict message + "Reload" button that re-fetches and replaces form state, handles 403 with permissions message, closes on success with list refresh) in `frontend/src/components/EditPlayerModal.tsx`
-- [ ] T036 [US4] Integrate `EditPlayerModal` flow into `PlayersPage` (close details → open edit → on success refresh → re-open details with new data) in `frontend/src/pages/PlayersPage.tsx`
+- [X] T034 [US4] Add "Edit Player" control to `PlayerDetailsModal` (visible to Head Coach/Assistant Coach only, closes details before opening edit) in `frontend/src/components/PlayerDetailsModal.tsx`
+- [X] T035 [US4] Create `EditPlayerModal` component (wraps `PlayerForm` with `player` prop for pre-fill, `PUT /api/v1/players/{id}` on submit with `version_number`, handles 409 with conflict message + "Reload" button that re-fetches and replaces form state, handles 403 with permissions message, closes on success with list refresh) in `frontend/src/components/EditPlayerModal.tsx`
+- [X] T036 [US4] Integrate `EditPlayerModal` flow into `PlayersPage` (close details → open edit → on success refresh → re-open details with new data) in `frontend/src/pages/PlayersPage.tsx`
 
 **Checkpoint**: Full player CRUD cycle works — US1 + US2 + US3 + US4
 

@@ -4,16 +4,24 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type ReactNode,
 } from 'react'
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges'
-import type { PlayerCreatePayload } from '../types/player'
+import type { PlayerCreatePayload, PlayerResponse } from '../types/player'
 import PlayerFormFields, {
   type PlayerFieldErrors,
   type PlayerFormValues,
 } from './PlayerFormFields'
+import PlayerFormFeedback from './PlayerFormFeedback'
 import PlayerMetadataFields, {
   type MetadataRow,
 } from './PlayerMetadataFields'
+import {
+  playerFormIsDirty,
+  playerFormPayload,
+  playerFormValues,
+  playerMetadataRows,
+} from './playerFormState'
 
 export interface PlayerFormHandle {
   requestClose: () => boolean
@@ -24,17 +32,9 @@ interface PlayerFormProps {
   onCancel: () => void
   isSubmitting?: boolean
   errorMessage?: string | null
+  errorAction?: ReactNode
   onChange?: () => void
-}
-
-const initialValues: PlayerFormValues = {
-  firstName: '',
-  lastName: '',
-  dateOfBirth: '',
-  bio: '',
-  battingStyle: '',
-  bowlingStyle: '',
-  playerType: '',
+  player?: PlayerResponse
 }
 
 function validateFields(values: PlayerFormValues): PlayerFieldErrors {
@@ -70,22 +70,29 @@ const PlayerForm = forwardRef<PlayerFormHandle, PlayerFormProps>(
       onCancel,
       isSubmitting = false,
       errorMessage = null,
+      errorAction,
       onChange,
+      player,
     },
     ref,
   ) {
+    const initialValues = playerFormValues(player)
+    const initialMetadataRows = playerMetadataRows(player)
     const [values, setValues] = useState(initialValues)
-    const [metadataRows, setMetadataRows] = useState<MetadataRow[]>([
-      { id: 'metadata-1', key: '', value: '' },
-    ])
+    const [metadataRows, setMetadataRows] =
+      useState<MetadataRow[]>(initialMetadataRows)
     const [fieldErrors, setFieldErrors] = useState<PlayerFieldErrors>({})
     const [metadataErrors, setMetadataErrors] = useState<Record<string, string>>({})
-    const nextMetadataId = useRef(2)
-    const isDirty =
-      Object.values(values).some((value) => value.trim() !== '') ||
-      metadataRows.some((row) => row.key.trim() || row.value.trim())
-    const requestClose = useUnsavedChanges(Boolean(isDirty), onCancel)
+    const nextMetadataId = useRef(initialMetadataRows.length + 1)
+    const isDirty = playerFormIsDirty(
+      values,
+      metadataRows,
+      initialValues,
+      initialMetadataRows,
+    )
+    const requestClose = useUnsavedChanges(isDirty, onCancel)
     useImperativeHandle(ref, () => ({ requestClose }), [requestClose])
+    const isEditing = player !== undefined
 
     function updateField<Key extends keyof PlayerFormValues>(
       field: Key,
@@ -130,32 +137,21 @@ const PlayerForm = forwardRef<PlayerFormHandle, PlayerFormProps>(
         Object.keys(nextMetadataErrors).length > 0
       ) return
 
-      const metadata = Object.fromEntries(
-        metadataRows
-          .filter((row) => row.key.trim())
-          .map((row) => [row.key.trim(), row.value.trim()]),
-      )
-      void onSubmit({
-        first_name: values.firstName.trim(),
-        last_name: values.lastName.trim(),
-        date_of_birth: values.dateOfBirth,
-        bio: values.bio.trim() || null,
-        batting_style: values.battingStyle as PlayerCreatePayload['batting_style'],
-        bowling_style: values.bowlingStyle as PlayerCreatePayload['bowling_style'],
-        player_type: values.playerType as PlayerCreatePayload['player_type'],
-        player_metadata: metadata,
-      })
+      void onSubmit(playerFormPayload(values, metadataRows, player))
     }
 
     return (
       <form noValidate onSubmit={handleSubmit}>
         <div className="p-5 sm:p-6">
-          {errorMessage ? (
-            <div role="alert" className="mb-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-950">
-              {errorMessage}
-            </div>
+          <PlayerFormFeedback
+            action={errorAction}
+            message={errorMessage}
+          />
+          {isSubmitting ? (
+            <span role="status" className="sr-only">
+              {isEditing ? 'Updating player' : 'Creating player'}
+            </span>
           ) : null}
-          {isSubmitting ? <span role="status" className="sr-only">Creating player</span> : null}
           <PlayerFormFields
             values={values}
             errors={fieldErrors}
@@ -186,7 +182,13 @@ const PlayerForm = forwardRef<PlayerFormHandle, PlayerFormProps>(
             disabled={isSubmitting}
             className="inline-flex min-h-11 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
-            {isSubmitting ? 'Creating player…' : 'Create player'}
+            {isSubmitting
+              ? isEditing
+                ? 'Saving changes…'
+                : 'Creating player…'
+              : isEditing
+                ? 'Save changes'
+                : 'Create player'}
           </button>
         </div>
       </form>

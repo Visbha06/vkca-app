@@ -8,6 +8,7 @@ import {
   BOWLING_STYLE_LABELS,
   PLAYER_TYPE_LABELS,
 } from '../utils/enumLabels'
+import { toDisplayDate } from '../utils/formatDate'
 
 export interface PlayerFormValues {
   firstName: string
@@ -99,6 +100,11 @@ export default function PlayerFormFields({
           onChange={(event) => onChange('dateOfBirth', event.target.value)}
         />
         <FieldError id="player-date-error" message={errors.dateOfBirth} />
+        {values.dateOfBirth ? (
+          <p className="mt-2 text-sm text-slate-600">
+            {toDisplayDate(values.dateOfBirth)}
+          </p>
+        ) : null}
       </div>
 
       <div>

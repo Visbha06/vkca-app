@@ -2,11 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { fetchPlayers, fetchTeamsForFilter } from '../api/playerApi'
 import { useAuth } from '../auth/AuthContext'
-import AddPlayerModal from '../components/AddPlayerModal'
 import Pagination from '../components/Pagination'
 import PlayerCardGrid from '../components/PlayerCardGrid'
-import PlayerDetailsModal from '../components/PlayerDetailsModal'
 import PlayersPageHeader from '../components/PlayersPageHeader'
+import PlayersPageModals from '../components/PlayersPageModals'
 import { UNASSIGNED_FILTER } from '../components/TeamFilter'
 import type {
   PaginatedPlayerResponse,
@@ -116,9 +115,12 @@ export default function PlayersPage() {
     setRetryKey((key) => key + 1)
   }
 
-  function handlePlayerCreated(player: PlayerResponse) {
+  function handlePlayerMutation(
+    player: PlayerResponse,
+    action: 'added' | 'updated',
+  ) {
     setSuccessMessage(
-      `${player.first_name} ${player.last_name} was added successfully.`,
+      `${player.first_name} ${player.last_name} was ${action} successfully.`,
     )
     setRefreshKey((key) => key + 1)
   }
@@ -182,19 +184,14 @@ export default function PlayersPage() {
         </div>
       ) : null}
 
-      {selectedPlayer !== null ? (
-        <PlayerDetailsModal
-          player={selectedPlayer}
-          onClose={() => setSelectedPlayer(null)}
-        />
-      ) : null}
-
-      {isAddPlayerOpen ? (
-        <AddPlayerModal
-          onClose={() => setIsAddPlayerOpen(false)}
-          onCreated={handlePlayerCreated}
-        />
-      ) : null}
+      <PlayersPageModals
+        canManagePlayers={canManagePlayers}
+        isAddPlayerOpen={isAddPlayerOpen}
+        selectedPlayer={selectedPlayer}
+        onAddPlayerClose={() => setIsAddPlayerOpen(false)}
+        onPlayerMutation={handlePlayerMutation}
+        onSelectPlayer={setSelectedPlayer}
+      />
     </section>
   )
 }

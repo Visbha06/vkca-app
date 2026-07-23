@@ -8,12 +8,20 @@ import { AuthContext, type AuthContextValue } from '../auth/AuthContext'
 import type { AuthUser } from '../auth/types'
 import PlayersPage from '../pages/PlayersPage'
 import type { PaginatedPlayerResponse, PlayerResponse } from '../types/player'
-import { createPlayer, fetchPlayers, fetchTeamsForFilter } from '../api/playerApi'
+import {
+  createPlayer,
+  fetchPlayer,
+  fetchPlayers,
+  fetchTeamsForFilter,
+  updatePlayer,
+} from '../api/playerApi'
 
 vi.mock('../api/playerApi', () => ({
   createPlayer: vi.fn(),
+  fetchPlayer: vi.fn(),
   fetchPlayers: vi.fn(),
   fetchTeamsForFilter: vi.fn(),
+  updatePlayer: vi.fn(),
 }))
 
 const player: PlayerResponse = {
@@ -102,6 +110,12 @@ beforeEach(() => {
     first_name: 'Maya',
     last_name: 'Patel',
   })
+  vi.mocked(fetchPlayer).mockResolvedValue(player)
+  vi.mocked(updatePlayer).mockResolvedValue({
+    ...player,
+    first_name: 'Asha-Rae',
+    version_number: 2,
+  })
 })
 
 afterEach(() => {
@@ -189,10 +203,13 @@ describe('PlayersPage', () => {
     expect(await screen.findByText('Asha Singh')).toBeVisible()
   })
 
-  it('hides Add Player from player-role users', async () => {
+  it('hides Add and Edit Player controls from player-role users', async () => {
     renderPage({ ...headCoach, role: 'player' })
-    await screen.findByText('Asha Singh')
+    fireEvent.click(
+      await screen.findByRole('button', { name: /view asha singh/i }),
+    )
     expect(screen.queryByRole('button', { name: 'Add Player' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit Player' })).not.toBeInTheDocument()
   })
 
   it('creates a player from the coach action and refreshes the list', async () => {
@@ -236,5 +253,42 @@ describe('PlayersPage', () => {
       expect(screen.getByTestId('location')).toHaveTextContent('/players'),
     )
     expect(screen.getByTestId('location')).not.toHaveTextContent('action=add')
+  })
+
+  it('closes details, edits the player, refreshes the list, and reopens fresh details', async () => {
+    renderPage()
+    fireEvent.click(
+      await screen.findByRole('button', { name: /view asha singh/i }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Player' }))
+
+    expect(
+      screen.queryByRole('dialog', { name: 'Asha Singh' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('dialog', { name: 'Edit Asha Singh' }),
+    ).toBeVisible()
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'First name' }), {
+      target: { value: 'Asha-Rae' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() =>
+      expect(updatePlayer).toHaveBeenCalledWith(
+        'player-1',
+        expect.objectContaining({
+          first_name: 'Asha-Rae',
+          version_number: 1,
+        }),
+      ),
+    )
+    expect(
+      await screen.findByRole('dialog', { name: 'Asha-Rae Singh' }),
+    ).toBeVisible()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Asha-Rae Singh was updated successfully.',
+    )
+    await waitFor(() => expect(fetchPlayers).toHaveBeenCalledTimes(2))
   })
 })
