@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { fetchPlayers, fetchTeamsForFilter } from '../api/playerApi'
 import { useAuth } from '../auth/AuthContext'
+import AddPlayerModal from '../components/AddPlayerModal'
 import Pagination from '../components/Pagination'
 import PlayerCardGrid from '../components/PlayerCardGrid'
 import PlayerDetailsModal from '../components/PlayerDetailsModal'
-import TeamFilter, { UNASSIGNED_FILTER } from '../components/TeamFilter'
+import PlayersPageHeader from '../components/PlayersPageHeader'
+import { UNASSIGNED_FILTER } from '../components/TeamFilter'
 import type {
   PaginatedPlayerResponse,
   PlayerResponse,
@@ -19,20 +22,30 @@ function isAbortError(error: unknown) {
 
 export default function PlayersPage() {
   const { user } = useAuth()
+  const canManagePlayers =
+    user?.role === 'head coach' || user?.role === 'assistant coach'
+  const [searchParams, setSearchParams] = useSearchParams()
   const [page, setPage] = useState(1)
   const [teamFilter, setTeamFilter] = useState<string | null>(null)
   const [teams, setTeams] = useState<TeamSummary[]>([])
   const [result, setResult] = useState<PaginatedPlayerResponse | null>(null)
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerResponse | null>(null)
+  const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(
+    () => canManagePlayers && searchParams.get('action') === 'add',
+  )
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [retryKey, setRetryKey] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0)
   const listRegionRef = useRef<HTMLDivElement>(null)
   const focusListAfterLoadRef = useRef(false)
-
-  const canManagePlayers =
-    user?.role === 'head coach' || user?.role === 'assistant coach'
-
+  useEffect(() => {
+    if (searchParams.get('action') !== 'add') return
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('action')
+    setSearchParams(nextParams, { replace: true })
+  }, [searchParams, setSearchParams])
   useEffect(() => {
     const controller = new AbortController()
     void fetchTeamsForFilter(controller.signal)
@@ -73,7 +86,7 @@ export default function PlayersPage() {
       })
 
     return () => controller.abort()
-  }, [page, retryKey, teamFilter])
+  }, [page, refreshKey, retryKey, teamFilter])
 
   useEffect(() => {
     if (!isLoading && focusListAfterLoadRef.current) {
@@ -103,6 +116,13 @@ export default function PlayersPage() {
     setRetryKey((key) => key + 1)
   }
 
+  function handlePlayerCreated(player: PlayerResponse) {
+    setSuccessMessage(
+      `${player.first_name} ${player.last_name} was added successfully.`,
+    )
+    setRefreshKey((key) => key + 1)
+  }
+
   const emptyMessage =
     teamFilter === null
       ? 'No active players are available.'
@@ -110,40 +130,21 @@ export default function PlayersPage() {
 
   return (
     <section className="mx-auto w-full max-w-7xl">
-      <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl" tabIndex={-1}>
-            Player Directory
-          </h1>
-          <p className="mt-2 max-w-2xl text-base leading-7 text-slate-600">
-            Browse active players, team membership, and playing profiles.
-          </p>
-        </div>
-        {canManagePlayers ? (
-          <button
-            type="button"
-            disabled
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-500"
-            title="Player creation is not available yet"
-          >
-            Add Player
-          </button>
-        ) : null}
-      </header>
+      <PlayersPageHeader
+        canManagePlayers={canManagePlayers}
+        isLoading={isLoading}
+        teams={teams}
+        teamFilter={teamFilter}
+        totalPlayers={result?.total_players}
+        onAdd={() => setIsAddPlayerOpen(true)}
+        onFilterChange={handleFilterChange}
+      />
 
-      <div className="flex flex-col gap-5 py-6 sm:flex-row sm:items-end sm:justify-between">
-        <TeamFilter
-          teams={teams}
-          value={teamFilter}
-          disabled={isLoading}
-          onChange={handleFilterChange}
-        />
-        {result !== null && result.total_players > 0 ? (
-          <p className="text-sm font-medium text-slate-600">
-            {result.total_players} active {result.total_players === 1 ? 'player' : 'players'}
-          </p>
-        ) : null}
-      </div>
+      {successMessage ? (
+        <p role="status" className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-950">
+          {successMessage}
+        </p>
+      ) : null}
 
       <div ref={listRegionRef} tabIndex={-1} className="focus:outline-none">
         {errorMessage !== null ? (
@@ -185,6 +186,13 @@ export default function PlayersPage() {
         <PlayerDetailsModal
           player={selectedPlayer}
           onClose={() => setSelectedPlayer(null)}
+        />
+      ) : null}
+
+      {isAddPlayerOpen ? (
+        <AddPlayerModal
+          onClose={() => setIsAddPlayerOpen(false)}
+          onCreated={handlePlayerCreated}
         />
       ) : null}
     </section>

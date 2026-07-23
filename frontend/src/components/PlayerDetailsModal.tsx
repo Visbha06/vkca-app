@@ -7,6 +7,7 @@ import {
   formatEnum,
 } from '../utils/enumLabels'
 import { toDisplayDate } from '../utils/formatDate'
+import PlayerInformationSection from './PlayerInformationSection'
 import { useModalDialog } from './useModalDialog'
 
 interface PlayerDetailsModalProps {
@@ -85,6 +86,11 @@ export default function PlayerDetailsModal({
               <DetailItem label="Teams" value={teamNames || 'Unassigned'} />
             </div>
           </dl>
+
+          <PlayerInformationSection
+            bio={player.bio}
+            metadata={player.player_metadata}
+          />
 
           <section
             aria-labelledby="player-statistics-title"

@@ -4,7 +4,7 @@ import HomeSummary from '../components/HomeSummary'
 import { CalendarIcon, PerformanceIcon, PlayersIcon } from '../components/NavIcons'
 
 const quickActions = [
-  { label: 'Add player', to: '/players', icon: <PlayersIcon className="size-5" /> },
+  { label: 'Add player', to: '/players?action=add', icon: <PlayersIcon className="size-5" /> },
   { label: 'Create match', to: '/teams', icon: <PerformanceIcon className="size-5" /> },
   { label: 'Schedule event', to: '/calendar', icon: <CalendarIcon className="size-5" /> },
 ]

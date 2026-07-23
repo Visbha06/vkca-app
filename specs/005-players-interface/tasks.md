@@ -92,11 +92,11 @@
 
 ### Tests for User Story 2 (MANDATORY) ⚠️
 
-- [ ] T025 [P] [US2] Write unit tests for bio/metadata expandable section (displays bio, key-value pairs, empty message, expand/collapse toggle, nested objects flattened with JSON.stringify, keys/values rendered as text nodes not innerHTML) in `frontend/src/tests/PlayerDetailsModal.test.tsx`
+- [X] T025 [P] [US2] Write unit tests for bio/metadata expandable section (displays bio, key-value pairs, empty message, expand/collapse toggle, nested objects flattened with JSON.stringify, keys/values rendered as text nodes not innerHTML) in `frontend/src/tests/PlayerDetailsModal.test.tsx`
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] Add bio/metadata expandable section to `PlayerDetailsModal` (info-icon toggle, collapsible panel, bio text display, key-value metadata rendering, empty message when absent). Render metadata keys and values as text content (not innerHTML) to prevent XSS; flatten nested objects with JSON.stringify for display. in `frontend/src/components/PlayerDetailsModal.tsx`
+- [X] T026 [US2] Add bio/metadata expandable section to `PlayerDetailsModal` (info-icon toggle, collapsible panel, bio text display, key-value metadata rendering, empty message when absent). Render metadata keys and values as text content (not innerHTML) to prevent XSS; flatten nested objects with JSON.stringify for display. in `frontend/src/components/PlayerDetailsModal.tsx`
 
 **Checkpoint**: Bio and metadata now viewable from Player Details — US1 + US2 both work
 
@@ -110,15 +110,15 @@
 
 ### Tests for User Story 3 (MANDATORY) ⚠️
 
-- [ ] T027 [P] [US3] Write unit tests for `PlayerForm` (required field validation, enum dropdowns, date input, bio, metadata key-value fields, submit disabled during loading, human-readable labels, unsaved-changes prompt) in `frontend/src/tests/PlayerForm.test.tsx`
-- [ ] T028 [P] [US3] Write unit tests for `AddPlayerModal` (opens from button, submits via POST, success closes modal and refreshes list, validation errors stay in form, generic server error, 403 permissions message) in `frontend/src/tests/AddPlayerModal.test.tsx`
+- [X] T027 [P] [US3] Write unit tests for `PlayerForm` (required field validation, enum dropdowns, date input, bio, metadata key-value fields, submit disabled during loading, human-readable labels, unsaved-changes prompt) in `frontend/src/tests/PlayerForm.test.tsx`
+- [X] T028 [P] [US3] Write unit tests for `AddPlayerModal` (opens from button, submits via POST, success closes modal and refreshes list, validation errors stay in form, generic server error, 403 permissions message) in `frontend/src/tests/AddPlayerModal.test.tsx`
 
 ### Implementation for User Story 3
 
-- [ ] T029 [P] [US3] Create `PlayerForm` shared component (first_name, last_name, date_of_birth via native `<input type="date">` for user-friendly input, bio, batting_style/bowling_style/player_type dropdowns with human-readable labels, metadata key-value repeatable fields → JSON object, required-field validation, loading/disabled submit, success/error states, unsaved-changes confirmation via `useUnsavedChanges`) in `frontend/src/components/PlayerForm.tsx`
-- [ ] T030 [US3] Create `AddPlayerModal` component (wraps `PlayerForm`, `POST /api/v1/players` on submit, on success closes and triggers list refresh, handles 403 and generic errors, uses `useModalDialog` + backdrop pattern) in `frontend/src/components/AddPlayerModal.tsx`
-- [ ] T031 [US3] Integrate Add Player button and `AddPlayerModal` into `PlayersPage` (visible to Head Coach/Assistant Coach only, hidden from Player role per `useAuth().user.role`) in `frontend/src/pages/PlayersPage.tsx`
-- [ ] T032 [US3] Wire dashboard "Add player" quick action to open `AddPlayerModal` via URL search param `?action=add`: `HomePage` link targets `/players?action=add`; `PlayersPage` reads the param on mount and opens the Add modal, then clears it from the URL. in `frontend/src/pages/HomePage.tsx` and `frontend/src/pages/PlayersPage.tsx`
+- [X] T029 [P] [US3] Create `PlayerForm` shared component (first_name, last_name, date_of_birth via native `<input type="date">` for user-friendly input, bio, batting_style/bowling_style/player_type dropdowns with human-readable labels, metadata key-value repeatable fields → JSON object, required-field validation, loading/disabled submit, success/error states, unsaved-changes confirmation via `useUnsavedChanges`) in `frontend/src/components/PlayerForm.tsx`
+- [X] T030 [US3] Create `AddPlayerModal` component (wraps `PlayerForm`, `POST /api/v1/players` on submit, on success closes and triggers list refresh, handles 403 and generic errors, uses `useModalDialog` + backdrop pattern) in `frontend/src/components/AddPlayerModal.tsx`
+- [X] T031 [US3] Integrate Add Player button and `AddPlayerModal` into `PlayersPage` (visible to Head Coach/Assistant Coach only, hidden from Player role per `useAuth().user.role`) in `frontend/src/pages/PlayersPage.tsx`
+- [X] T032 [US3] Wire dashboard "Add player" quick action to open `AddPlayerModal` via URL search param `?action=add`: `HomePage` link targets `/players?action=add`; `PlayersPage` reads the param on mount and opens the Add modal, then clears it from the URL. in `frontend/src/pages/HomePage.tsx` and `frontend/src/pages/PlayersPage.tsx`
 
 **Checkpoint**: Coaches can create players — US1 + US2 + US3 all work
 

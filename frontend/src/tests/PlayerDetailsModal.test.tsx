@@ -85,11 +85,97 @@ describe('PlayerDetailsModal', () => {
   it('traps keyboard focus inside the modal', () => {
     render(<PlayerDetailsModal player={player} onClose={vi.fn()} />)
     const close = screen.getByRole('button', { name: 'Close player details' })
+    const informationToggle = screen.getByRole('button', {
+      name: 'Show bio and metadata',
+    })
     expect(close).toHaveFocus()
 
     fireEvent.keyDown(document, { key: 'Tab' })
-    expect(close).toHaveFocus()
+    expect(informationToggle).toHaveFocus()
     fireEvent.keyDown(document, { key: 'Tab', shiftKey: true })
     expect(close).toHaveFocus()
+  })
+
+  it('expands and collapses the player bio and metadata', () => {
+    const playerWithMetadata: PlayerResponse = {
+      ...player,
+      player_metadata: {
+        squad_number: 12,
+        availability: true,
+      },
+    }
+
+    render(<PlayerDetailsModal player={playerWithMetadata} onClose={vi.fn()} />)
+    const toggle = screen.getByRole('button', { name: 'Show bio and metadata' })
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Opening batter')).not.toBeInTheDocument()
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Opening batter')).toBeVisible()
+    expect(screen.getByText('squad_number')).toBeVisible()
+    expect(screen.getByText('12')).toBeVisible()
+    expect(screen.getByText('availability')).toBeVisible()
+    expect(screen.getByText('true')).toBeVisible()
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Opening batter')).not.toBeInTheDocument()
+  })
+
+  it('shows an empty message when bio and metadata are absent', () => {
+    render(
+      <PlayerDetailsModal
+        player={{ ...player, bio: null, player_metadata: {} }}
+        onClose={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show bio and metadata' }))
+
+    expect(
+      screen.getByText('No bio or additional player information has been added.'),
+    ).toBeVisible()
+  })
+
+  it('serializes nested metadata values for readable display', () => {
+    render(
+      <PlayerDetailsModal
+        player={{
+          ...player,
+          player_metadata: {
+            preferences: { position: 'opener', overs: [1, 3, 5] },
+          },
+        }}
+        onClose={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show bio and metadata' }))
+
+    expect(screen.getByText('preferences')).toBeVisible()
+    expect(
+      screen.getByText('{"position":"opener","overs":[1,3,5]}'),
+    ).toBeVisible()
+  })
+
+  it('renders metadata keys and values as text rather than HTML', () => {
+    const unsafeMarkup = '<img src=x onerror="alert(1)">'
+    const { container } = render(
+      <PlayerDetailsModal
+        player={{
+          ...player,
+          bio: null,
+          player_metadata: { [unsafeMarkup]: unsafeMarkup },
+        }}
+        onClose={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show bio and metadata' }))
+
+    expect(screen.getAllByText(unsafeMarkup)).toHaveLength(2)
+    expect(container.querySelector('img')).not.toBeInTheDocument()
   })
 })

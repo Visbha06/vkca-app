@@ -3,13 +3,15 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '../auth/AuthContext'
 import type { AuthUser } from '../auth/types'
 import PlayersPage from '../pages/PlayersPage'
 import type { PaginatedPlayerResponse, PlayerResponse } from '../types/player'
-import { fetchPlayers, fetchTeamsForFilter } from '../api/playerApi'
+import { createPlayer, fetchPlayers, fetchTeamsForFilter } from '../api/playerApi'
 
 vi.mock('../api/playerApi', () => ({
+  createPlayer: vi.fn(),
   fetchPlayers: vi.fn(),
   fetchTeamsForFilter: vi.fn(),
 }))
@@ -73,10 +75,18 @@ function authValue(user: AuthUser): AuthContextValue {
   }
 }
 
-function renderPage(user = headCoach) {
+function LocationProbe() {
+  const location = useLocation()
+  return <div data-testid="location">{`${location.pathname}${location.search}`}</div>
+}
+
+function renderPage(user = headCoach, initialEntry = '/players') {
   return render(
     <AuthContext.Provider value={authValue(user)}>
-      <PlayersPage />
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <PlayersPage />
+        <LocationProbe />
+      </MemoryRouter>
     </AuthContext.Provider>,
   )
 }
@@ -86,6 +96,12 @@ beforeEach(() => {
     { id: 'team-1', name: 'Junior XI' },
   ])
   vi.mocked(fetchPlayers).mockResolvedValue(firstPage)
+  vi.mocked(createPlayer).mockResolvedValue({
+    ...player,
+    id: 'player-2',
+    first_name: 'Maya',
+    last_name: 'Patel',
+  })
 })
 
 afterEach(() => {
@@ -177,5 +193,48 @@ describe('PlayersPage', () => {
     renderPage({ ...headCoach, role: 'player' })
     await screen.findByText('Asha Singh')
     expect(screen.queryByRole('button', { name: 'Add Player' })).not.toBeInTheDocument()
+  })
+
+  it('creates a player from the coach action and refreshes the list', async () => {
+    renderPage()
+    await screen.findByText('Asha Singh')
+    fireEvent.click(screen.getByRole('button', { name: 'Add Player' }))
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'First name' }), {
+      target: { value: 'Maya' },
+    })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Last name' }), {
+      target: { value: 'Patel' },
+    })
+    fireEvent.change(screen.getByLabelText('Date of birth'), {
+      target: { value: '2009-06-12' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Batting style' }), {
+      target: { value: 'left' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Bowling style' }), {
+      target: { value: 'left-arm orthodox' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Player type' }), {
+      target: { value: 'all-rounder' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create player' }))
+
+    await waitFor(() => expect(createPlayer).toHaveBeenCalledTimes(1))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Maya Patel was added successfully.',
+    )
+    await waitFor(() => expect(fetchPlayers).toHaveBeenCalledTimes(2))
+  })
+
+  it('opens the Add Player modal from the dashboard action query and clears it', async () => {
+    renderPage(headCoach, '/players?action=add')
+
+    expect(await screen.findByRole('dialog', { name: 'Add player' })).toBeVisible()
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent('/players'),
+    )
+    expect(screen.getByTestId('location')).not.toHaveTextContent('action=add')
   })
 })
