@@ -48,6 +48,7 @@ export default function PlayerDetailsModal({
               avatarSize="modal"
               player={player}
               showAllTeams
+              titleAs="h2"
               titleId="player-details-title"
             />
           </div>

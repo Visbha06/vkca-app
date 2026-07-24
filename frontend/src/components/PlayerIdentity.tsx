@@ -6,6 +6,7 @@ interface PlayerIdentityProps {
   player: PlayerResponse
   avatarSize?: 'card' | 'modal'
   showAllTeams?: boolean
+  titleAs?: 'h2' | 'span'
   titleId?: string
   trailing?: ReactNode
 }
@@ -24,6 +25,7 @@ export default function PlayerIdentity({
   player,
   avatarSize = 'card',
   showAllTeams = false,
+  titleAs: TitleElement = 'span',
   titleId,
   trailing,
 }: PlayerIdentityProps) {
@@ -37,7 +39,7 @@ export default function PlayerIdentity({
         size={avatarSize}
       />
       <span className="min-w-0 flex-1">
-        <span
+        <TitleElement
           id={titleId}
           className={`block break-words font-bold text-slate-900 ${
             avatarSize === 'modal'
@@ -46,7 +48,7 @@ export default function PlayerIdentity({
           }`}
         >
           {fullName}
-        </span>
+        </TitleElement>
         <span className="mt-1 block break-words text-sm leading-5 text-slate-600">
           {getTeamDisplay(player.teams, showAllTeams)}
         </span>

@@ -38,6 +38,15 @@ describe('PlayerDetailsModal', () => {
     render(<PlayerDetailsModal player={player} onClose={vi.fn()} />)
 
     expect(screen.getByRole('dialog', { name: 'Asha Singh' })).toBeVisible()
+    expect(
+      screen.getByRole('heading', { name: 'Asha Singh', level: 2 }),
+    ).toHaveAttribute('id', 'player-details-title')
+    expect(
+      screen.getByRole('heading', { name: 'Playing profile', level: 3 }),
+    ).toBeVisible()
+    expect(
+      screen.getByRole('heading', { name: 'Biography', level: 3 }),
+    ).toBeVisible()
     expect(screen.getByText('AS')).toHaveAttribute('aria-hidden', 'true')
     expect(screen.getByText('Junior XI, Development XI')).toBeVisible()
     expect(screen.getByText('All-Rounder')).toBeVisible()

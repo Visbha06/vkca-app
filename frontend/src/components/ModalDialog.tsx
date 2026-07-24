@@ -60,9 +60,8 @@ export default function ModalDialog({
       onCloseRef.current()
     }
 
-    function handleFallbackKeyDown(event: KeyboardEvent) {
-      if (supportsModal) return
-      if (event.key === 'Escape') {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (!supportsModal && event.key === 'Escape') {
         event.preventDefault()
         onCloseRef.current()
         return
@@ -93,11 +92,11 @@ export default function ModalDialog({
     }
 
     activeDialog.addEventListener('cancel', handleCancel)
-    document.addEventListener('keydown', handleFallbackKeyDown)
+    document.addEventListener('keydown', handleKeyDown)
 
     return () => {
       activeDialog.removeEventListener('cancel', handleCancel)
-      document.removeEventListener('keydown', handleFallbackKeyDown)
+      document.removeEventListener('keydown', handleKeyDown)
       if (
         activeDialog.open &&
         typeof activeDialog.close === 'function'

@@ -36,7 +36,7 @@ function LoadingGrid() {
       <span className="sr-only">Loading players</span>
       <div
         aria-hidden="true"
-        className="grid grid-cols-1 justify-start gap-4 sm:grid-cols-[repeat(auto-fill,minmax(20rem,24rem))]"
+        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
       >
         {Array.from({ length: 6 }, (_, index) => (
           <PlayerCardSkeleton key={index} />
@@ -85,7 +85,7 @@ export default function PlayerCardGrid({
   return (
     <ul
       aria-label="Players"
-      className="grid grid-cols-1 justify-start gap-4 sm:grid-cols-[repeat(auto-fill,minmax(20rem,24rem))]"
+      className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
     >
       {players.map((player) => (
         <li key={player.id} className="h-full">

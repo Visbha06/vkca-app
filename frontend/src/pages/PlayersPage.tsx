@@ -39,6 +39,7 @@ export default function PlayersPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [retryKey, setRetryKey] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const listRegionRef = useRef<HTMLDivElement>(null)
   const focusListAfterLoadRef = useRef(false)
 
@@ -113,6 +114,7 @@ export default function PlayersPage() {
   }
 
   function handleClearSearch() {
+    searchInputRef.current?.focus()
     setIsFetching(true)
     setSearchQuery('')
     setCommittedSearch('')
@@ -156,6 +158,7 @@ export default function PlayersPage() {
         canManagePlayers={canManagePlayers}
         hasActiveFilters={hasActiveFilters}
         isFetching={isFetching}
+        searchInputRef={searchInputRef}
         searchQuery={searchQuery}
         teams={teams}
         teamFilter={teamFilter}

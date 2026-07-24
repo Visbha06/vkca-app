@@ -1,11 +1,13 @@
-import type { ChangeEvent } from 'react'
+import type { ChangeEvent, RefObject } from 'react'
 
 interface PlayerSearchFieldProps {
+  inputRef: RefObject<HTMLInputElement | null>
   value: string
   onChange: (value: string) => void
 }
 
 export default function PlayerSearchField({
+  inputRef,
   value,
   onChange,
 }: PlayerSearchFieldProps) {
@@ -43,6 +45,7 @@ export default function PlayerSearchField({
           />
         </svg>
         <input
+          ref={inputRef}
           id="player-search"
           type="search"
           autoComplete="off"

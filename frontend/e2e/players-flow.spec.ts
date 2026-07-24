@@ -36,6 +36,15 @@ test.describe('players interface', () => {
     await expect(
       page.getByRole('dialog', { name: 'Asha Singh' }),
     ).toBeVisible()
+    const closeDetails = page.getByRole('button', {
+      name: 'Close player details',
+    })
+    const editPlayer = page.getByRole('button', { name: 'Edit Player' })
+    await expect(closeDetails).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(editPlayer).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(closeDetails).toBeFocused()
     await page.getByRole('button', { name: 'Edit Player' }).click()
     await expect(
       page.getByRole('dialog', { name: 'Edit Asha Singh' }),

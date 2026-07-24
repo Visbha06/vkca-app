@@ -1,3 +1,4 @@
+import type { RefObject } from 'react'
 import type { TeamSummary } from '../types/player'
 import PlayerSearchField from './PlayerSearchField'
 import TeamFilter from './TeamFilter'
@@ -6,6 +7,7 @@ interface PlayersPageHeaderProps {
   canManagePlayers: boolean
   hasActiveFilters: boolean
   isFetching: boolean
+  searchInputRef: RefObject<HTMLInputElement | null>
   searchQuery: string
   teams: TeamSummary[]
   teamFilter: string | null
@@ -19,6 +21,7 @@ export default function PlayersPageHeader({
   canManagePlayers,
   hasActiveFilters,
   isFetching,
+  searchInputRef,
   searchQuery,
   teams,
   teamFilter,
@@ -30,9 +33,11 @@ export default function PlayersPageHeader({
   const countCopy =
     totalPlayers === undefined
       ? null
-      : hasActiveFilters
-        ? `${totalPlayers} ${totalPlayers === 1 ? 'player' : 'players'} found`
-        : `${totalPlayers} active ${totalPlayers === 1 ? 'player' : 'players'}`
+      : isFetching
+        ? 'Updating results…'
+        : hasActiveFilters
+          ? `${totalPlayers} ${totalPlayers === 1 ? 'player' : 'players'} found`
+          : `${totalPlayers} active ${totalPlayers === 1 ? 'player' : 'players'}`
 
   return (
     <>
@@ -57,7 +62,11 @@ export default function PlayersPageHeader({
       </header>
 
       <div className="flex flex-col gap-4 py-6 sm:flex-row sm:flex-wrap sm:items-end">
-        <PlayerSearchField value={searchQuery} onChange={onSearchChange} />
+        <PlayerSearchField
+          inputRef={searchInputRef}
+          value={searchQuery}
+          onChange={onSearchChange}
+        />
         <TeamFilter
           teams={teams}
           value={teamFilter}
@@ -70,7 +79,6 @@ export default function PlayersPageHeader({
             aria-live="polite"
             className="min-h-5 text-sm font-medium text-slate-600 sm:basis-full lg:ml-auto lg:flex lg:min-h-11 lg:basis-auto lg:items-center"
           >
-            <span className="sr-only">{isFetching ? 'Updating results. ' : ''}</span>
             {countCopy}
           </p>
         ) : null}

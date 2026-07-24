@@ -189,6 +189,8 @@ describe('PlayersPage', () => {
       'aria-busy',
       'true',
     )
+    expect(screen.getByText('Updating results…')).toBeVisible()
+    expect(screen.queryByText('21 players found')).not.toBeInTheDocument()
 
     fireEvent.change(search, { target: { value: 'Asha' } })
     await waitFor(
@@ -247,6 +249,7 @@ describe('PlayersPage', () => {
     expect(search).toHaveFocus()
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    expect(search).toHaveFocus()
     await waitFor(() =>
       expect(fetchPlayers).toHaveBeenLastCalledWith(
         { page: 1, pageSize: 20 },
