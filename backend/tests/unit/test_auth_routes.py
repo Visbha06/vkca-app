@@ -1,6 +1,7 @@
 """Unit tests for login, current-user, and logout API routes."""
 
 from datetime import UTC, datetime, timedelta
+from http.cookies import SimpleCookie
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
@@ -91,7 +92,7 @@ def set_auth_cookies(
     """Set the double-submit cookies sent by cookie-authenticated endpoints."""
 
     client.cookies.set("refresh_token", refresh_token, path="/api/v1/auth")
-    client.cookies.set("csrf_token", csrf_token, path="/api/v1/auth")
+    client.cookies.set("csrf_token", csrf_token, path="/")
 
 
 def csrf_headers(csrf_token: str = CSRF_TOKEN) -> dict[str, str]:
@@ -215,6 +216,7 @@ async def test_login_success_returns_tokens_and_cookies(
     assert "csrf_token=csrf-value" in csrf_cookie
     assert "HttpOnly" not in csrf_cookie
     assert "SameSite=lax" in csrf_cookie
+    assert SimpleCookie(csrf_cookie)["csrf_token"]["path"] == "/"
 
 
 @pytest.mark.asyncio
@@ -510,12 +512,18 @@ async def test_logout_clears_cookies(client: httpx.AsyncClient) -> None:
 
     assert response.status_code == 204
     cookie_headers = response.headers.get_list("set-cookie")
-    assert any(
-        "refresh_token=" in value and "Max-Age=0" in value for value in cookie_headers
+    refresh_cookie = next(
+        value for value in cookie_headers if value.startswith("refresh_token=")
     )
-    assert any(
-        "csrf_token=" in value and "Max-Age=0" in value for value in cookie_headers
+    csrf_cookie = next(
+        value for value in cookie_headers if value.startswith("csrf_token=")
     )
+    assert "Max-Age=0" in refresh_cookie
+    assert SimpleCookie(refresh_cookie)["refresh_token"]["path"] == "/api/v1/auth"
+    assert "HttpOnly" in refresh_cookie
+    assert "Max-Age=0" in csrf_cookie
+    assert SimpleCookie(csrf_cookie)["csrf_token"]["path"] == "/"
+    assert "HttpOnly" not in csrf_cookie
 
 
 @pytest.mark.asyncio
@@ -632,7 +640,7 @@ async def test_refresh_rotates_csrf_token(
     assert "csrf_token=new-csrf-token" in csrf_cookie
     assert CSRF_TOKEN not in csrf_cookie
     assert "HttpOnly" not in csrf_cookie
-    assert "Path=/api/v1/auth" in csrf_cookie
+    assert SimpleCookie(csrf_cookie)["csrf_token"]["path"] == "/"
 
 
 @pytest.mark.asyncio
@@ -994,7 +1002,7 @@ async def test_csrf_token_set_on_login(
     assert f"csrf_token={CSRF_TOKEN}" in csrf_cookie
     assert "HttpOnly" not in csrf_cookie
     assert "SameSite=lax" in csrf_cookie
-    assert "Path=/api/v1/auth" in csrf_cookie
+    assert SimpleCookie(csrf_cookie)["csrf_token"]["path"] == "/"
 
 
 @pytest.mark.asyncio

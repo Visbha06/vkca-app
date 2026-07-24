@@ -43,6 +43,7 @@ from src.services.auth_service import (
 from src.services.token_service import TokenService
 
 AUTH_COOKIE_PATH = "/api/v1/auth"
+CSRF_COOKIE_PATH = "/"
 SECONDS_PER_DAY = 24 * 60 * 60
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -68,7 +69,7 @@ def _set_auth_cookies(
     refresh_token: str,
     csrf_token: str,
 ) -> None:
-    """Set refresh and double-submit CSRF cookies with matching scope."""
+    """Set refresh and double-submit CSRF cookies with their required scopes."""
 
     max_age = get_settings().refresh_token_expire_days * SECONDS_PER_DAY
     response.set_cookie(
@@ -84,7 +85,7 @@ def _set_auth_cookies(
         "csrf_token",
         csrf_token,
         max_age=max_age,
-        path=AUTH_COOKIE_PATH,
+        path=CSRF_COOKIE_PATH,
         secure=_cookie_secure(request),
         httponly=False,
         samesite="lax",
@@ -103,7 +104,7 @@ def _clear_auth_cookies(response: Response, request: Request) -> None:
     )
     response.delete_cookie(
         "csrf_token",
-        path=AUTH_COOKIE_PATH,
+        path=CSRF_COOKIE_PATH,
         secure=_cookie_secure(request),
         httponly=False,
         samesite="lax",
