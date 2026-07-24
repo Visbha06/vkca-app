@@ -68,7 +68,7 @@ export default function PlayersPageHeader({
           <p
             aria-atomic="true"
             aria-live="polite"
-            className="min-h-5 text-sm font-medium text-slate-600 sm:basis-full lg:mb-3 lg:ml-auto lg:basis-auto"
+            className="min-h-5 text-sm font-medium text-slate-600 sm:basis-full lg:ml-auto lg:flex lg:min-h-11 lg:basis-auto lg:items-center"
           >
             <span className="sr-only">{isFetching ? 'Updating results. ' : ''}</span>
             {countCopy}

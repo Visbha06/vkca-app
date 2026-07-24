@@ -42,7 +42,7 @@ export default function PlayerDetailsModal({
       testId="player-details-backdrop"
     >
       <div className="relative bg-white text-slate-900">
-        <header className="border-b border-slate-200 p-5 pr-16 sm:p-6 sm:pr-16">
+        <header className="border-b border-slate-200 px-5 py-4 pr-16 sm:px-6 sm:pr-16">
           <div>
             <PlayerIdentity
               avatarSize="modal"
@@ -59,7 +59,7 @@ export default function PlayerDetailsModal({
           </div>
         </header>
 
-        <div className="p-5 sm:p-6">
+        <div className="px-5 py-4 sm:px-6">
           <section aria-labelledby="playing-profile-title">
             <h3
               id="playing-profile-title"
@@ -67,7 +67,7 @@ export default function PlayerDetailsModal({
             >
               Playing profile
             </h3>
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+            <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
               <DetailItem
                 label="Batting style"
                 value={formatEnum(player.batting_style, BATTING_STYLE_LABELS)}
@@ -86,7 +86,7 @@ export default function PlayerDetailsModal({
           {player.bio?.trim() ? (
             <section
               aria-labelledby="player-biography-title"
-              className="mt-6 border-t border-slate-200 pt-6"
+              className="mt-5 border-t border-slate-200 pt-5"
             >
               <h3
                 id="player-biography-title"
@@ -101,7 +101,7 @@ export default function PlayerDetailsModal({
           ) : null}
 
           {onEdit !== undefined ? (
-            <div className="mt-6 flex justify-end border-t border-slate-200 pt-5">
+            <div className="mt-5 flex justify-end border-t border-slate-200 pt-4">
               <button
                 type="button"
                 className="inline-flex min-h-11 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2"

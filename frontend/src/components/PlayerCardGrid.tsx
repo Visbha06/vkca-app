@@ -14,7 +14,7 @@ interface PlayerCardGridProps {
 
 function PlayerCardSkeleton() {
   return (
-    <div className="min-h-36 animate-pulse rounded-xl border border-slate-200 bg-white p-3 motion-reduce:animate-none">
+    <div className="min-h-32 animate-pulse rounded-xl border border-slate-200 bg-white p-3 motion-reduce:animate-none">
       <div className="flex gap-3">
         <div className="size-11 shrink-0 rounded-full bg-slate-200" />
         <div className="min-w-0 flex-1">
@@ -36,7 +36,7 @@ function LoadingGrid() {
       <span className="sr-only">Loading players</span>
       <div
         aria-hidden="true"
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+        className="grid grid-cols-1 justify-start gap-4 sm:grid-cols-[repeat(auto-fill,minmax(20rem,24rem))]"
       >
         {Array.from({ length: 6 }, (_, index) => (
           <PlayerCardSkeleton key={index} />
@@ -85,10 +85,10 @@ export default function PlayerCardGrid({
   return (
     <ul
       aria-label="Players"
-      className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
+      className="grid grid-cols-1 justify-start gap-4 sm:grid-cols-[repeat(auto-fill,minmax(20rem,24rem))]"
     >
       {players.map((player) => (
-        <li key={player.id}>
+        <li key={player.id} className="h-full">
           <PlayerCard player={player} onSelect={onSelect} />
         </li>
       ))}
