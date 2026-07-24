@@ -30,7 +30,7 @@ describe('PlayerCardGrid', () => {
     render(
       <PlayerCardGrid
         players={[player, { ...player, id: 'player-2', first_name: 'Ravi' }]}
-        isLoading={false}
+        showSkeletons={false}
         onSelect={vi.fn()}
       />,
     )
@@ -42,7 +42,7 @@ describe('PlayerCardGrid', () => {
 
   it('shows an accessible loading state', () => {
     render(
-      <PlayerCardGrid players={[]} isLoading onSelect={vi.fn()} />,
+      <PlayerCardGrid players={[]} showSkeletons onSelect={vi.fn()} />,
     )
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading players')
@@ -52,7 +52,7 @@ describe('PlayerCardGrid', () => {
     render(
       <PlayerCardGrid
         players={[]}
-        isLoading={false}
+        showSkeletons={false}
         emptyMessage="No active players are available."
         onSelect={vi.fn()}
       />,

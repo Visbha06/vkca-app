@@ -20,6 +20,11 @@ test.describe('players interface', () => {
       page.getByRole('heading', { name: 'Player Directory' }),
     ).toBeVisible()
 
+    await page.getByRole('searchbox', { name: 'Search players' }).fill('ash')
+    await expect(page.getByText('Asha Singh')).toBeVisible()
+    await expect(page.getByText('Maya Patel')).toHaveCount(0)
+    expect(api.searches).toContain('ash')
+
     await page.getByRole('combobox', { name: 'Filter by team' }).selectOption(
       'team-junior',
     )
@@ -31,6 +36,15 @@ test.describe('players interface', () => {
     await expect(
       page.getByRole('dialog', { name: 'Asha Singh' }),
     ).toBeVisible()
+    const closeDetails = page.getByRole('button', {
+      name: 'Close player details',
+    })
+    const editPlayer = page.getByRole('button', { name: 'Edit Player' })
+    await expect(closeDetails).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(editPlayer).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(closeDetails).toBeFocused()
     await page.getByRole('button', { name: 'Edit Player' }).click()
     await expect(
       page.getByRole('dialog', { name: 'Edit Asha Singh' }),
@@ -41,7 +55,7 @@ test.describe('players interface', () => {
     await page.getByRole('button', { name: 'Save changes' }).click()
     await expect(
       page.getByText('Opening batter and vice-captain'),
-    ).toHaveCount(0)
+    ).toBeVisible()
     await expect(
       page.getByText('Asha Singh was updated successfully.'),
     ).toBeVisible()
@@ -49,6 +63,8 @@ test.describe('players interface', () => {
     await page.getByRole('button', { name: 'Close player details' }).click()
 
     await page.getByRole('combobox', { name: 'Filter by team' }).selectOption('')
+    await page.getByRole('searchbox', { name: 'Search players' }).fill('')
+    await expect(page.getByText('Maya Patel')).toBeVisible()
     await page.getByRole('button', { name: 'Add Player' }).click()
     await page.getByRole('textbox', { name: 'First name' }).fill('Isha')
     await page.getByRole('textbox', { name: 'Last name' }).fill('Nair')

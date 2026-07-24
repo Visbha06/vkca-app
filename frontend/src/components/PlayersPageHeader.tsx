@@ -1,25 +1,44 @@
+import type { RefObject } from 'react'
 import type { TeamSummary } from '../types/player'
+import PlayerSearchField from './PlayerSearchField'
 import TeamFilter from './TeamFilter'
 
 interface PlayersPageHeaderProps {
   canManagePlayers: boolean
-  isLoading: boolean
+  hasActiveFilters: boolean
+  isFetching: boolean
+  searchInputRef: RefObject<HTMLInputElement | null>
+  searchQuery: string
   teams: TeamSummary[]
   teamFilter: string | null
   totalPlayers?: number
   onAdd: () => void
   onFilterChange: (filter: string | null) => void
+  onSearchChange: (query: string) => void
 }
 
 export default function PlayersPageHeader({
   canManagePlayers,
-  isLoading,
+  hasActiveFilters,
+  isFetching,
+  searchInputRef,
+  searchQuery,
   teams,
   teamFilter,
   totalPlayers,
   onAdd,
   onFilterChange,
+  onSearchChange,
 }: PlayersPageHeaderProps) {
+  const countCopy =
+    totalPlayers === undefined
+      ? null
+      : isFetching
+        ? 'Updating results…'
+        : hasActiveFilters
+          ? `${totalPlayers} ${totalPlayers === 1 ? 'player' : 'players'} found`
+          : `${totalPlayers} active ${totalPlayers === 1 ? 'player' : 'players'}`
+
   return (
     <>
       <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
@@ -42,16 +61,25 @@ export default function PlayersPageHeader({
         ) : null}
       </header>
 
-      <div className="flex flex-col gap-5 py-6 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-4 py-6 sm:flex-row sm:flex-wrap sm:items-end">
+        <PlayerSearchField
+          inputRef={searchInputRef}
+          value={searchQuery}
+          onChange={onSearchChange}
+        />
         <TeamFilter
           teams={teams}
           value={teamFilter}
-          disabled={isLoading}
+          disabled={false}
           onChange={onFilterChange}
         />
-        {totalPlayers !== undefined && totalPlayers > 0 ? (
-          <p className="text-sm font-medium text-slate-600">
-            {totalPlayers} active {totalPlayers === 1 ? 'player' : 'players'}
+        {countCopy !== null ? (
+          <p
+            aria-atomic="true"
+            aria-live="polite"
+            className="min-h-5 text-sm font-medium text-slate-600 sm:basis-full lg:ml-auto lg:flex lg:min-h-11 lg:basis-auto lg:items-center"
+          >
+            {countCopy}
           </p>
         ) : null}
       </div>

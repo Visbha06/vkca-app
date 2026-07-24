@@ -1,7 +1,7 @@
 #!/bin/bash
 
 (echo "BACKEND TESTS")
-(cd backend/ && source .venv/bin/activate && uv sync --group test && pytest -q --tb=short && uv sync)
+(cd backend/ && source .venv/bin/activate && uv sync --group test && pytest -q --tb=short)
 (echo "------")
 (echo "FRONTEND TESTS")
 (cd frontend/ && npm test -- --silent --reporter=dot)

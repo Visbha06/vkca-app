@@ -2,9 +2,10 @@
 
 from uuid import UUID
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from src.models.data_sync_log import DataSyncLog
 from src.models.player import Player
@@ -91,6 +92,7 @@ class PlayerService:
         page_size: int = 20,
         team_id: UUID | None = None,
         unassigned: bool = False,
+        search: str | None = None,
     ) -> PaginatedPlayerResponse:
         """Return one filtered page of active players in stable name order."""
 
@@ -101,7 +103,27 @@ class PlayerService:
         if team_id is not None and unassigned:
             raise ValueError("team_id and unassigned are mutually exclusive")
 
-        filters = [Player.is_active.is_(True)]
+        filters: list[ColumnElement[bool]] = [Player.is_active.is_(True)]
+        normalized_search = search.strip() if search is not None else ""
+        if normalized_search:
+            escaped_search = (
+                normalized_search.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            search_pattern = f"%{escaped_search}%"
+            filters.append(
+                or_(
+                    Player.first_name.ilike(search_pattern, escape="\\"),
+                    Player.last_name.ilike(search_pattern, escape="\\"),
+                    func.concat(
+                        Player.first_name,
+                        " ",
+                        Player.last_name,
+                    ).ilike(search_pattern, escape="\\"),
+                )
+            )
+
         membership_exists = exists(
             select(TeamPlayer.player_id).where(TeamPlayer.player_id == Player.id)
         )

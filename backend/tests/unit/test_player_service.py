@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
+from sqlalchemy.dialects import postgresql
 
 from src.enums import BattingStyle, BowlingStyle, PlayerType
 from src.models.player import Player
@@ -81,6 +82,79 @@ async def test_list_players_paginates_orders_and_embeds_teams() -> None:
         "ORDER BY players.last_name, players.first_name, players.id" in statement_text
     )
     assert 10 in parameters.values()
+    membership_statement = session.execute.await_args.args[0]
+    assert "ORDER BY teams.name, teams.id" in str(membership_statement)
+
+
+@pytest.mark.asyncio
+async def test_list_players_searches_partial_names_before_pagination() -> None:
+    session = make_list_session([], total_players=0)
+
+    await PlayerService(session).list_players(
+        page=2,
+        page_size=5,
+        search="  PaTeL  ",
+    )
+
+    count_statement = session.scalar.await_args.args[0]
+    player_statement = session.scalars.await_args.args[0]
+    count_sql = str(count_statement.compile(dialect=postgresql.dialect()))
+    player_sql = str(player_statement.compile(dialect=postgresql.dialect()))
+    count_parameters = count_statement.compile().params
+
+    assert "players.is_active IS true" in count_sql
+    assert count_sql.count(" ILIKE ") == 3
+    assert "concat(players.first_name" in count_sql
+    assert "players.last_name" in count_sql
+    assert "%PaTeL%" in count_parameters.values()
+    assert "LIMIT" not in count_sql
+    assert "OFFSET" not in count_sql
+    assert " ILIKE " in player_sql
+    assert "LIMIT" in player_sql
+    assert "OFFSET" in player_sql
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("search", [None, "", " ", "\t\n"])
+async def test_list_players_blank_search_preserves_existing_query(
+    search: str | None,
+) -> None:
+    session = make_list_session([], total_players=0)
+
+    await PlayerService(session).list_players(search=search)
+
+    count_statement = session.scalar.await_args.args[0]
+    count_sql = str(count_statement.compile(dialect=postgresql.dialect()))
+    assert "LIKE" not in count_sql
+    assert "concat" not in count_sql
+
+
+@pytest.mark.asyncio
+async def test_list_players_combines_search_and_team_filter_with_and() -> None:
+    team_id = uuid4()
+    session = make_list_session([], total_players=0)
+
+    await PlayerService(session).list_players(search="ani", team_id=team_id)
+
+    count_statement = session.scalar.await_args.args[0]
+    count_sql = str(count_statement.compile(dialect=postgresql.dialect()))
+    assert "players.is_active IS true AND" in count_sql
+    assert "ILIKE" in count_sql
+    assert "EXISTS" in count_sql
+    assert team_id in count_statement.compile().params.values()
+
+
+@pytest.mark.asyncio
+async def test_list_players_combines_search_and_unassigned_filter_with_and() -> None:
+    session = make_list_session([], total_players=0)
+
+    await PlayerService(session).list_players(search="shah", unassigned=True)
+
+    count_statement = session.scalar.await_args.args[0]
+    count_sql = str(count_statement.compile(dialect=postgresql.dialect()))
+    assert "players.is_active IS true AND" in count_sql
+    assert "ILIKE" in count_sql
+    assert "NOT (EXISTS" in count_sql
 
 
 @pytest.mark.asyncio
