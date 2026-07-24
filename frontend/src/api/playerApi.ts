@@ -13,6 +13,7 @@ const TEAMS_PATH = '/api/v1/teams'
 export interface PlayerListParams {
   page?: number
   pageSize?: number
+  search?: string
   teamId?: string
   unassigned?: boolean
 }
@@ -36,6 +37,8 @@ export function fetchPlayers(
   if (params.pageSize !== undefined) {
     query.set('page_size', String(params.pageSize))
   }
+  const normalizedSearch = params.search?.trim()
+  if (normalizedSearch) query.set('search', normalizedSearch)
   if (params.teamId !== undefined) query.set('team_id', params.teamId)
   if (params.unassigned) query.set('unassigned', 'true')
 

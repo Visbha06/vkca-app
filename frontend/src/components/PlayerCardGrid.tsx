@@ -3,12 +3,31 @@ import PlayerCard from './PlayerCard'
 
 interface PlayerCardGridProps {
   players: PlayerResponse[]
-  isLoading: boolean
+  showSkeletons: boolean
   onSelect: (player: PlayerResponse) => void
   emptyMessage?: string
   emptyDescription?: string
   emptyActionLabel?: string
+  emptyActionVariant?: 'primary' | 'secondary'
   onEmptyAction?: () => void
+}
+
+function PlayerCardSkeleton() {
+  return (
+    <div className="min-h-36 animate-pulse rounded-xl border border-slate-200 bg-white p-3 motion-reduce:animate-none">
+      <div className="flex gap-3">
+        <div className="size-11 shrink-0 rounded-full bg-slate-200" />
+        <div className="min-w-0 flex-1">
+          <div className="h-5 w-2/3 rounded bg-slate-200" />
+          <div className="mt-2 h-4 w-1/2 rounded bg-slate-200" />
+        </div>
+      </div>
+      <div className="mt-2 border-t border-slate-200 pt-2">
+        <div className="h-5 w-4/5 rounded bg-slate-200" />
+        <div className="mt-2 h-4 w-1/3 rounded bg-slate-200" />
+      </div>
+    </div>
+  )
 }
 
 function LoadingGrid() {
@@ -20,14 +39,7 @@ function LoadingGrid() {
         className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
       >
         {Array.from({ length: 6 }, (_, index) => (
-          <div
-            key={index}
-            className="min-h-44 animate-pulse rounded-xl border border-slate-200 bg-white p-5 motion-reduce:animate-none sm:p-6"
-          >
-            <div className="h-6 w-2/3 rounded bg-slate-200" />
-            <div className="mt-5 h-4 w-1/2 rounded bg-slate-200" />
-            <div className="mt-10 h-4 w-1/3 rounded bg-slate-200" />
-          </div>
+          <PlayerCardSkeleton key={index} />
         ))}
       </div>
     </div>
@@ -36,14 +48,15 @@ function LoadingGrid() {
 
 export default function PlayerCardGrid({
   players,
-  isLoading,
+  showSkeletons,
   onSelect,
   emptyMessage = 'No players found.',
   emptyDescription = 'Player profiles will appear here when they are available.',
   emptyActionLabel,
+  emptyActionVariant = 'primary',
   onEmptyAction,
 }: PlayerCardGridProps) {
-  if (isLoading) return <LoadingGrid />
+  if (showSkeletons) return <LoadingGrid />
 
   if (players.length === 0) {
     return (
@@ -55,7 +68,11 @@ export default function PlayerCardGrid({
         {emptyActionLabel !== undefined && onEmptyAction !== undefined ? (
           <button
             type="button"
-            className="mt-5 inline-flex min-h-11 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2"
+            className={`mt-5 inline-flex min-h-11 items-center justify-center rounded-lg px-4 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 ${
+              emptyActionVariant === 'primary'
+                ? 'bg-slate-900 text-white hover:bg-slate-800'
+                : 'border border-academy bg-white text-slate-900 hover:bg-academy/10'
+            }`}
             onClick={onEmptyAction}
           >
             {emptyActionLabel}

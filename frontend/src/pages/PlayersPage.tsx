@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { fetchPlayers, fetchTeamsForFilter } from '../api/playerApi'
 import { useAuth } from '../auth/AuthContext'
-import Pagination from '../components/Pagination'
-import PlayerCardGrid from '../components/PlayerCardGrid'
+import PlayerDirectoryResults from '../components/PlayerDirectoryResults'
 import PlayersPageHeader from '../components/PlayersPageHeader'
 import PlayersPageModals from '../components/PlayersPageModals'
 import { UNASSIGNED_FILTER } from '../components/TeamFilter'
-import type { PaginatedPlayerResponse, PlayerResponse, TeamSummary } from '../types/player'
+import useInitialAddPlayerAction from '../hooks/useInitialAddPlayerAction'
+import type {
+  PaginatedPlayerResponse,
+  PlayerResponse,
+  TeamSummary,
+} from '../types/player'
 
 const PAGE_SIZE = 20
 
@@ -19,28 +22,26 @@ export default function PlayersPage() {
   const { user } = useAuth()
   const canManagePlayers =
     user?.role === 'head coach' || user?.role === 'assistant coach'
-  const [searchParams, setSearchParams] = useSearchParams()
+  const shouldOpenAddPlayer = useInitialAddPlayerAction(canManagePlayers)
   const [page, setPage] = useState(1)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [committedSearch, setCommittedSearch] = useState('')
   const [teamFilter, setTeamFilter] = useState<string | null>(null)
   const [teams, setTeams] = useState<TeamSummary[]>([])
   const [result, setResult] = useState<PaginatedPlayerResponse | null>(null)
-  const [selectedPlayer, setSelectedPlayer] = useState<PlayerResponse | null>(null)
+  const [selectedPlayer, setSelectedPlayer] =
+    useState<PlayerResponse | null>(null)
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(
-    () => canManagePlayers && searchParams.get('action') === 'add',
+    shouldOpenAddPlayer,
   )
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isFetching, setIsFetching] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [retryKey, setRetryKey] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
   const listRegionRef = useRef<HTMLDivElement>(null)
   const focusListAfterLoadRef = useRef(false)
-  useEffect(() => {
-    if (searchParams.get('action') !== 'add') return
-    const nextParams = new URLSearchParams(searchParams)
-    nextParams.delete('action')
-    setSearchParams(nextParams, { replace: true })
-  }, [searchParams, setSearchParams])
+
   useEffect(() => {
     const controller = new AbortController()
     void fetchTeamsForFilter(controller.signal)
@@ -52,11 +53,27 @@ export default function PlayersPage() {
       })
     return () => controller.abort()
   }, [])
+
+  useEffect(() => {
+    const normalizedSearch = searchQuery.trim()
+    if (normalizedSearch === committedSearch) return
+
+    const debounceTimer = window.setTimeout(() => {
+      setIsFetching(true)
+      setErrorMessage(null)
+      setCommittedSearch(normalizedSearch)
+      setPage(1)
+    }, 275)
+
+    return () => window.clearTimeout(debounceTimer)
+  }, [committedSearch, searchQuery])
+
   useEffect(() => {
     const controller = new AbortController()
     const params = {
       page,
       pageSize: PAGE_SIZE,
+      ...(committedSearch === '' ? {} : { search: committedSearch }),
       ...(teamFilter === UNASSIGNED_FILTER
         ? { unassigned: true }
         : teamFilter === null
@@ -65,44 +82,54 @@ export default function PlayersPage() {
     }
     void fetchPlayers(params, controller.signal)
       .then((response) => {
-        if (!controller.signal.aborted) setResult(response)
+        if (!controller.signal.aborted) {
+          setResult(response)
+          setErrorMessage(null)
+        }
       })
       .catch((error: unknown) => {
         if (!isAbortError(error) && !controller.signal.aborted) {
-          setResult(null)
           setErrorMessage('Unable to load players. Please try again.')
         }
       })
       .finally(() => {
-        if (!controller.signal.aborted) setIsLoading(false)
+        if (!controller.signal.aborted) setIsFetching(false)
       })
     return () => controller.abort()
-  }, [page, refreshKey, retryKey, teamFilter])
+  }, [committedSearch, page, refreshKey, retryKey, teamFilter])
 
   useEffect(() => {
-    if (!isLoading && focusListAfterLoadRef.current) {
+    if (!isFetching && focusListAfterLoadRef.current) {
       focusListAfterLoadRef.current = false
       listRegionRef.current?.focus()
     }
-  }, [isLoading])
+  }, [isFetching])
 
   function handleFilterChange(nextFilter: string | null) {
-    setIsLoading(true)
+    setIsFetching(true)
     setErrorMessage(null)
     setTeamFilter(nextFilter)
     setPage(1)
   }
 
+  function handleClearSearch() {
+    setIsFetching(true)
+    setSearchQuery('')
+    setCommittedSearch('')
+    setPage(1)
+    setErrorMessage(null)
+  }
+
   function handlePageChange(nextPage: number) {
     if (nextPage === page || nextPage < 1) return
     focusListAfterLoadRef.current = true
-    setIsLoading(true)
+    setIsFetching(true)
     setErrorMessage(null)
     setPage(nextPage)
   }
 
   function handleRetry() {
-    setIsLoading(true)
+    setIsFetching(true)
     setErrorMessage(null)
     setRetryKey((key) => key + 1)
   }
@@ -114,28 +141,28 @@ export default function PlayersPage() {
     setSuccessMessage(
       `${player.first_name} ${player.last_name} was ${action} successfully.`,
     )
+    setIsFetching(true)
+    setErrorMessage(null)
     setRefreshKey((key) => key + 1)
   }
 
-  const emptyMessage =
-    teamFilter === null
-      ? 'No active players are available.'
-      : 'No players match this team filter.'
-  const emptyDescription =
-    teamFilter === null
-      ? 'Add the first player profile to begin building the active directory.'
-      : 'Choose another team or view all players.'
+  const hasSearch = committedSearch !== ''
+  const hasTeamFilter = teamFilter !== null
+  const hasActiveFilters = hasSearch || hasTeamFilter
 
   return (
     <section className="mx-auto w-full max-w-7xl">
       <PlayersPageHeader
         canManagePlayers={canManagePlayers}
-        isLoading={isLoading}
+        hasActiveFilters={hasActiveFilters}
+        isFetching={isFetching}
+        searchQuery={searchQuery}
         teams={teams}
         teamFilter={teamFilter}
         totalPlayers={result?.total_players}
         onAdd={() => setIsAddPlayerOpen(true)}
         onFilterChange={handleFilterChange}
+        onSearchChange={setSearchQuery}
       />
 
       {successMessage ? (
@@ -144,48 +171,20 @@ export default function PlayersPage() {
         </p>
       ) : null}
 
-      <div ref={listRegionRef} tabIndex={-1} className="focus:outline-none">
-        {errorMessage !== null ? (
-          <div
-            role="alert"
-            className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-950 sm:p-6"
-          >
-            <p className="font-semibold">{errorMessage}</p>
-            <button
-              type="button"
-              className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-red-800 px-4 text-sm font-semibold transition-colors hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-800 focus:ring-offset-2"
-              onClick={handleRetry}
-            >
-              Retry
-            </button>
-          </div>
-        ) : (
-          <PlayerCardGrid
-            players={result?.players ?? []}
-            isLoading={isLoading}
-            emptyMessage={emptyMessage}
-            emptyDescription={emptyDescription}
-            emptyActionLabel={
-              canManagePlayers && teamFilter === null
-                ? 'Add your first player'
-                : undefined
-            }
-            onEmptyAction={() => setIsAddPlayerOpen(true)}
-            onSelect={setSelectedPlayer}
-          />
-        )}
-      </div>
-
-      {errorMessage === null && result !== null && result.total_pages > 1 ? (
-        <div className="mt-8 border-t border-slate-200 pt-6">
-          <Pagination
-            page={result.page}
-            totalPages={result.total_pages}
-            isLoading={isLoading}
-            onPageChange={handlePageChange}
-          />
-        </div>
-      ) : null}
+      <PlayerDirectoryResults
+        canManagePlayers={canManagePlayers}
+        errorMessage={errorMessage}
+        isFetching={isFetching}
+        listRegionRef={listRegionRef}
+        result={result}
+        search={committedSearch}
+        teamFilter={teamFilter}
+        onAddPlayer={() => setIsAddPlayerOpen(true)}
+        onClearSearch={handleClearSearch}
+        onPageChange={handlePageChange}
+        onRetry={handleRetry}
+        onSelectPlayer={setSelectedPlayer}
+      />
 
       <PlayersPageModals
         canManagePlayers={canManagePlayers}

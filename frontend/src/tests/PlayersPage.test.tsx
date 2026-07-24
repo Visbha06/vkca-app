@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { AuthContext, type AuthContextValue } from '../auth/AuthContext'
@@ -146,6 +152,107 @@ describe('PlayersPage', () => {
     expect(screen.getByRole('option', { name: 'Junior XI' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Add Player' })).toBeVisible()
     expect(screen.getByRole('navigation', { name: 'Player pages' })).toBeVisible()
+    expect(screen.getByText('21 active players')).toBeVisible()
+  })
+
+  it('debounces trimmed search, retains results, and aborts stale requests', async () => {
+    renderPage()
+    await screen.findByText('Asha Singh')
+
+    const staleSearch = deferred<PaginatedPlayerResponse>()
+    vi.mocked(fetchPlayers)
+      .mockReturnValueOnce(staleSearch.promise)
+      .mockResolvedValueOnce({
+        ...firstPage,
+        total_players: 1,
+        total_pages: 1,
+        has_next: false,
+      })
+
+    const search = screen.getByRole('searchbox', { name: 'Search players' })
+    fireEvent.change(search, { target: { value: '  Ash  ' } })
+
+    expect(screen.getByText('Asha Singh')).toBeVisible()
+    expect(fetchPlayers).toHaveBeenCalledTimes(1)
+
+    await waitFor(
+      () =>
+        expect(fetchPlayers).toHaveBeenLastCalledWith(
+          { page: 1, pageSize: 20, search: 'Ash' },
+          expect.any(AbortSignal),
+        ),
+      { timeout: 700 },
+    )
+    const staleSignal = vi.mocked(fetchPlayers).mock.calls[1][1]
+    expect(screen.getByText('Asha Singh')).toBeVisible()
+    expect(screen.getByRole('list', { name: 'Players' }).parentElement).toHaveAttribute(
+      'aria-busy',
+      'true',
+    )
+
+    fireEvent.change(search, { target: { value: 'Asha' } })
+    await waitFor(
+      () =>
+        expect(fetchPlayers).toHaveBeenLastCalledWith(
+          { page: 1, pageSize: 20, search: 'Asha' },
+          expect.any(AbortSignal),
+        ),
+      { timeout: 700 },
+    )
+    expect(staleSignal?.aborted).toBe(true)
+    expect(await screen.findByText('1 player found')).toBeVisible()
+  })
+
+  it('retains populated results after a background failure and retries', async () => {
+    renderPage()
+    await screen.findByText('Asha Singh')
+    vi.mocked(fetchPlayers).mockRejectedValueOnce(new Error('network'))
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search players' }), {
+      target: { value: 'Asha' },
+    })
+
+    expect(
+      await screen.findByText(/Previous results are still shown/i, {}, {
+        timeout: 700,
+      }),
+    ).toBeVisible()
+    expect(screen.getByText('Asha Singh')).toBeVisible()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => expect(fetchPlayers).toHaveBeenCalledTimes(3))
+  })
+
+  it('shows query-aware zero copy and clears search without moving focus', async () => {
+    renderPage()
+    await screen.findByText('Asha Singh')
+    vi.mocked(fetchPlayers).mockResolvedValueOnce({
+      ...firstPage,
+      players: [],
+      total_players: 0,
+      total_pages: 0,
+      has_next: false,
+    })
+
+    const search = screen.getByRole('searchbox', { name: 'Search players' })
+    search.focus()
+    fireEvent.change(search, { target: { value: 'Nobody' } })
+
+    expect(
+      await screen.findByText('No players found for “Nobody”.', {}, {
+        timeout: 700,
+      }),
+    ).toBeVisible()
+    expect(screen.getByText('0 players found')).toBeVisible()
+    expect(search).toHaveFocus()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+    await waitFor(() =>
+      expect(fetchPlayers).toHaveBeenLastCalledWith(
+        { page: 1, pageSize: 20 },
+        expect.any(AbortSignal),
+      ),
+    )
   })
 
   it('filters by team, resets to page 1, and sends unassigned correctly', async () => {

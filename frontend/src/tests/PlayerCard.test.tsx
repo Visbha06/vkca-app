@@ -29,11 +29,18 @@ const assignedPlayer: PlayerResponse = {
 afterEach(cleanup)
 
 describe('PlayerCard', () => {
-  it('renders the player identity, teams, and human-readable date', () => {
+  it('renders compact identity, stable team summary, playing profile, and date', () => {
     render(<PlayerCard player={assignedPlayer} onSelect={vi.fn()} />)
 
     expect(screen.getByRole('button', { name: /view asha singh/i })).toBeVisible()
-    expect(screen.getByText('Junior XI, Development XI')).toBeVisible()
+    expect(screen.getByText('AS')).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.getByText('Junior XI +1 more')).toBeVisible()
+    expect(screen.getByText('All-Rounder')).toBeVisible()
+    expect(
+      screen.getByText(
+        'Bat: Right-Handed · Bowl: Right-Arm Medium',
+      ),
+    ).toBeVisible()
     expect(screen.getByText('Born 24 Apr 2008')).toBeVisible()
   })
 

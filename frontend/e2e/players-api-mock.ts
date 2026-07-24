@@ -67,6 +67,7 @@ export interface PlayersApiState {
   creates: number
   filters: string[]
   players: PlayerResponse[]
+  searches: string[]
   updates: number
 }
 
@@ -95,6 +96,7 @@ export async function installPlayersApiMock(
     creates: 0,
     filters: [],
     players: structuredClone(initialPlayers),
+    searches: [],
     updates: 0,
   }
 
@@ -111,11 +113,20 @@ export async function installPlayersApiMock(
     if (pathname === '/api/v1/players' && request.method() === 'GET') {
       const teamId = searchParams.get('team_id')
       const unassigned = searchParams.get('unassigned') === 'true'
+      const search = searchParams.get('search')?.trim().toLocaleLowerCase() ?? ''
       const pageNumber = Number(searchParams.get('page') ?? 1)
       const pageSize = Number(searchParams.get('page_size') ?? 20)
       state.filters.push(teamId ?? (unassigned ? 'unassigned' : 'all'))
+      state.searches.push(search)
       const filteredPlayers = state.players
         .filter((player) => player.is_active)
+        .filter((player) =>
+          search === ''
+            ? true
+            : `${player.first_name} ${player.last_name}`
+                .toLocaleLowerCase()
+                .includes(search),
+        )
         .filter((player) =>
           teamId
             ? player.teams.some((team) => team.id === teamId)

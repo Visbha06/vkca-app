@@ -1,14 +1,14 @@
-import { useRef, type MouseEvent } from 'react'
 import type { PlayerResponse } from '../types/player'
 import {
   BATTING_STYLE_LABELS,
   BOWLING_STYLE_LABELS,
-  PLAYER_TYPE_LABELS,
   formatEnum,
 } from '../utils/enumLabels'
 import { toDisplayDate } from '../utils/formatDate'
-import PlayerInformationSection from './PlayerInformationSection'
-import { useModalDialog } from './useModalDialog'
+import ModalDialog from './ModalDialog'
+import PlayerCricketSummary from './PlayerCricketSummary'
+import PlayerIdentity from './PlayerIdentity'
+import PlayerTypeBadge from './PlayerTypeBadge'
 
 interface PlayerDetailsModalProps {
   player: PlayerResponse
@@ -35,76 +35,70 @@ export default function PlayerDetailsModal({
   onClose,
   onEdit,
 }: PlayerDetailsModalProps) {
-  const dialogRef = useRef<HTMLDivElement>(null)
-  useModalDialog(dialogRef, onClose)
-
-  const fullName = `${player.first_name} ${player.last_name}`
-  const teamNames = player.teams.map((team) => team.name).join(', ')
-
-  function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
-    if (event.target === event.currentTarget) onClose()
-  }
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-slate-900/60 p-3 sm:p-6"
-      data-testid="player-details-backdrop"
-      onClick={handleBackdropClick}
+    <ModalDialog
+      labelledBy="player-details-title"
+      onClose={onClose}
+      testId="player-details-backdrop"
     >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="player-details-title"
-        aria-describedby="player-details-description"
-        className="relative max-h-full w-full max-w-2xl overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white text-slate-900"
-      >
+      <div className="relative bg-white text-slate-900">
         <header className="border-b border-slate-200 p-5 pr-16 sm:p-6 sm:pr-16">
-          <p className="text-sm font-semibold text-slate-600">Player details</p>
-          <h2 id="player-details-title" className="mt-1 text-2xl font-bold tracking-tight">
-            {fullName}
-          </h2>
-          <p id="player-details-description" className="mt-2 text-sm leading-6 text-slate-600">
-            Identity, playing style, and current team membership.
-          </p>
+          <div>
+            <PlayerIdentity
+              avatarSize="modal"
+              player={player}
+              showAllTeams
+              titleId="player-details-title"
+            />
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <PlayerTypeBadge playerType={player.player_type} />
+            <p className="text-sm leading-5 text-slate-700">
+              <PlayerCricketSummary player={player} />
+            </p>
+          </div>
         </header>
 
         <div className="p-5 sm:p-6">
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
-            <DetailItem label="Date of birth" value={toDisplayDate(player.date_of_birth)} />
-            <DetailItem
-              label="Player type"
-              value={formatEnum(player.player_type, PLAYER_TYPE_LABELS)}
-            />
-            <DetailItem
-              label="Batting style"
-              value={formatEnum(player.batting_style, BATTING_STYLE_LABELS)}
-            />
-            <DetailItem
-              label="Bowling style"
-              value={formatEnum(player.bowling_style, BOWLING_STYLE_LABELS)}
-            />
-            <div className="sm:col-span-2">
-              <DetailItem label="Teams" value={teamNames || 'Unassigned'} />
-            </div>
-          </dl>
-
-          <PlayerInformationSection
-            bio={player.bio}
-            metadata={player.player_metadata}
-          />
-
-          <section
-            aria-labelledby="player-statistics-title"
-            className="mt-6 border-t border-slate-200 pt-6"
-          >
-            <h3 id="player-statistics-title" className="font-bold text-slate-900">
-              Player statistics
+          <section aria-labelledby="playing-profile-title">
+            <h3
+              id="playing-profile-title"
+              className="text-base font-bold text-slate-900"
+            >
+              Playing profile
             </h3>
-            <p className="mt-2 max-w-prose text-sm leading-6 text-slate-600">
-              Player statistics deferred to a future specification.
-            </p>
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
+              <DetailItem
+                label="Batting style"
+                value={formatEnum(player.batting_style, BATTING_STYLE_LABELS)}
+              />
+              <DetailItem
+                label="Bowling style"
+                value={formatEnum(player.bowling_style, BOWLING_STYLE_LABELS)}
+              />
+              <DetailItem
+                label="Date of birth"
+                value={toDisplayDate(player.date_of_birth)}
+              />
+            </dl>
           </section>
+
+          {player.bio?.trim() ? (
+            <section
+              aria-labelledby="player-biography-title"
+              className="mt-6 border-t border-slate-200 pt-6"
+            >
+              <h3
+                id="player-biography-title"
+                className="text-base font-bold text-slate-900"
+              >
+                Biography
+              </h3>
+              <p className="mt-2 max-w-prose whitespace-pre-wrap text-base leading-6 text-slate-700">
+                {player.bio}
+              </p>
+            </section>
+          ) : null}
 
           {onEdit !== undefined ? (
             <div className="mt-6 flex justify-end border-t border-slate-200 pt-5">
@@ -136,6 +130,6 @@ export default function PlayerDetailsModal({
           </svg>
         </button>
       </div>
-    </div>
+    </ModalDialog>
   )
 }

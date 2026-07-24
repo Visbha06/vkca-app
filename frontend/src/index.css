@@ -7,6 +7,16 @@
   --breakpoint-md: 48rem;
 }
 
+@theme static {
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-navigation-backdrop: 30;
+  --z-modal-backdrop: 40;
+  --z-modal: 50;
+  --z-toast: 60;
+  --z-tooltip: 70;
+}
+
 @layer base {
   html {
     min-height: 100%;
@@ -26,22 +36,22 @@
 @layer components {
   .skip-link {
     position: fixed;
-    inset-block-start: 0.75rem;
-    inset-inline-start: 0.75rem;
-    z-index: 50;
-    transform: translateY(calc(-100% - 1rem));
-    border-radius: 0.5rem;
-    background: #0f172a;
-    color: white;
+    inset-block-start: calc(var(--spacing) * 3);
+    inset-inline-start: calc(var(--spacing) * 3);
+    z-index: var(--z-tooltip);
+    transform: translateY(calc(-100% - (var(--spacing) * 4)));
+    border-radius: var(--radius-lg);
+    background: var(--color-slate-900);
+    color: var(--color-white);
     font-weight: 600;
-    padding: 0.75rem 1rem;
+    padding: calc(var(--spacing) * 3) calc(var(--spacing) * 4);
     transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .skip-link:focus {
     transform: translateY(0);
-    outline: 2px solid #559eac;
-    outline-offset: 2px;
+    outline: calc(var(--spacing) / 2) solid var(--color-academy);
+    outline-offset: calc(var(--spacing) / 2);
   }
 
   .app-sidebar {
@@ -52,9 +62,9 @@
   .app-sidebar::before {
     content: "";
     position: absolute;
-    inset: 3px;
+    inset: calc(var(--spacing) * 0.75);
     z-index: 0;
-    border: 2px solid var(--color-academy);
+    border: calc(var(--spacing) / 2) solid var(--color-academy);
     pointer-events: none;
   }
 
@@ -71,9 +81,13 @@
   .mobile-navigation-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 30;
+    z-index: var(--z-navigation-backdrop);
     border: 0;
-    background: rgb(15 23 42 / 55%);
+    background: color-mix(
+      in srgb,
+      var(--color-slate-900) 55%,
+      transparent
+    );
     opacity: 0;
     pointer-events: none;
     transition: opacity 200ms ease-out;
@@ -82,6 +96,40 @@
   .mobile-navigation-backdrop[data-open="true"] {
     opacity: 1;
     pointer-events: auto;
+  }
+
+  .modal-dialog {
+    width: calc(100% - (var(--spacing) * 6));
+    max-width: var(--container-2xl);
+    max-height: calc(100dvh - (var(--spacing) * 6));
+    margin: auto;
+    padding: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 0;
+    border-radius: var(--radius-xl);
+    background: var(--color-white);
+    color: var(--color-slate-900);
+    z-index: var(--z-modal);
+  }
+
+  .modal-dialog::backdrop {
+    background: color-mix(
+      in srgb,
+      var(--color-slate-900) 60%,
+      transparent
+    );
+  }
+
+  body:has(.modal-dialog[open]) .skip-link {
+    visibility: hidden;
+  }
+
+  @media (width >= 40rem) {
+    .modal-dialog {
+      width: calc(100% - (var(--spacing) * 12));
+      max-height: calc(100dvh - (var(--spacing) * 12));
+    }
   }
 
   @media (width >= 48rem) {
@@ -106,12 +154,12 @@
 
 @media (forced-colors: active) {
   :focus-visible {
-    outline: 2px solid CanvasText !important;
-    outline-offset: 2px;
+    outline: calc(var(--spacing) / 2) solid CanvasText !important;
+    outline-offset: calc(var(--spacing) / 2);
   }
 
   .mobile-navigation-backdrop[data-open="true"] {
-    border: 1px solid CanvasText;
+    border: calc(var(--spacing) / 4) solid CanvasText;
   }
 
   .app-sidebar::before {

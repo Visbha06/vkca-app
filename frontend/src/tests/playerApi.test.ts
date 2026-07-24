@@ -23,17 +23,22 @@ describe('player API client', () => {
     expect(request).toHaveBeenCalledWith('/api/v1/players')
   })
 
-  it('serializes pagination and mutually exclusive filters', async () => {
+  it('serializes pagination, trimmed search, and mutually exclusive filters', async () => {
     const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ players: [] })
     const signal = new AbortController().signal
 
     await fetchPlayers(
-      { page: 3, pageSize: 10, teamId: 'team/one' },
+      {
+        page: 3,
+        pageSize: 10,
+        search: '  Asha Singh  ',
+        teamId: 'team/one',
+      },
       signal,
     )
 
     expect(request).toHaveBeenCalledWith(
-      '/api/v1/players?page=3&page_size=10&team_id=team%2Fone',
+      '/api/v1/players?page=3&page_size=10&search=Asha+Singh&team_id=team%2Fone',
       { signal },
     )
 
@@ -41,6 +46,19 @@ describe('player API client', () => {
       fetchPlayers({ teamId: 'team-one', unassigned: true }),
     ).rejects.toThrow('teamId and unassigned are mutually exclusive')
   })
+
+  it.each([undefined, '', '   '])(
+    'omits an absent or blank search value (%s)',
+    async (search) => {
+      const request = vi
+        .spyOn(apiClient, 'request')
+        .mockResolvedValue({ players: [] })
+
+      await fetchPlayers({ search })
+
+      expect(request).toHaveBeenCalledWith('/api/v1/players')
+    },
+  )
 
   it('fetches an individual player', async () => {
     const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ id: 'player/1' })
