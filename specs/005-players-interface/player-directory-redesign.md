@@ -3,6 +3,7 @@
 Status: approved and refined. No code changes are included.
 
 ## Objective
+**Ownership: Shared**
 
 Support both known-player lookup and roster browsing through server-side name search, compact information-dense cards, and a player-details modal that follows the same
 information hierarchy.
@@ -10,6 +11,7 @@ information hierarchy.
 Preserve the sidebar, application shell, existing API behavior when search is absent, pagination, mutation flows, and role gating.
 
 ## Revised toolbar
+**Ownership: Frontend / Impeccable**
 
 Keep the page header and coach-only outlined Add Player action.
 
@@ -22,6 +24,10 @@ Below it, provide:
 Desktop places search and team filter beside each other. Mobile stacks search, filter, and count.
 
 ### Search behavior
+**Ownership: Shared**
+
+- Backend: search semantics, filtering, pagination order
+- Frontend: debounce, request state, page reset, cancellation
 
 Add an optional server-side search list parameter:
 
@@ -35,6 +41,7 @@ Add an optional server-side search list parameter:
 - Cancel stale requests with the existing AbortController pattern.
 
 ### Fetching behavior
+**Ownership: Frontend / Impeccable**
 
 - Keep existing results visible during the debounce period.
 - Keep existing results visible during background fetching.
@@ -46,6 +53,7 @@ Add an optional server-side search list parameter:
 - Use a full error state only when no previous results exist.
 
 ### Count copy
+**Ownership: Frontend**
 
 The domain model includes is_active, and the current directory represents active players, so “active players” remains valid where that status is meaningful.
 
@@ -58,6 +66,7 @@ Recommended copy:
 Avoid unnecessarily repeating “active” in search-result messaging.
 
 ## Player-card anatomy
+**Ownership: Frontend / Impeccable**
 
 Retain a responsive card grid, reducing card height to approximately 128–152px.
 
@@ -127,6 +136,7 @@ Only shorten labels when space requires it, particularly for all-rounders. Prese
 - Preserve “View [player name] details” accessible naming.
 
 ## Shared information hierarchy
+**Ownership: Frontend / Impeccable**
 
 Cards and modal follow the same sequence:
 
@@ -142,6 +152,7 @@ Cards and modal follow the same sequence:
 The modal should feel like an expansion of the selected card, not a separate information system.
 
 ## Modal structure
+**Ownership: Frontend / Impeccable**
 
 ### Header
 
@@ -176,6 +187,7 @@ Show the biography directly when present. Omit the section when empty rather tha
 Exclude statistics, development status, placeholder copy, and development-only metadata.
 
 ## Modal accessibility and layering
+**Ownership: Frontend / Impeccable**
 
 First assess whether the existing modal implementation can be cleanly hardened.
 
@@ -198,6 +210,7 @@ logic.
 A native implementation may use showModal() and a portal root, but the migration is an implementation decision rather than a predetermined requirement.
 
 ## Responsive behavior
+**Ownership: Frontend / Impeccable**
 
 ### Wide desktop
 
@@ -226,6 +239,7 @@ A native implementation may use showModal() and a portal root, but the migration
 - Long player and team names wrap safely
 
 ## Key states
+**Ownership: Frontend / Impeccable**
 
 - Initial loading: compact card skeletons
 - Background search/filter fetch: retain results and mark region busy
@@ -237,6 +251,7 @@ A native implementation may use showModal() and a portal root, but the migration
 - Mutation success: preserve existing confirmation and refresh behavior
 
 ## Accessibility requirements
+**Ownership: Frontend / Impeccable**
 
 - Persistent visible labels for search and team filter
 - Explicit accessible name for Clear Search
@@ -253,6 +268,7 @@ A native implementation may use showModal() and a portal root, but the migration
 - Focus reliably restored after every modal exit path
 
 ## Reusable components
+**Ownership: Frontend / Impeccable**
 
 - PlayerSearchField
 - PlayerInitialsAvatar
@@ -264,6 +280,7 @@ A native implementation may use showModal() and a portal root, but the migration
 - Hardened modal utility or native ModalDialog, based on implementation assessment
 
 ## Tokens
+**Ownership: Frontend / Impeccable**
 
 Reuse existing color, spacing, radius, typography, and focus tokens first.
 
@@ -284,6 +301,7 @@ A formal overlay scale is encouraged:
 Remove reliance on unrelated elements sharing arbitrary overlay values.
 
 ## Explicit non-goals
+**Ownership: Shared**
 
 - No table or full-width roster list
 - No sidebar or application-shell changes

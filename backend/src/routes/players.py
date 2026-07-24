@@ -54,6 +54,7 @@ async def list_players(
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
     team_id: UUID | None = None,
     unassigned: bool = False,
+    search: str | None = None,
 ) -> PaginatedPlayerResponse:
     """List a filtered page of active player profiles."""
 
@@ -68,6 +69,7 @@ async def list_players(
         page_size=page_size,
         team_id=team_id,
         unassigned=unassigned,
+        search=search,
     )
 
 
