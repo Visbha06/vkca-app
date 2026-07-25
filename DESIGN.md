@@ -3,6 +3,8 @@ name: VK Cricket Academy Portal
 description: An open, disciplined operations interface for academy coaches and players.
 colors:
   academy-teal: "#559eac"
+  academy-teal-wash: "#eef5f7"
+  academy-teal-soft: "#ddecee"
   practice-night: "#0f172a"
   slate-ink: "#1e293b"
   body-copy: "#475569"
@@ -74,6 +76,28 @@ components:
     textColor: "{colors.practice-night}"
     rounded: "{rounded.lg}"
     padding: "24px"
+  profile-card:
+    backgroundColor: "{colors.clubhouse-white}"
+    textColor: "{colors.practice-night}"
+    rounded: "{rounded.lg}"
+    padding: "12px"
+  initials-avatar-card:
+    backgroundColor: "{colors.academy-teal-soft}"
+    textColor: "{colors.practice-night}"
+    rounded: "{rounded.full}"
+    size: "44px"
+  player-type-badge:
+    backgroundColor: "{colors.academy-teal-wash}"
+    textColor: "{colors.slate-ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.sm}"
+    padding: "2px 8px"
+    height: "24px"
+  modal-surface:
+    backgroundColor: "{colors.clubhouse-white}"
+    textColor: "{colors.practice-night}"
+    rounded: "{rounded.lg}"
+    padding: "0"
 ---
 
 # Design System: VK Cricket Academy Portal
@@ -101,6 +125,8 @@ The palette pairs a cool, bright workspace with a deep practice-night sidebar an
 ### Primary
 
 - **Academy Teal** (`#559eac`): Brand perimeter, focus rings, action borders, and small wayfinding accents. Use dark slate foregrounds when teal is a filled surface.
+- **Academy Teal Wash** (`#eef5f7`): A derived 10% teal-on-white state surface for restrained player-type badges and quiet hover feedback.
+- **Academy Teal Soft** (`#ddecee`): A derived 20% teal-on-white identity surface reserved for generated initials avatars.
 
 ### Neutral
 
@@ -158,10 +184,45 @@ The system is flat by default. Depth comes from the contrast between cool canvas
 - **Internal Padding:** `20px` mobile and `24px` desktop.
 - **Summary band:** One shared surface split by dividers; never three detached hero-metric cards.
 
+### Profile Cards
+
+- **Density:** Profile summaries are a deliberately compact container class. Use `12px` internal padding, tight `8px` vertical divisions, and a minimum `44px` interaction target without changing the roomier dashboard-surface default.
+- **Anatomy:** Keep one readable sequence: initials avatar and identity, player type and role-aware cricket summary, then supporting metadata.
+- **Interaction:** The entire card is one accessible details trigger. Use a restrained teal border/background hover, a visible teal focus ring, and no nested actions.
+- **Responsiveness:** Let names, team membership, and summaries wrap. Grid column widths are local layout decisions, not design-system tokens.
+- **Skeleton:** Initial-loading skeletons must mirror the card's compact anatomy and stop pulsing under reduced-motion preferences.
+
+**The Identity Expansion Rule.** A detail view expands the selected summary; it never invents a second information hierarchy. Preserve identity, team membership, player type, cricket summary, full profile, date of birth, biography, and permitted actions in that order.
+
 ### Chips
 
 - **Style:** White background, 1px Academy Teal border, Slate Ink text, `6px` radius.
 - **Purpose:** Always pair color with text such as “Training” or “Match.”
+- **Player type:** A compact `24px`-minimum badge may use Academy Teal Wash with a 1px Academy Teal border, Slate Ink text, and full labels such as “All-rounder.” The tint supports recognition; the text carries the meaning.
+
+### Identity Avatars
+
+- **Treatment:** Generated initials use Academy Teal Soft, Practice Night text, bold system type, and a full-circle shape.
+- **Sizing:** Use `44px` in compact cards and `56px` when the same identity leads a modal.
+- **Content:** Compose the first usable character of the first and last names, fall back to one usable initial, then a neutral dash when neither exists.
+- **Accessibility:** Mark generated initials decorative. The adjacent visible name remains the authoritative accessible identity.
+
+### Modal Dialogs
+
+- **Primitive:** Use the shared native `<dialog>` rendered through a portal. It provides modal isolation, focus containment, Escape dismissal, scroll locking, backdrop dismissal, and focus restoration.
+- **Layering:** Use the semantic overlay order: dropdown (`10`), sticky (`20`), navigation backdrop (`30`), modal backdrop (`40`), modal (`50`), toast (`60`), tooltip (`70`). Never introduce a one-off z-index.
+- **Surface:** Clubhouse White, no shadow, no decorative border, `12px` radius, internal scrolling, and small viewport margins. Use a slate backdrop at approximately 60% opacity to establish separation.
+- **Heading:** Give the visible `h2` a stable id and connect it with `aria-labelledby`. For player details, the player name itself is the heading; never add a generic “Player details” eyebrow.
+- **Initial focus:** Put initial focus on a useful control inside the dialog, normally the close control, and restore focus to the originating trigger on every exit path.
+- **Identity continuity:** Reuse the same identity composition and ordering as the summary card, scaling the avatar and title without rearranging the content.
+- **Implementation drift:** Add Player and Edit Player still use the legacy custom `role="dialog"` shell and a hard-coded `z-50`. They must migrate to the shared native dialog and semantic overlay tokens; do not treat the legacy shell as a second approved modal pattern.
+
+### Result Collections
+
+- **Initial fetch:** When no prior result set exists, show skeletons that preserve the collection's expected structure.
+- **Background fetch:** Keep populated results visible, mark the results region `aria-busy="true"`, and update quiet count copy without moving focus.
+- **Background error:** Retain the previous results and place a non-destructive error with Retry before them. Use a full error state only when no prior results exist.
+- **Replacement:** Commit only the latest completed request. Never flash an empty state or replace useful content with skeletons during debounce, filtering, pagination refresh, or mutation refresh.
 
 ### Navigation
 
@@ -193,6 +254,9 @@ The system is flat by default. Depth comes from the contrast between cool canvas
 - **Do** preserve complete keyboard operation, visible focus, reduced motion, semantic landmarks, and 44px targets.
 - **Do** group related dashboard data into shared bands and lists with 1px dividers.
 - **Do** make responsive behavior structural: stack summaries, reflow events, and use the mobile drawer.
+- **Do** preserve a player's identity hierarchy as a compact card expands into a detail modal.
+- **Do** retain useful content during background fetches and expose progress with `aria-busy`.
+- **Do** use the semantic overlay scale and restore focus to the originating trigger when a modal closes.
 
 ### Don't:
 
@@ -204,3 +268,6 @@ The system is flat by default. Depth comes from the contrast between cool canvas
 - **Don't** create identical card grids or nest cards inside other cards.
 - **Don't** exceed `12px` corner radii on cards and dashboard surfaces.
 - **Don't** rely on Academy Teal for normal-size text on white; use Slate Ink and keep teal for non-text accents.
+- **Don't** replace populated collections with skeletons during background work.
+- **Don't** add nested actions to a profile card; the card is one details trigger.
+- **Don't** create modal-specific heading systems, arbitrary z-index values, or a generic eyebrow above the actual dialog title.
