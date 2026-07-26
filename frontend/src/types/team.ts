@@ -36,6 +36,11 @@ export interface TeamRosterPlayerResponse {
   roster_order: number
 }
 
+export type TeamRosterSelection = Omit<
+  TeamRosterPlayerResponse,
+  'roster_order'
+>
+
 export interface TeamRosterResponse {
   team_id: string
   players: TeamRosterPlayerResponse[]

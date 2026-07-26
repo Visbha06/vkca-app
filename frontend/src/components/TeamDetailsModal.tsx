@@ -1,4 +1,8 @@
-import type { TeamResponse, TeamRosterPlayerResponse } from '../types/team'
+import type {
+  TeamResponse,
+  TeamRosterPlayerResponse,
+  TeamRosterResponse,
+} from '../types/team'
 import AgeGroupBadge from './AgeGroupBadge'
 import ModalDialog from './ModalDialog'
 import useTeamRoster from '../hooks/useTeamRoster'
@@ -7,7 +11,7 @@ interface TeamDetailsModalProps {
   team: TeamResponse
   canManageTeams: boolean
   onClose: () => void
-  onEdit?: () => void
+  onEdit?: (roster: TeamRosterResponse) => void
   onPlayerInfo: (player: TeamRosterPlayerResponse) => void
 }
 
@@ -62,7 +66,9 @@ export default function TeamDetailsModal({
           ) : null}
           {canManageTeams && onEdit !== undefined ? (
             <div className="mt-5 flex justify-end border-t border-slate-200 pt-4">
-              <button type="button" className="min-h-11 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2" onClick={onEdit}>Edit Team</button>
+              <button type="button" disabled={roster === null || isLoading} className="min-h-11 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400" onClick={() => {
+                if (roster !== null) onEdit(roster)
+              }}>Edit Team</button>
             </div>
           ) : null}
         </div>

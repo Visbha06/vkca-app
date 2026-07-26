@@ -114,20 +114,20 @@
 
 ### Tests for User Story 3 (MANDATORY) ⚠️
 
-- [ ] T035 [P] [US3] Unit test for create team route (201, 400 min players, 400 duplicate, 409 name conflict, 403 unauthorized) in `backend/tests/unit/test_team_routes.py`
-- [ ] T036 [P] [US3] Unit test for create team service (atomic rollback, name uniqueness, player validation) in `backend/tests/unit/test_team_service.py`
-- [ ] T037 [P] [US3] Unit test for `TeamForm` create mode (renders empty form, validation errors for <7 players, duplicate rejection) in `frontend/src/tests/TeamForm.test.tsx`
-- [ ] T038 [P] [US3] Unit test for `TeamRosterRow` (searchable dropdown, info icon disabled when empty, remove clears selection) in `frontend/src/tests/TeamRosterRow.test.tsx`
+- [X] T035 [P] [US3] Unit test for create team route (201, 400 min players, 400 duplicate, 409 name conflict, 403 unauthorized) in `backend/tests/unit/test_team_routes.py`
+- [X] T036 [P] [US3] Unit test for create team service (atomic rollback, name uniqueness, player validation) in `backend/tests/unit/test_team_service.py`
+- [X] T037 [P] [US3] Unit test for `TeamForm` create mode (renders empty form, validation errors for <7 players, duplicate rejection) in `frontend/src/tests/TeamForm.test.tsx`
+- [X] T038 [P] [US3] Unit test for `TeamRosterRow` (searchable dropdown, info icon disabled when empty, remove clears selection) in `frontend/src/tests/TeamRosterRow.test.tsx`
 
 ### Implementation for User Story 3
 
-- [ ] T039 [US3] Implement `TeamService.create_team()`: validate player_ids exist+active, 7≤len≤15, no duplicates, name uniqueness (case-insensitive whitespace-normalized within age group), create Team, flush, bulk insert TeamPlayer with roster_order, commit — all in one transaction. Rollback on any failure in `backend/src/services/team_service.py`
-- [ ] T040 [US3] Implement `POST /api/v1/teams` route with role guard (HEAD_COACH, ASSISTANT_COACH), returning 201 `TeamResponse` in `backend/src/routes/teams.py`
-- [ ] T041 [US3] Create `PlayerSearchDropdown` component: controlled input with debounced search (300ms), calls `GET /api/v1/players?search=...&page_size=50`, loading spinner, "No players found" empty state, error+retry, excludes already-selected players in `frontend/src/components/PlayerSearchDropdown.tsx`
-- [ ] T042 [US3] Create `TeamRosterRow` component: grip icon (drag handle), `PlayerSearchDropdown`, info icon (disabled+greyed when empty, opens player details), remove icon (red trash, disabled when empty), accessible labels in `frontend/src/components/TeamRosterRow.tsx`
-- [ ] T043 [US3] Create `TeamForm` component (shared create/edit): team name input, age_group dropdown (J/U11/U13/U15 with human-readable labels), 15 ordered `TeamRosterRow` slots (rows 1–7 required, 8–15 optional), form-level validation (7–15 players, no duplicates), submission state (disable submit, prevent double-click, accessible progress), success/error feedback in `frontend/src/components/TeamForm.tsx`
-- [ ] T044 [US3] Create `TeamFormModal` wrapping `TeamForm` in `ModalDialog` with title "Create Team", passing create mode config in `frontend/src/components/TeamFormModal.tsx`
-- [ ] T045 [US3] Wire Create Team button in `TeamsPage` (visible only for HEAD_COACH/ASSISTANT_COACH) to open `TeamFormModal`. On success, close modal, refresh team list, show success feedback in `frontend/src/pages/TeamsPage.tsx`
+- [X] T039 [US3] Implement `TeamService.create_team()`: validate player_ids exist+active, 7≤len≤15, no duplicates, name uniqueness (case-insensitive whitespace-normalized within age group), create Team, flush, bulk insert TeamPlayer with roster_order, commit — all in one transaction. Rollback on any failure in `backend/src/services/team_service.py`
+- [X] T040 [US3] Implement `POST /api/v1/teams` route with role guard (HEAD_COACH, ASSISTANT_COACH), returning 201 `TeamResponse` in `backend/src/routes/teams.py`
+- [X] T041 [US3] Create `PlayerSearchDropdown` component: controlled input with debounced search (300ms), calls `GET /api/v1/players?search=...&page_size=50`, loading spinner, "No players found" empty state, error+retry, excludes already-selected players in `frontend/src/components/PlayerSearchDropdown.tsx`
+- [X] T042 [US3] Create `TeamRosterRow` component: grip icon (drag handle), `PlayerSearchDropdown`, info icon (disabled+greyed when empty, opens player details), remove icon (red trash, disabled when empty), accessible labels in `frontend/src/components/TeamRosterRow.tsx`
+- [X] T043 [US3] Create `TeamForm` component (shared create/edit): team name input, age_group dropdown (J/U11/U13/U15 with human-readable labels), 15 ordered `TeamRosterRow` slots (rows 1–7 required, 8–15 optional), form-level validation (7–15 players, no duplicates), submission state (disable submit, prevent double-click, accessible progress), success/error feedback in `frontend/src/components/TeamForm.tsx`
+- [X] T044 [US3] Create `TeamFormModal` wrapping `TeamForm` in `ModalDialog` with title "Create Team", passing create mode config in `frontend/src/components/TeamFormModal.tsx`
+- [X] T045 [US3] Wire Create Team button in `TeamsPage` (visible only for HEAD_COACH/ASSISTANT_COACH) to open `TeamFormModal`. On success, close modal, refresh team list, show success feedback in `frontend/src/pages/TeamsPage.tsx`
 
 **Checkpoint**: Team creation fully functional — atomic create with 7–15 players, searchable dropdowns, role-gated
 
@@ -141,19 +141,19 @@
 
 ### Tests for User Story 4 (MANDATORY) ⚠️
 
-- [ ] T046 [P] [US4] Unit test for update team route (200, 400, 404, 409 stale version, 409 name conflict, 403) in `backend/tests/unit/test_team_routes.py`
-- [ ] T047 [P] [US4] Unit test for update team service (atomic rollback, version check, full roster replacement) in `backend/tests/unit/test_team_service.py`
-- [ ] T048 [P] [US4] Unit test for `TeamForm` edit mode (pre-filled fields, version_number in payload, 409 conflict handling) in `frontend/src/tests/TeamForm.test.tsx`
+- [X] T046 [P] [US4] Unit test for update team route (200, 400, 404, 409 stale version, 409 name conflict, 403) in `backend/tests/unit/test_team_routes.py`
+- [X] T047 [P] [US4] Unit test for update team service (atomic rollback, version check, full roster replacement) in `backend/tests/unit/test_team_service.py`
+- [X] T048 [P] [US4] Unit test for `TeamForm` edit mode (pre-filled fields, version_number in payload, 409 conflict handling) in `frontend/src/tests/TeamForm.test.tsx`
 
 ### Implementation for User Story 4
 
-- [ ] T049 [US4] Implement `TeamService.update_team()`: fetch team, check_and_increment_version, validate player_ids, validate name uniqueness (excluding current team), update team name/age_group, delete existing TeamPlayer rows, bulk insert new rows with roster_order, commit — all in one transaction. Rollback on failure in `backend/src/services/team_service.py`
-- [ ] T050 [US4] Implement `PUT /api/v1/teams/{team_id}` route with role guard, returning 200 `TeamResponse`. Map StaleVersionError → 409, TeamNotFoundError → 404 in `backend/src/routes/teams.py`
-- [ ] T051 [US4] Extend `TeamForm` for edit mode: pre-fill name, age_group, roster (populate dropdowns with current players in saved order), include hidden version_number, diff detection for unsaved changes in `frontend/src/components/TeamForm.tsx`
-- [ ] T052 [US4] Create `ConfirmationDialog` component: modal with "You have unsaved changes" message, Continue Editing and Discard buttons in `frontend/src/components/ConfirmationDialog.tsx`
-- [ ] T053 [US4] Create `useUnsavedChanges` hook: `isDirty` flag, `beforeunload` listener, modal close interceptor in `frontend/src/hooks/useUnsavedChanges.ts`
-- [ ] T054 [US4] Wire Edit Team button in `TeamDetailsModal` (role-gated) → close details modal → open `TeamFormModal` in edit mode with pre-filled data. On success, close form, refresh team list, show success feedback. On 409, show conflict message with reload action in `frontend/src/pages/TeamsPage.tsx`
-- [ ] T055 [US4] Add unsaved-changes protection to `TeamFormModal`: on close attempt with dirty state, show `ConfirmationDialog` in `frontend/src/components/TeamFormModal.tsx`
+- [X] T049 [US4] Implement `TeamService.update_team()`: fetch team, check_and_increment_version, validate player_ids, validate name uniqueness (excluding current team), update team name/age_group, delete existing TeamPlayer rows, bulk insert new rows with roster_order, commit — all in one transaction. Rollback on failure in `backend/src/services/team_service.py`
+- [X] T050 [US4] Implement `PUT /api/v1/teams/{team_id}` route with role guard, returning 200 `TeamResponse`. Map StaleVersionError → 409, TeamNotFoundError → 404 in `backend/src/routes/teams.py`
+- [X] T051 [US4] Extend `TeamForm` for edit mode: pre-fill name, age_group, roster (populate dropdowns with current players in saved order), include hidden version_number, diff detection for unsaved changes in `frontend/src/components/TeamForm.tsx`
+- [X] T052 [US4] Create `ConfirmationDialog` component: modal with "You have unsaved changes" message, Continue Editing and Discard buttons in `frontend/src/components/ConfirmationDialog.tsx`
+- [X] T053 [US4] Create `useUnsavedChanges` hook: `isDirty` flag, `beforeunload` listener, modal close interceptor in `frontend/src/hooks/useUnsavedChanges.ts`
+- [X] T054 [US4] Wire Edit Team button in `TeamDetailsModal` (role-gated) → close details modal → open `TeamFormModal` in edit mode with pre-filled data. On success, close form, refresh team list, show success feedback. On 409, show conflict message with reload action in `frontend/src/pages/TeamsPage.tsx`
+- [X] T055 [US4] Add unsaved-changes protection to `TeamFormModal`: on close attempt with dirty state, show `ConfirmationDialog` in `frontend/src/components/TeamFormModal.tsx`
 
 **Checkpoint**: Team editing fully functional — atomic update, OCC conflict handling, unsaved changes protection
 

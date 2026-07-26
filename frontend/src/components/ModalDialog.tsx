@@ -70,7 +70,7 @@ export default function ModalDialog({
 
       const focusable = Array.from(
         activeDialog.querySelectorAll<HTMLElement>(focusableSelector),
-      )
+      ).filter((element) => element.closest('[inert]') === null)
       if (focusable.length === 0) return
       const first = focusable[0]
       const last = focusable[focusable.length - 1]

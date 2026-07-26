@@ -3,7 +3,11 @@ import { useCallback, useEffect } from 'react'
 export const UNSAVED_CHANGES_MESSAGE =
   'You have unsaved changes. Discard them?'
 
-export function useUnsavedChanges(isDirty: boolean, onClose: () => void) {
+export function useUnsavedChanges(
+  isDirty: boolean,
+  onClose: () => void,
+  onConfirmationRequired?: () => void,
+) {
   useEffect(() => {
     if (!isDirty) return
 
@@ -17,9 +21,15 @@ export function useUnsavedChanges(isDirty: boolean, onClose: () => void) {
   }, [isDirty])
 
   return useCallback(() => {
-    if (isDirty && !window.confirm(UNSAVED_CHANGES_MESSAGE)) return false
+    if (isDirty) {
+      if (onConfirmationRequired !== undefined) {
+        onConfirmationRequired()
+        return false
+      }
+      if (!window.confirm(UNSAVED_CHANGES_MESSAGE)) return false
+    }
 
     onClose()
     return true
-  }, [isDirty, onClose])
+  }, [isDirty, onClose, onConfirmationRequired])
 }

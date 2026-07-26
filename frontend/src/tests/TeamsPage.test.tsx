@@ -11,7 +11,12 @@ import type { AuthUser } from '../auth/types'
 import type { PlayerResponse } from '../types/player'
 import type { TeamResponse } from '../types/team'
 
-vi.mock('../api/teamApi', () => ({ fetchTeams: vi.fn(), fetchTeamRoster: vi.fn() }))
+vi.mock('../api/teamApi', () => ({
+  createTeam: vi.fn(),
+  fetchTeams: vi.fn(),
+  fetchTeamRoster: vi.fn(),
+  updateTeam: vi.fn(),
+}))
 vi.mock('../api/playerApi', () => ({ fetchPlayer: vi.fn() }))
 
 const team: TeamResponse = { id: 'team-1', name: 'Falcons', age_group: 'U13', player_count: 8, created_at: '2026-07-25T10:00:00Z', updated_at: '2026-07-25T10:00:00Z', version_number: 1 }
@@ -34,7 +39,9 @@ describe('TeamsPage', () => {
     renderPage()
     expect(screen.getByRole('status')).toHaveTextContent('Loading teams')
     expect(await screen.findByRole('button', { name: 'View Falcons' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Create Team' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Create Team' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Create Team' }))
+    expect(screen.getByRole('dialog', { name: 'Create Team' })).toBeVisible()
     expect(screen.getByRole('navigation', { name: 'Player pages' })).toBeVisible()
   })
 
@@ -63,5 +70,18 @@ describe('TeamsPage', () => {
 
     expect(screen.queryByRole('dialog', { name: 'Falcons' })).not.toBeInTheDocument()
     expect(await screen.findByRole('dialog', { name: 'Asha Singh' })).toBeVisible()
+  })
+
+  it('replaces team details with a prefilled edit form', async () => {
+    vi.mocked(fetchTeams).mockResolvedValue({ teams: [team], page: 1, page_size: 12, total_teams: 1, total_pages: 1 })
+    vi.mocked(fetchTeamRoster).mockResolvedValue({ team_id: 'team-1', players: Array.from({ length: 7 }, (_, index) => ({ player_id: `player-${index + 1}`, first_name: `Player${index + 1}`, last_name: 'VKCA', is_active: true, roster_order: index + 1 })) })
+    renderPage()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'View Falcons' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Team' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Falcons' })).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Edit Falcons' })).toBeVisible()
+    expect(screen.getByLabelText('Team name')).toHaveValue('Falcons')
   })
 })

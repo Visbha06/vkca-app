@@ -15,12 +15,16 @@ from src.schemas.team import (
     TeamPlayerResponse,
     TeamResponse,
     TeamRosterResponse,
+    TeamUpdate,
 )
+from src.services.occ import StaleVersionError
 from src.services.team_service import (
     PlayerNotFoundError,
     TeamMembershipAlreadyExistsError,
+    TeamNameConflictError,
     TeamNotFoundError,
     TeamService,
+    TeamValidationError,
 )
 
 router = APIRouter(prefix="/teams", tags=["teams"])
@@ -36,10 +40,57 @@ async def create_team(
         Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
     ],
 ) -> TeamResponse:
-    """Create a team; atomic roster creation is scheduled for phase five."""
+    """Create a team and its complete ordered roster atomically."""
 
-    team = await TeamService(session).create_team(payload)
-    return TeamResponse.model_validate(team)
+    try:
+        return await TeamService(session).create_team(payload)
+    except TeamValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except PlayerNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except TeamNameConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+
+
+@router.put("/{team_id}", response_model=TeamResponse)
+async def update_team(
+    team_id: UUID,
+    payload: TeamUpdate,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _write_access: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
+    ],
+) -> TeamResponse:
+    """Atomically replace team details and roster when its version is current."""
+
+    try:
+        return await TeamService(session).update_team(team_id, payload)
+    except TeamValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except (TeamNotFoundError, PlayerNotFoundError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except (TeamNameConflictError, StaleVersionError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
 
 
 @router.get("", response_model=PaginatedTeamResponse)

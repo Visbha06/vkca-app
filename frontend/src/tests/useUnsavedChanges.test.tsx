@@ -58,4 +58,19 @@ describe('useUnsavedChanges', () => {
     window.dispatchEvent(cleanEvent)
     expect(cleanEvent.defaultPrevented).toBe(false)
   })
+
+  it('delegates dirty close confirmation to an in-app dialog when provided', () => {
+    const onClose = vi.fn()
+    const onConfirmationRequired = vi.fn()
+    const confirm = vi.spyOn(window, 'confirm')
+    const { result } = renderHook(() =>
+      useUnsavedChanges(true, onClose, onConfirmationRequired),
+    )
+
+    act(() => expect(result.current()).toBe(false))
+
+    expect(onConfirmationRequired).toHaveBeenCalledOnce()
+    expect(confirm).not.toHaveBeenCalled()
+    expect(onClose).not.toHaveBeenCalled()
+  })
 })

@@ -1,8 +1,8 @@
-"""Application service for team queries and roster membership operations."""
+"""Application service for atomic team and roster operations."""
 
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +15,9 @@ from src.schemas.team import (
     TeamResponse,
     TeamRosterPlayerResponse,
     TeamRosterResponse,
+    TeamUpdate,
 )
+from src.services.occ import check_and_increment_version
 
 
 class TeamNotFoundError(Exception):
@@ -32,6 +34,19 @@ class PlayerNotFoundError(Exception):
         super().__init__("Player not found.")
 
 
+class TeamValidationError(Exception):
+    """Raised when a complete roster fails domain validation."""
+
+
+class TeamNameConflictError(Exception):
+    """Raised when a normalized name already exists in an age group."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "A team with this name already exists in the selected age group."
+        )
+
+
 class TeamMembershipAlreadyExistsError(Exception):
     """Raised when a player is already on the requested team."""
 
@@ -40,19 +55,144 @@ class TeamMembershipAlreadyExistsError(Exception):
 
 
 class TeamService:
-    """Query team summaries and retrieve ordered team rosters."""
+    """Query and mutate teams while preserving complete roster consistency."""
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def create_team(self, payload: TeamCreate) -> Team:
-        """Keep the legacy endpoint compatible until atomic creation lands."""
+    async def _validate_roster_players(self, player_ids: list[UUID]) -> None:
+        """Require 7–15 distinct, existing, active players."""
 
-        team = Team(**payload.model_dump(exclude={"player_ids"}))
-        self.session.add(team)
-        await self.session.commit()
-        await self.session.refresh(team)
-        return team
+        if not 7 <= len(player_ids) <= 15:
+            raise TeamValidationError("A team roster must contain 7 to 15 players.")
+        if len(set(player_ids)) != len(player_ids):
+            raise TeamValidationError(
+                "A team roster cannot contain duplicate players."
+            )
+
+        statement = select(Player.id, Player.is_active).where(
+            Player.id.in_(player_ids)
+        )
+        rows = (await self.session.execute(statement)).all()
+        players_by_id = {
+            player_id: is_active for player_id, is_active in rows
+        }
+        missing_ids = [
+            player_id for player_id in player_ids if player_id not in players_by_id
+        ]
+        if missing_ids:
+            raise PlayerNotFoundError
+        if any(not players_by_id[player_id] for player_id in player_ids):
+            raise TeamValidationError(
+                "Only active players can be selected for a team roster."
+            )
+
+    async def _ensure_unique_name(
+        self,
+        name: str,
+        age_group: str,
+        *,
+        exclude_team_id: UUID | None = None,
+    ) -> None:
+        """Reject normalized name collisions within one age group."""
+
+        normalized_name = name.strip().lower()
+        statement = select(Team.id).where(
+            func.lower(func.trim(Team.name)) == normalized_name,
+            Team.age_group == age_group,
+        )
+        if exclude_team_id is not None:
+            statement = statement.where(Team.id != exclude_team_id)
+        if await self.session.scalar(statement.limit(1)) is not None:
+            raise TeamNameConflictError
+
+    @staticmethod
+    def _team_response(team: Team, player_count: int) -> TeamResponse:
+        return TeamResponse.model_validate(team).model_copy(
+            update={"player_count": player_count}
+        )
+
+    async def create_team(self, payload: TeamCreate) -> TeamResponse:
+        """Create team details and the complete ordered roster atomically."""
+
+        try:
+            await self._validate_roster_players(payload.player_ids)
+            await self._ensure_unique_name(payload.name, payload.age_group)
+
+            team = Team(
+                name=payload.name.strip(),
+                age_group=payload.age_group,
+            )
+            self.session.add(team)
+            await self.session.flush()
+            self.session.add_all(
+                [
+                    TeamPlayer(
+                        team_id=team.id,
+                        player_id=player_id,
+                        roster_order=index,
+                    )
+                    for index, player_id in enumerate(payload.player_ids, start=1)
+                ]
+            )
+            await self.session.flush()
+            await self.session.refresh(team)
+            response = self._team_response(team, len(payload.player_ids))
+            await self.session.commit()
+            return response
+        except Exception:
+            await self.session.rollback()
+            raise
+
+    async def update_team(
+        self,
+        team_id: UUID,
+        payload: TeamUpdate,
+    ) -> TeamResponse:
+        """Replace team details and its ordered roster in one OCC transaction."""
+
+        try:
+            team = await self.session.get(Team, team_id)
+            if team is None:
+                raise TeamNotFoundError
+
+            next_version = await check_and_increment_version(
+                self.session,
+                Team,
+                team_id,
+                payload.version_number,
+            )
+            await self._validate_roster_players(payload.player_ids)
+            await self._ensure_unique_name(
+                payload.name,
+                payload.age_group,
+                exclude_team_id=team_id,
+            )
+
+            team.name = payload.name.strip()
+            team.age_group = payload.age_group
+            team.version_number = next_version
+            await self.session.execute(
+                delete(TeamPlayer).where(TeamPlayer.team_id == team_id)
+            )
+            self.session.add_all(
+                [
+                    TeamPlayer(
+                        team_id=team_id,
+                        player_id=player_id,
+                        roster_order=index,
+                    )
+                    for index, player_id in enumerate(payload.player_ids, start=1)
+                ]
+            )
+            await self.session.flush()
+            await self.session.refresh(team)
+            response = self._team_response(team, len(payload.player_ids))
+            await self.session.commit()
+            return response
+        except Exception:
+            await self.session.rollback()
+            raise
 
     async def list_teams(
         self,
