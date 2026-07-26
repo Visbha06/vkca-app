@@ -39,15 +39,15 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 [P] Update `TeamResponse` schema: add `player_count: int` in `backend/src/schemas/team.py`
-- [ ] T006 [P] Add `PaginatedTeamResponse` schema (teams, page, page_size, total_teams, total_pages) in `backend/src/schemas/team.py`
-- [ ] T007 [P] Add `TeamCreate` schema: name (1–200), age_group (AgeGroup), player_ids (list[UUID], 7–15) in `backend/src/schemas/team.py`
-- [ ] T008 [P] Add `TeamUpdate` schema: name, age_group, player_ids (7–15), version_number (ge=1) in `backend/src/schemas/team.py`
-- [ ] T009 [P] Add `TeamRosterPlayerResponse` schema: player_id, first_name, last_name, is_active, roster_order in `backend/src/schemas/team.py`
-- [ ] T010 [P] Add `TeamRosterResponse` schema: team_id, players (list[TeamRosterPlayerResponse]) in `backend/src/schemas/team.py`
-- [ ] T011 [P] Create frontend TypeScript types mirroring all backend team schemas in `frontend/src/types/team.ts`
-- [ ] T012 [P] Create `teamApi.ts` with API client functions (fetchTeams, createTeam, updateTeam, fetchTeamRoster) in `frontend/src/api/teamApi.ts`
-- [ ] T013 [P] Create `AgeGroupBadge` component with human-readable labels (J→Juniors, U11, U13, U15) following `player-type-badge` design tokens in `frontend/src/components/AgeGroupBadge.tsx`
+- [X] T005 [P] Update `TeamResponse` schema: add `player_count: int` in `backend/src/schemas/team.py`
+- [X] T006 [P] Add `PaginatedTeamResponse` schema (teams, page, page_size, total_teams, total_pages) in `backend/src/schemas/team.py`
+- [X] T007 [P] Add `TeamCreate` schema: name (1–200), age_group (AgeGroup), player_ids (list[UUID], 7–15) in `backend/src/schemas/team.py`
+- [X] T008 [P] Add `TeamUpdate` schema: name, age_group, player_ids (7–15), version_number (ge=1) in `backend/src/schemas/team.py`
+- [X] T009 [P] Add `TeamRosterPlayerResponse` schema: player_id, first_name, last_name, is_active, roster_order in `backend/src/schemas/team.py`
+- [X] T010 [P] Add `TeamRosterResponse` schema: team_id, players (list[TeamRosterPlayerResponse]) in `backend/src/schemas/team.py`
+- [X] T011 [P] Create frontend TypeScript types mirroring all backend team schemas in `frontend/src/types/team.ts`
+- [X] T012 [P] Create `teamApi.ts` with API client functions (fetchTeams, createTeam, updateTeam, fetchTeamRoster) in `frontend/src/api/teamApi.ts`
+- [X] T013 [P] Create `AgeGroupBadge` component with human-readable labels (J→Juniors, U11, U13, U15) following `player-type-badge` design tokens in `frontend/src/components/AgeGroupBadge.tsx`
 
 **Checkpoint**: Foundation ready — all schemas, types, and API client available for user story implementation
 
@@ -61,22 +61,22 @@
 
 ### Tests for User Story 1 (MANDATORY) ⚠️
 
-- [ ] T014 [P] [US1] Unit test for paginated team list route (200, 401, 422) in `backend/tests/unit/test_team_routes.py`
-- [ ] T015 [P] [US1] Unit test for paginated team list service (ordering, count, page bounds) in `backend/tests/unit/test_team_service.py`
-- [ ] T016 [P] [US1] Unit test for `TeamCard` component (renders name, age group, player count, keyboard activation) in `frontend/src/tests/TeamCard.test.tsx`
-- [ ] T017 [P] [US1] Unit test for `TeamsPage` page states (loading, empty, error, retry) in `frontend/src/tests/TeamsPage.test.tsx`
-- [ ] T018 [P] [US1] Unit test for `teamApi.fetchTeams` (request shape, response parsing, error handling) in `frontend/src/tests/teamApi.test.ts`
-- [ ] T019 [P] [US1] Unit test for new `TeamCreate`/`TeamUpdate`/`TeamRosterPlayerResponse` schema validation in `backend/tests/unit/test_team_schemas.py`
+- [X] T014 [P] [US1] Unit test for paginated team list route (200, 401, 422) in `backend/tests/unit/test_team_routes.py`
+- [X] T015 [P] [US1] Unit test for paginated team list service (ordering, count, page bounds) in `backend/tests/unit/test_team_service.py`
+- [X] T016 [P] [US1] Unit test for `TeamCard` component (renders name, age group, player count, keyboard activation) in `frontend/src/tests/TeamCard.test.tsx`
+- [X] T017 [P] [US1] Unit test for `TeamsPage` page states (loading, empty, error, retry) in `frontend/src/tests/TeamsPage.test.tsx`
+- [X] T018 [P] [US1] Unit test for `teamApi.fetchTeams` (request shape, response parsing, error handling) in `frontend/src/tests/teamApi.test.ts`
+- [X] T019 [P] [US1] Unit test for new `TeamCreate`/`TeamUpdate`/`TeamRosterPlayerResponse` schema validation in `backend/tests/unit/test_team_schemas.py`
 
 ### Implementation for User Story 1
 
-- [ ] T020 [US1] Implement `TeamService.list_teams()` with pagination (count query + offset/limit, default page_size=12, order by name/age_group/id) in `backend/src/services/team_service.py`
-- [ ] T021 [US1] Implement `GET /api/v1/teams` route with page/page_size query params, returning `PaginatedTeamResponse` in `backend/src/routes/teams.py`
-- [ ] T022 [US1] Create `TeamCard` component: button card with name, AgeGroupBadge, "N / 15 players" roster count, keyboard-accessible, academy branding (Clubhouse White bg, Boundary Line border, 12px rounded, teal hover/focus) in `frontend/src/components/TeamCard.tsx`
-- [ ] T023 [US1] Create `TeamCardGrid` responsive grid component using Tailwind grid with breakpoint reflow in `frontend/src/components/TeamCardGrid.tsx`
-- [ ] T024 [US1] Create `TeamPageLoadingSkeleton` matching card anatomy in `frontend/src/components/TeamPageLoadingSkeleton.tsx`
-- [ ] T025 [US1] Create `useTeams` hook with page state, fetch on mount/page change, AbortController, loading/error/data states in `frontend/src/hooks/useTeams.ts`
-- [ ] T026 [US1] Replace `TeamsPage.tsx` placeholder with full page: page heading, Create Team button (role-gated), `TeamCardGrid`, `Pagination`, all states (loading skeleton, empty message, error+retry) in `frontend/src/pages/TeamsPage.tsx`
+- [X] T020 [US1] Implement `TeamService.list_teams()` with pagination (count query + offset/limit, default page_size=12, order by name/age_group/id) in `backend/src/services/team_service.py`
+- [X] T021 [US1] Implement `GET /api/v1/teams` route with page/page_size query params, returning `PaginatedTeamResponse` in `backend/src/routes/teams.py`
+- [X] T022 [US1] Create `TeamCard` component: button card with name, AgeGroupBadge, "N / 15 players" roster count, keyboard-accessible, academy branding (Clubhouse White bg, Boundary Line border, 12px rounded, teal hover/focus) in `frontend/src/components/TeamCard.tsx`
+- [X] T023 [US1] Create `TeamCardGrid` responsive grid component using Tailwind grid with breakpoint reflow in `frontend/src/components/TeamCardGrid.tsx`
+- [X] T024 [US1] Create `TeamPageLoadingSkeleton` matching card anatomy in `frontend/src/components/TeamPageLoadingSkeleton.tsx`
+- [X] T025 [US1] Create `useTeams` hook with page state, fetch on mount/page change, AbortController, loading/error/data states in `frontend/src/hooks/useTeams.ts`
+- [X] T026 [US1] Replace `TeamsPage.tsx` placeholder with full page: page heading, Create Team button (role-gated), `TeamCardGrid`, `Pagination`, all states (loading skeleton, empty message, error+retry) in `frontend/src/pages/TeamsPage.tsx`
 
 **Checkpoint**: Team list page functional — paginated cards with loading/empty/error states
 
@@ -90,17 +90,17 @@
 
 ### Tests for User Story 2 (MANDATORY) ⚠️
 
-- [ ] T027 [P] [US2] Unit test for roster retrieval route (200, 404) in `backend/tests/unit/test_team_routes.py`
-- [ ] T028 [P] [US2] Unit test for roster retrieval service (ordering, inactive included) in `backend/tests/unit/test_team_service.py`
-- [ ] T029 [P] [US2] Unit test for `TeamDetailsModal` (renders team info, roster, empty roster state, close behavior) in `frontend/src/tests/TeamDetailsModal.test.tsx`
+- [X] T027 [P] [US2] Unit test for roster retrieval route (200, 404) in `backend/tests/unit/test_team_routes.py`
+- [X] T028 [P] [US2] Unit test for roster retrieval service (ordering, inactive included) in `backend/tests/unit/test_team_service.py`
+- [X] T029 [P] [US2] Unit test for `TeamDetailsModal` (renders team info, roster, empty roster state, close behavior) in `frontend/src/tests/TeamDetailsModal.test.tsx`
 
 ### Implementation for User Story 2
 
-- [ ] T030 [US2] Implement `TeamService.get_team_roster()`: join TeamPlayer+Player, order by roster_order ASC, include inactive players with is_active flag in `backend/src/services/team_service.py`
-- [ ] T031 [US2] Implement `GET /api/v1/teams/{team_id}/players` route returning `TeamRosterResponse` in `backend/src/routes/teams.py`
-- [ ] T032 [US2] Create `useTeamRoster` hook with fetch on team_id change in `frontend/src/hooks/useTeamRoster.ts`
-- [ ] T033 [US2] Create `TeamDetailsModal` using `ModalDialog`: team name, age group, player count, ordered roster list, Edit Team button (role-gated), close button, focus trap, Escape close, empty-roster message. Inactive players shown with muted styling in `frontend/src/components/TeamDetailsModal.tsx`
-- [ ] T034 [US2] Wire `TeamCard` onClick to open `TeamDetailsModal` from `TeamsPage` state. Implement player info click → close team modal → open `PlayerDetailsModal` (no stacking) in `frontend/src/pages/TeamsPage.tsx`
+- [X] T030 [US2] Implement `TeamService.get_team_roster()`: join TeamPlayer+Player, order by roster_order ASC, include inactive players with is_active flag in `backend/src/services/team_service.py`
+- [X] T031 [US2] Implement `GET /api/v1/teams/{team_id}/players` route returning `TeamRosterResponse` in `backend/src/routes/teams.py`
+- [X] T032 [US2] Create `useTeamRoster` hook with fetch on team_id change in `frontend/src/hooks/useTeamRoster.ts`
+- [X] T033 [US2] Create `TeamDetailsModal` using `ModalDialog`: team name, age group, player count, ordered roster list, Edit Team button (role-gated), close button, focus trap, Escape close, empty-roster message. Inactive players shown with muted styling in `frontend/src/components/TeamDetailsModal.tsx`
+- [X] T034 [US2] Wire `TeamCard` onClick to open `TeamDetailsModal` from `TeamsPage` state. Implement player info click → close team modal → open `PlayerDetailsModal` (no stacking) in `frontend/src/pages/TeamsPage.tsx`
 
 **Checkpoint**: Team details modal working — ordered roster visible, player detail navigation non-stacking
 

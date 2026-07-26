@@ -1,15 +1,21 @@
-"""Application service for team and roster membership operations."""
+"""Application service for team queries and roster membership operations."""
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.player import Player
 from src.models.team import Team
 from src.models.team_player import TeamPlayer
-from src.schemas.team import TeamCreate
+from src.schemas.team import (
+    PaginatedTeamResponse,
+    TeamCreate,
+    TeamResponse,
+    TeamRosterPlayerResponse,
+    TeamRosterResponse,
+)
 
 
 class TeamNotFoundError(Exception):
@@ -34,25 +40,88 @@ class TeamMembershipAlreadyExistsError(Exception):
 
 
 class TeamService:
-    """Create teams, list teams, and manage team rosters."""
+    """Query team summaries and retrieve ordered team rosters."""
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
     async def create_team(self, payload: TeamCreate) -> Team:
-        """Persist a cricket team."""
+        """Keep the legacy endpoint compatible until atomic creation lands."""
 
-        team = Team(**payload.model_dump())
+        team = Team(**payload.model_dump(exclude={"player_ids"}))
         self.session.add(team)
         await self.session.commit()
         await self.session.refresh(team)
         return team
 
-    async def list_teams(self) -> list[Team]:
-        """Return all teams in stable name order."""
+    async def list_teams(
+        self,
+        *,
+        page: int = 1,
+        page_size: int = 12,
+    ) -> PaginatedTeamResponse:
+        """Return teams and roster counts in stable paginated order."""
 
-        statement = select(Team).order_by(Team.name, Team.age_group, Team.id)
-        return list((await self.session.scalars(statement)).all())
+        if page < 1:
+            raise ValueError("page must be greater than or equal to 1")
+        if not 1 <= page_size <= 100:
+            raise ValueError("page_size must be between 1 and 100")
+
+        total_teams = int(await self.session.scalar(select(func.count(Team.id))) or 0)
+        statement = (
+            select(Team, func.count(TeamPlayer.player_id).label("player_count"))
+            .outerjoin(TeamPlayer, TeamPlayer.team_id == Team.id)
+            .group_by(Team.id)
+            .order_by(Team.name, Team.age_group, Team.id)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        rows = (await self.session.execute(statement)).all()
+        teams = [
+            TeamResponse.model_validate(team).model_copy(
+                update={"player_count": int(player_count)}
+            )
+            for team, player_count in rows
+        ]
+        return PaginatedTeamResponse(
+            teams=teams,
+            page=page,
+            page_size=page_size,
+            total_teams=total_teams,
+            total_pages=(total_teams + page_size - 1) // page_size,
+        )
+
+    async def get_team_roster(self, team_id: UUID) -> TeamRosterResponse:
+        """Return all roster members, ordered by their persisted position."""
+
+        if await self.session.get(Team, team_id) is None:
+            raise TeamNotFoundError
+
+        statement = (
+            select(
+                TeamPlayer.player_id,
+                Player.first_name,
+                Player.last_name,
+                Player.is_active,
+                TeamPlayer.roster_order,
+            )
+            .join(Player, Player.id == TeamPlayer.player_id)
+            .where(TeamPlayer.team_id == team_id)
+            .order_by(TeamPlayer.roster_order.asc(), TeamPlayer.player_id.asc())
+        )
+        players = [
+            TeamRosterPlayerResponse(
+                player_id=player_id,
+                first_name=first_name,
+                last_name=last_name,
+                is_active=is_active,
+                roster_order=roster_order,
+            )
+            for player_id, first_name, last_name, is_active, roster_order in (
+                await self.session.execute(statement)
+            ).all()
+        ]
+        return TeamRosterResponse(team_id=team_id, players=players)
 
     async def add_player_to_team(
         self,

@@ -1,4 +1,4 @@
-"""Unit tests for team and roster membership API routes."""
+"""Unit tests for team list and roster API routes."""
 
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock
@@ -9,21 +9,25 @@ import pytest
 import pytest_asyncio
 
 from src.database import get_db
-from src.enums import UserRole
+from src.enums import AgeGroup, UserRole
 from src.main import app
 from src.middleware.auth import get_current_user
-from src.schemas.team import TeamPlayerResponse, TeamResponse
-from src.services.team_service import TeamMembershipAlreadyExistsError
+from src.schemas.team import (
+    PaginatedTeamResponse,
+    TeamResponse,
+    TeamRosterPlayerResponse,
+    TeamRosterResponse,
+)
+from src.services.team_service import TeamNotFoundError
 
 
 def make_team_response(team_id: UUID | None = None) -> TeamResponse:
-    """Build a complete team response for route mocks."""
-
     now = datetime.now(UTC)
     return TeamResponse(
         id=team_id or uuid4(),
-        name="U14 Lions",
-        age_group="U14",
+        name="U13 Lions",
+        age_group=AgeGroup.U13,
+        player_count=8,
         created_at=now,
         updated_at=now,
         version_number=1,
@@ -35,7 +39,7 @@ def service_mock(mocker):
     service = mocker.Mock()
     service.create_team = AsyncMock()
     service.list_teams = AsyncMock()
-    service.add_player_to_team = AsyncMock()
+    service.get_team_roster = AsyncMock()
     mocker.patch("src.routes.teams.TeamService", return_value=service)
     return service
 
@@ -59,62 +63,64 @@ async def client():
 
 
 @pytest.mark.asyncio
-async def test_create_team_returns_created_team(client, service_mock) -> None:
+async def test_list_teams_returns_a_paginated_response(client, service_mock) -> None:
     team = make_team_response()
-    service_mock.create_team.return_value = team
-
-    result = await client.post(
-        "/api/v1/teams",
-        json={"name": "U14 Lions", "age_group": "U14"},
+    response = PaginatedTeamResponse(
+        teams=[team], page=2, page_size=12, total_teams=13, total_pages=2
     )
+    service_mock.list_teams.return_value = response
 
-    assert result.status_code == 201
-    assert result.json() == team.model_dump(mode="json")
-    service_mock.create_team.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_list_teams_returns_all_teams(client, service_mock) -> None:
-    team = make_team_response()
-    service_mock.list_teams.return_value = [team]
-
-    result = await client.get("/api/v1/teams")
+    result = await client.get("/api/v1/teams?page=2&page_size=12")
 
     assert result.status_code == 200
-    assert result.json() == [team.model_dump(mode="json")]
-    service_mock.list_teams.assert_awaited_once_with()
+    assert result.json() == response.model_dump(mode="json")
+    service_mock.list_teams.assert_awaited_once_with(page=2, page_size=12)
 
 
 @pytest.mark.asyncio
-async def test_add_player_to_team_returns_created_membership(
-    client, service_mock
-) -> None:
+async def test_list_teams_rejects_unauthenticated_and_invalid_requests(client) -> None:
+    app.dependency_overrides.pop(get_current_user)
+    unauthenticated = await client.get("/api/v1/teams")
+    assert unauthenticated.status_code == 401
+
+    async def override_get_current_user():
+        return Mock(role=UserRole.HEAD_COACH), Mock()
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    invalid = await client.get("/api/v1/teams?page=0")
+    assert invalid.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_get_team_roster_returns_ordered_players(client, service_mock) -> None:
     team_id = uuid4()
-    player_id = uuid4()
-    membership = TeamPlayerResponse(
+    roster = TeamRosterResponse(
         team_id=team_id,
-        player_id=player_id,
-        joined_at=datetime.now(UTC),
+        players=[
+            TeamRosterPlayerResponse(
+                player_id=uuid4(),
+                first_name="Asha",
+                last_name="Singh",
+                is_active=True,
+                roster_order=1,
+            )
+        ],
     )
-    service_mock.add_player_to_team.return_value = membership
+    service_mock.get_team_roster.return_value = roster
 
-    result = await client.post(f"/api/v1/teams/{team_id}/players/{player_id}")
+    result = await client.get(f"/api/v1/teams/{team_id}/players")
 
-    assert result.status_code == 201
-    assert result.json() == membership.model_dump(mode="json")
-    service_mock.add_player_to_team.assert_awaited_once_with(team_id, player_id)
+    assert result.status_code == 200
+    assert result.json() == roster.model_dump(mode="json")
+    service_mock.get_team_roster.assert_awaited_once_with(team_id)
 
 
 @pytest.mark.asyncio
-async def test_add_player_to_team_returns_conflict_for_duplicate_membership(
-    client, service_mock
-) -> None:
+async def test_get_team_roster_returns_not_found(client, service_mock) -> None:
     team_id = uuid4()
-    player_id = uuid4()
-    service_mock.add_player_to_team.side_effect = TeamMembershipAlreadyExistsError()
+    service_mock.get_team_roster.side_effect = TeamNotFoundError()
 
-    result = await client.post(f"/api/v1/teams/{team_id}/players/{player_id}")
+    result = await client.get(f"/api/v1/teams/{team_id}/players")
 
-    assert result.status_code == 409
-    assert result.json() == {"detail": "Player is already a member of this team."}
-    service_mock.add_player_to_team.assert_awaited_once_with(team_id, player_id)
+    assert result.status_code == 404
+    assert result.json() == {"detail": "Team not found."}
