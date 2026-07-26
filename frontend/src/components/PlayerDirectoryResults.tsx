@@ -135,6 +135,7 @@ export default function PlayerDirectoryResults({
       {result !== null && result.total_pages > 1 ? (
         <div className="mt-8 border-t border-slate-200 pt-6">
           <Pagination
+            ariaLabel="Player pages"
             page={result.page}
             totalPages={result.total_pages}
             isLoading={isFetching}

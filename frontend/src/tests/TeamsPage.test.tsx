@@ -27,35 +27,81 @@ function authValue(): AuthContextValue {
   return { user: coach, accessToken: 'token', isAuthenticated: true, isInitializing: false, isLoginPending: false, isLogoutPending: false, login: vi.fn(), logout: vi.fn(), refreshSession: vi.fn(), updateUser: vi.fn() }
 }
 
-function renderPage() {
-  return render(<AuthContext.Provider value={authValue()}><TeamsPage /></AuthContext.Provider>)
+function renderPage(value = authValue()) {
+  return render(<AuthContext.Provider value={value}><TeamsPage /></AuthContext.Provider>)
 }
 
 afterEach(() => { cleanup(); vi.clearAllMocks() })
 
 describe('TeamsPage', () => {
-  it('shows loading then team cards, pagination, and role-gated create action', async () => {
+  it('shows loading then team rows, count status, pagination, and role-gated create action', async () => {
     vi.mocked(fetchTeams).mockResolvedValue({ teams: [team], page: 1, page_size: 12, total_teams: 13, total_pages: 2 })
     renderPage()
     expect(screen.getByRole('status')).toHaveTextContent('Loading teams')
     expect(await screen.findByRole('button', { name: 'View Falcons' })).toBeVisible()
+    expect(screen.getByText('13 active teams')).toBeVisible()
+    expect(screen.getByRole('list', { name: 'Teams' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Create Team' })).toBeEnabled()
     fireEvent.click(screen.getByRole('button', { name: 'Create Team' }))
     expect(screen.getByRole('dialog', { name: 'Create Team' })).toBeVisible()
-    expect(screen.getByRole('navigation', { name: 'Player pages' })).toBeVisible()
+    expect(screen.getByRole('navigation', { name: 'Team pages' })).toBeVisible()
   })
 
-  it('shows an empty state, safe error message, and retries', async () => {
+  it('offers coaches a create action in the true empty state', async () => {
     vi.mocked(fetchTeams).mockResolvedValueOnce({ teams: [], page: 1, page_size: 12, total_teams: 0, total_pages: 0 })
     renderPage()
-    expect(await screen.findByText('No teams are available.')).toBeVisible()
+    expect(await screen.findByText('Create the first academy team')).toBeVisible()
+    expect(screen.getAllByRole('button', { name: 'Create Team' })).toHaveLength(2)
+  })
+
+  it('does not offer an unavailable action to read-only users', async () => {
+    vi.mocked(fetchTeams).mockResolvedValueOnce({ teams: [], page: 1, page_size: 12, total_teams: 0, total_pages: 0 })
+    renderPage({ ...authValue(), user: { ...coach, role: 'player' } })
+    expect(await screen.findByText('No academy teams are available yet')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Create Team' })).not.toBeInTheDocument()
+  })
+
+  it('shows a safe error message and retries', async () => {
     cleanup()
     vi.mocked(fetchTeams).mockRejectedValueOnce(new Error('internal details')).mockResolvedValueOnce({ teams: [team], page: 1, page_size: 12, total_teams: 1, total_pages: 1 })
     renderPage()
     expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load teams. Please try again.')
     expect(screen.queryByText(/internal details/i)).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    await waitFor(() => expect(fetchTeams).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(fetchTeams).toHaveBeenCalledTimes(2))
+  })
+
+  it('filters teams by name and age group and clears a filtered empty state', async () => {
+    const seniorTeam = {
+      ...team,
+      id: 'team-2',
+      name: 'Senior Strikers',
+      age_group: 'U15' as const,
+    }
+    vi.mocked(fetchTeams).mockResolvedValue({
+      teams: [team, seniorTeam],
+      page: 1,
+      page_size: 12,
+      total_teams: 2,
+      total_pages: 1,
+    })
+    renderPage()
+
+    await screen.findByRole('button', { name: 'View Falcons' })
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search teams' }), {
+      target: { value: 'senior' },
+    })
+    expect(screen.queryByRole('button', { name: 'View Falcons' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'View Senior Strikers' })).toBeVisible()
+    expect(screen.getByText('1 team found')).toBeVisible()
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Filter by age group' }), {
+      target: { value: 'U13' },
+    })
+    expect(screen.getByText('No teams match these filters')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(screen.getByRole('button', { name: 'View Falcons' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'View Senior Strikers' })).toBeVisible()
   })
 
   it('replaces team details with player details when roster info is opened', async () => {

@@ -194,6 +194,115 @@ function playerNames(state: TeamsApiState): string[] {
 }
 
 test.describe('teams interface', () => {
+  test('supports comparison, filtering, and responsive reflow without overflow', async ({
+    page,
+  }) => {
+    await installAuthApiMock(page)
+    const api = await installTeamsApiMock(page)
+    api.teams.push(
+      {
+        id: 'team-falcons',
+        name: 'Falcons',
+        age_group: 'U13',
+        player_count: 7,
+        created_at: timestamp,
+        updated_at: timestamp,
+        version_number: 1,
+      },
+      {
+        id: 'team-strikers',
+        name: 'Senior Strikers With A Deliberately Long Team Name',
+        age_group: 'U15',
+        player_count: 15,
+        created_at: timestamp,
+        updated_at: timestamp,
+        version_number: 1,
+      },
+    )
+
+    for (const width of [390, 1280]) {
+      await page.setViewportSize({ width, height: 844 })
+      await page.goto('/teams')
+
+      const teamList = page.getByRole('list', { name: 'Teams' })
+      await expect(teamList).toBeVisible()
+      await expect(page.getByText('2 active teams')).toBeVisible()
+      await expect(page.getByText('7 of 15 players')).toBeVisible()
+      await expect(page.getByText('8 places available')).toBeVisible()
+      await expect(page.getByText('Roster full')).toBeVisible()
+      expect(
+        await page.evaluate(
+          () =>
+            document.documentElement.scrollWidth <=
+            document.documentElement.clientWidth,
+        ),
+      ).toBe(true)
+
+      const columnHeading = page.getByText('Availability', { exact: true })
+      if (width >= 1024) {
+        await expect(columnHeading).toBeVisible()
+      } else {
+        await expect(columnHeading).toBeHidden()
+      }
+    }
+
+    await page.getByRole('searchbox', { name: 'Search teams' }).fill('falcons')
+    await expect(page.getByRole('button', { name: 'View Falcons' })).toBeVisible()
+    await expect(
+      page.getByRole('button', {
+        name: 'View Senior Strikers With A Deliberately Long Team Name',
+      }),
+    ).toHaveCount(0)
+    await expect(page.getByText('1 team found')).toBeVisible()
+
+    await page
+      .getByRole('combobox', { name: 'Filter by age group' })
+      .selectOption('U15')
+    await expect(page.getByText('No teams match these filters')).toBeVisible()
+    await page.getByRole('button', { name: 'Clear filters' }).click()
+    await expect(
+      page.getByRole('list', { name: 'Teams' }).getByRole('listitem'),
+    ).toHaveCount(2)
+
+    const searchField = page.getByRole('searchbox', { name: 'Search teams' })
+    const ageGroupFilter = page.getByRole('combobox', {
+      name: 'Filter by age group',
+    })
+    const firstTeamRow = page.getByRole('button', { name: 'View Falcons' })
+    await searchField.focus()
+    await page.keyboard.press('Tab')
+    await expect(ageGroupFilter).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(firstTeamRow).toBeFocused()
+
+    api.teams.splice(1)
+    await page.reload()
+    const oneTeamList = page.getByRole('list', { name: 'Teams' })
+    const oneTeamRow = page.getByRole('button', { name: 'View Falcons' })
+    await expect(oneTeamList.getByRole('listitem')).toHaveCount(1)
+    const [listBox, rowBox] = await Promise.all([
+      oneTeamList.boundingBox(),
+      oneTeamRow.boundingBox(),
+    ])
+    expect(listBox).not.toBeNull()
+    expect(rowBox).not.toBeNull()
+    expect(Math.abs(listBox!.width - rowBox!.width)).toBeLessThanOrEqual(2)
+
+    api.teams.splice(0)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.reload()
+    await expect(
+      page.getByText('Create the first academy team'),
+    ).toBeVisible()
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
+      ),
+    ).toBe(true)
+  })
+
   test('logs in, creates and reorders a roster, edits it, and persists order after reload', async ({
     page,
   }) => {
@@ -209,9 +318,12 @@ test.describe('teams interface', () => {
     await expect(page).toHaveURL(/\/teams$/)
     await expect(page.getByRole('heading', { name: 'Teams' })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Create Team' }).click()
+    await page
+      .locator('header')
+      .getByRole('button', { name: 'Create Team' })
+      .click()
     await page.getByLabel('Team name').fill('Falcons E2E')
-    await page.getByLabel('Age group').selectOption('U13')
+    await page.getByLabel('Age group', { exact: true }).selectOption('U13')
 
     for (let index = 1; index <= 8; index += 1) {
       const input = page.getByRole('combobox', {
