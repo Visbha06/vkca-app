@@ -5,7 +5,7 @@ import type {
   PlayerResponse,
   PlayerUpdatePayload,
   TeamSummary,
-} from '../src/types/player'
+} from '@features/players/types/player'
 
 const teams: TeamSummary[] = [
   { id: 'team-junior', name: 'Junior XI' },

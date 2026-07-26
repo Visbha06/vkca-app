@@ -3,14 +3,14 @@ import { installAuthApiMock } from './auth-api-mock'
 import type {
   PaginatedPlayerResponse,
   PlayerResponse,
-} from '../src/types/player'
+} from '@features/players/types/player'
 import type {
   PaginatedTeamResponse,
   TeamCreatePayload,
   TeamResponse,
   TeamRosterResponse,
   TeamUpdatePayload,
-} from '../src/types/team'
+} from '@features/teams/types/team'
 
 const timestamp = '2026-07-25T18:00:00Z'
 
