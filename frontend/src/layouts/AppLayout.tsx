@@ -1,9 +1,6 @@
 import { useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
-import MobileNavCloseButton from '../components/MobileNavCloseButton'
-import MobileNavToggle from '../components/MobileNavToggle'
-import LogoutButton from '../components/LogoutButton'
-import SidebarBrand from '../components/SidebarBrand'
+import LogoutButton from '@features/auth/components/LogoutButton'
 import {
   CalendarIcon,
   CoachesIcon,
@@ -11,9 +8,12 @@ import {
   PlayersIcon,
   SettingsIcon,
   TeamsIcon,
-} from '../components/NavIcons'
-import SidebarNavLink from '../components/SidebarNavLink'
-import SidebarToggle from '../components/SidebarToggle'
+} from '@shared/components/icons/NavIcons'
+import MobileNavCloseButton from './components/MobileNavCloseButton'
+import MobileNavToggle from './components/MobileNavToggle'
+import SidebarBrand from './components/SidebarBrand'
+import SidebarNavLink from './components/SidebarNavLink'
+import SidebarToggle from './components/SidebarToggle'
 import { SidebarProvider, useSidebar } from './SidebarContext'
 import { useAppLayoutEffects } from './useAppLayoutEffects'
 
