@@ -26,10 +26,10 @@
 
 **Purpose**: Database migration and shared enum for all user stories
 
-- [ ] T001 Add `AgeGroup` enum (J, U11, U13, U15) to `backend/src/enums.py`
-- [ ] T002 [P] Add `roster_order` column (Integer, NOT NULL, DEFAULT 0) and `(team_id, roster_order)` index to `TeamPlayer` model in `backend/src/models/team_player.py`
-- [ ] T003 [P] Add DB check constraint `ck_teams_age_group` on `teams.age_group` in `backend/src/models/team.py`
-- [ ] T004 Generate and run Alembic migration for T001–T003 in `backend/src/migrations/versions/`
+- [X] T001 Add `AgeGroup` enum (J, U11, U13, U15) to `backend/src/enums.py`
+- [X] T002 [P] Add `roster_order` column (Integer, NOT NULL, DEFAULT 0) and `(team_id, roster_order)` index to `TeamPlayer` model in `backend/src/models/team_player.py`
+- [X] T003 [P] Add DB check constraint `ck_teams_age_group` on `teams.age_group` in `backend/src/models/team.py`
+- [X] T004 Generate and run Alembic migration for T001–T003 in `backend/src/migrations/versions/`
 
 ---
 
