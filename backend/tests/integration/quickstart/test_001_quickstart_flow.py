@@ -61,6 +61,7 @@ async def test_full_twelve_step_quickstart_flow(
     run_id = uuid4().hex
     player_id: UUID | None = None
     timestamp_player_id: UUID | None = None
+    support_player_ids: list[UUID] = []
     team_id: UUID | None = None
     match_id: UUID | None = None
     player_payload = {
@@ -108,10 +109,30 @@ async def test_full_twelve_step_quickstart_flow(
         duplicate_player = await client.post("/api/v1/players", json=player_payload)
         assert duplicate_player.status_code == 409
 
-        # 4. Create a team.
+        # 4. Create a team with the current atomic seven-player roster contract.
+        for index in range(7):
+            support_player = await client.post(
+                "/api/v1/players",
+                json={
+                    **player_payload,
+                    "first_name": f"Support-{index}-{run_id}",
+                    "last_name": "Player",
+                    "date_of_birth": f"2001-01-{index + 1:02d}",
+                },
+            )
+            assert support_player.status_code == 201, support_player.text
+            support_player_ids.append(UUID(support_player.json()["id"]))
+
         create_team = await client.post(
             "/api/v1/teams",
-            json={"name": f"Senior XI {run_id}", "age_group": "Senior"},
+            json={
+                "name": f"Senior XI {run_id}",
+                "age_group": "U15",
+                "player_ids": [
+                    str(support_player_id)
+                    for support_player_id in support_player_ids
+                ],
+            },
         )
         assert create_team.status_code == 201
         team_id = UUID(create_team.json()["id"])
@@ -267,7 +288,11 @@ async def test_full_twelve_step_quickstart_flow(
             await db_session.execute(delete(Match).where(Match.id == match_id))
         player_ids = [
             entity_id
-            for entity_id in (player_id, timestamp_player_id)
+            for entity_id in (
+                player_id,
+                timestamp_player_id,
+                *support_player_ids,
+            )
             if entity_id is not None
         ]
         if player_ids:

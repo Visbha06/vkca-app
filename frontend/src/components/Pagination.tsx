@@ -1,4 +1,5 @@
 interface PaginationProps {
+  ariaLabel: string
   page: number
   totalPages: number
   isLoading: boolean
@@ -9,6 +10,7 @@ const buttonClass =
   'inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 transition-colors hover:border-academy hover:bg-academy/10 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400'
 
 export default function Pagination({
+  ariaLabel,
   page,
   totalPages,
   isLoading,
@@ -18,7 +20,7 @@ export default function Pagination({
 
   return (
     <nav
-      aria-label="Player pages"
+      aria-label={ariaLabel}
       aria-busy={isLoading}
       className="flex flex-wrap items-center justify-center gap-2"
     >

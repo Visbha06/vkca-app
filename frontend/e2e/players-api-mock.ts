@@ -106,7 +106,25 @@ export async function installPlayersApiMock(
     const { pathname, searchParams } = url
 
     if (pathname === '/api/v1/teams' && request.method() === 'GET') {
-      await route.fulfill({ status: 200, json: teams })
+      await route.fulfill({
+        status: 200,
+        json: {
+          teams: teams.map((team) => ({
+            ...team,
+            age_group: 'U13',
+            player_count: state.players.filter((player) =>
+              player.teams.some(({ id }) => id === team.id),
+            ).length,
+            created_at: '2026-07-01T10:00:00Z',
+            updated_at: '2026-07-01T10:00:00Z',
+            version_number: 1,
+          })),
+          page: 1,
+          page_size: 100,
+          total_teams: teams.length,
+          total_pages: 1,
+        },
+      })
       return
     }
 

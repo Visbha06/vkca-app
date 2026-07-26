@@ -6,6 +6,7 @@ import type {
   PlayerUpdatePayload,
   TeamSummary,
 } from '../types/player'
+import type { PaginatedTeamResponse } from '../types/team'
 
 const PLAYERS_PATH = '/api/v1/players'
 const TEAMS_PATH = '/api/v1/teams'
@@ -59,10 +60,13 @@ export function fetchPlayer(playerId: string, signal?: AbortSignal) {
 }
 
 export function fetchTeamsForFilter(signal?: AbortSignal) {
-  if (signal !== undefined) {
-    return apiClient.request<TeamSummary[]>(TEAMS_PATH, { signal })
-  }
-  return apiClient.request<TeamSummary[]>(TEAMS_PATH)
+  const request = apiClient.request<PaginatedTeamResponse>(
+    `${TEAMS_PATH}?page_size=100`,
+    signal === undefined ? undefined : { signal },
+  )
+  return request.then(({ teams }) =>
+    teams.map(({ id, name }) => ({ id, name } satisfies TeamSummary)),
+  )
 }
 
 export function createPlayer(payload: PlayerCreatePayload) {

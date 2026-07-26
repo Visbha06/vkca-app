@@ -12,6 +12,7 @@ describe('Pagination', () => {
     const onPageChange = vi.fn()
     render(
       <Pagination
+        ariaLabel="Player pages"
         page={2}
         totalPages={4}
         isLoading={false}
@@ -29,14 +30,14 @@ describe('Pagination', () => {
 
   it('disables previous and next controls at their boundaries', () => {
     const { rerender } = render(
-      <Pagination page={1} totalPages={3} isLoading={false} onPageChange={vi.fn()} />,
+      <Pagination ariaLabel="Player pages" page={1} totalPages={3} isLoading={false} onPageChange={vi.fn()} />,
     )
 
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled()
 
     rerender(
-      <Pagination page={3} totalPages={3} isLoading={false} onPageChange={vi.fn()} />,
+      <Pagination ariaLabel="Player pages" page={3} totalPages={3} isLoading={false} onPageChange={vi.fn()} />,
     )
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
@@ -44,7 +45,7 @@ describe('Pagination', () => {
 
   it('prevents navigation while a page is loading', () => {
     render(
-      <Pagination page={2} totalPages={3} isLoading onPageChange={vi.fn()} />,
+      <Pagination ariaLabel="Player pages" page={2} totalPages={3} isLoading onPageChange={vi.fn()} />,
     )
 
     expect(screen.getByRole('navigation', { name: 'Player pages' })).toHaveAttribute(

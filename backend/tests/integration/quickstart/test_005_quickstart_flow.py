@@ -115,22 +115,19 @@ async def test_players_interface_quickstart_flow(
         ]
         assert ordering_keys == sorted(ordering_keys)
 
+        assigned_ids = player_ids[:7]
         created_team = await client.post(
             "/api/v1/teams",
             json={
                 "name": f"Quickstart XI {run_id}",
-                "age_group": "Senior",
+                "age_group": "U15",
+                "player_ids": [
+                    str(player_id) for player_id in assigned_ids
+                ],
             },
         )
         assert created_team.status_code == 201, created_team.text
         team_id = UUID(created_team.json()["id"])
-
-        assigned_ids = player_ids[:3]
-        for player_id in assigned_ids:
-            assigned = await client.post(
-                f"/api/v1/teams/{team_id}/players/{player_id}"
-            )
-            assert assigned.status_code == 201, assigned.text
 
         team_filtered = await client.get(
             "/api/v1/players",
@@ -153,7 +150,7 @@ async def test_players_interface_quickstart_flow(
         assert unassigned.status_code == 200, unassigned.text
         unassigned_ids = {UUID(item["id"]) for item in unassigned.json()["players"]}
         assert set(assigned_ids).isdisjoint(unassigned_ids)
-        assert set(player_ids[3:]) <= unassigned_ids
+        assert set(player_ids[7:]) <= unassigned_ids
 
         mutually_exclusive = await client.get(
             "/api/v1/players",

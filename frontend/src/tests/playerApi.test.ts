@@ -69,12 +69,16 @@ describe('player API client', () => {
   })
 
   it('fetches typed team options for the player filter', async () => {
-    const response = [{ id: 'team-1', name: 'Junior XI' }]
+    const response = {
+      teams: [{ id: 'team-1', name: 'Junior XI', age_group: 'U13', player_count: 8 }],
+    }
     const request = vi.spyOn(apiClient, 'request').mockResolvedValue(response)
     const signal = new AbortController().signal
 
-    await expect(fetchTeamsForFilter(signal)).resolves.toBe(response)
-    expect(request).toHaveBeenCalledWith('/api/v1/teams', { signal })
+    await expect(fetchTeamsForFilter(signal)).resolves.toEqual([
+      { id: 'team-1', name: 'Junior XI' },
+    ])
+    expect(request).toHaveBeenCalledWith('/api/v1/teams?page_size=100', { signal })
   })
 
   it('creates a player with the typed payload', async () => {

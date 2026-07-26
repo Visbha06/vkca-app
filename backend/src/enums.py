@@ -40,6 +40,15 @@ class PlayerType(StrEnum):
     WICKET_KEEPER = "wicket-keeper"
 
 
+class AgeGroup(StrEnum):
+    """Supported cricket team age groups."""
+
+    J = "J"
+    U11 = "U11"
+    U13 = "U13"
+    U15 = "U15"
+
+
 class MatchFormat(StrEnum):
     """Supported cricket match formats."""
 

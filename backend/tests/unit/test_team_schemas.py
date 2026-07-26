@@ -1,4 +1,4 @@
-"""Unit tests for team and roster membership schemas."""
+"""Unit tests for team summary, mutation, and roster schemas."""
 
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -6,70 +6,79 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from src.schemas.team import TeamCreate, TeamPlayerResponse, TeamResponse
+from src.enums import AgeGroup
+from src.schemas.team import (
+    PaginatedTeamResponse,
+    TeamCreate,
+    TeamResponse,
+    TeamRosterPlayerResponse,
+    TeamRosterResponse,
+    TeamUpdate,
+)
 
 
-def test_team_create_validates_and_ignores_server_managed_fields() -> None:
+def valid_player_ids() -> list[str]:
+    return [str(uuid4()) for _ in range(7)]
+
+
+def test_team_create_validates_complete_roster_payload() -> None:
     team = TeamCreate.model_validate(
-        {
-            "name": "U14 Lions",
-            "age_group": "U14",
-            "created_at": "2020-01-01T00:00:00Z",
-            "updated_at": "2020-01-01T00:00:00Z",
-            "version_number": 99,
-        }
+        {"name": "U13 Lions", "age_group": "U13", "player_ids": valid_player_ids()}
     )
 
-    assert team.name == "U14 Lions"
-    assert team.age_group == "U14"
-    assert "created_at" not in team.model_fields_set
-    assert "updated_at" not in team.model_fields_set
-    assert "version_number" not in team.model_fields_set
+    assert team.age_group is AgeGroup.U13
+    assert len(team.player_ids) == 7
 
 
-@pytest.mark.parametrize("field", ["name", "age_group"])
-def test_team_create_rejects_blank_fields(field: str) -> None:
-    payload = {"name": "U14 Lions", "age_group": "U14"}
-    payload[field] = ""
-
+@pytest.mark.parametrize("player_count", [0, 6, 16])
+def test_team_create_rejects_rosters_outside_supported_size(player_count: int) -> None:
     with pytest.raises(ValidationError):
-        TeamCreate.model_validate(payload)
+        TeamCreate.model_validate(
+            {
+                "name": "U13 Lions",
+                "age_group": "U13",
+                "player_ids": [str(uuid4()) for _ in range(player_count)],
+            }
+        )
 
 
-def test_team_response_serializes_complete_team() -> None:
-    now = datetime.now(UTC)
-    response = TeamResponse.model_validate(
-        {
-            "id": uuid4(),
-            "name": "U14 Lions",
-            "age_group": "U14",
-            "created_at": now,
-            "updated_at": now,
-            "version_number": 1,
-        }
-    )
-
-    serialized = response.model_dump(mode="json")
-    assert serialized["name"] == "U14 Lions"
-    assert serialized["age_group"] == "U14"
-    assert serialized["version_number"] == 1
-
-
-def test_team_player_response_serializes_membership() -> None:
-    team_id = uuid4()
-    player_id = uuid4()
-    joined_at = datetime.now(UTC)
-
-    response = TeamPlayerResponse.model_validate(
-        {
-            "team_id": team_id,
-            "player_id": player_id,
-            "joined_at": joined_at,
-        }
-    )
-
-    assert response.model_dump(mode="json") == {
-        "team_id": str(team_id),
-        "player_id": str(player_id),
-        "joined_at": joined_at.isoformat().replace("+00:00", "Z"),
+def test_team_update_requires_a_positive_version_number() -> None:
+    payload = {
+        "name": "U13 Lions",
+        "age_group": "U13",
+        "player_ids": valid_player_ids(),
     }
+    with pytest.raises(ValidationError):
+        TeamUpdate.model_validate({**payload, "version_number": 0})
+
+
+def test_team_response_and_pagination_include_player_count() -> None:
+    now = datetime.now(UTC)
+    team = TeamResponse(
+        id=uuid4(),
+        name="U13 Lions",
+        age_group=AgeGroup.U13,
+        player_count=8,
+        created_at=now,
+        updated_at=now,
+        version_number=1,
+    )
+    page = PaginatedTeamResponse(
+        teams=[team], page=1, page_size=12, total_teams=1, total_pages=1
+    )
+
+    assert page.model_dump(mode="json")["teams"][0]["player_count"] == 8
+
+
+def test_roster_schema_serializes_player_identity_and_order() -> None:
+    player = TeamRosterPlayerResponse(
+        player_id=uuid4(),
+        first_name="Asha",
+        last_name="Singh",
+        is_active=False,
+        roster_order=2,
+    )
+    roster = TeamRosterResponse(team_id=uuid4(), players=[player])
+
+    assert roster.players[0].is_active is False
+    assert roster.players[0].roster_order == 2
