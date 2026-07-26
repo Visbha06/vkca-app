@@ -10,6 +10,7 @@ import {
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fetchPlayers } from '../api/playerApi'
+import TeamRosterList from '../components/TeamRosterList'
 import TeamRosterRow from '../components/TeamRosterRow'
 import type { PlayerResponse } from '../types/player'
 import type { TeamRosterSelection } from '../types/team'
@@ -38,6 +39,15 @@ const selection: TeamRosterSelection = {
   first_name: player.first_name,
   last_name: player.last_name,
   is_active: true,
+}
+
+function rosterSelections(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    player_id: `player-${index + 1}`,
+    first_name: `Player${index + 1}`,
+    last_name: 'VKCA',
+    is_active: true,
+  }))
 }
 
 afterEach(() => {
@@ -179,5 +189,66 @@ describe('TeamRosterRow', () => {
     expect(await screen.findByText('No players found')).toBeVisible()
     expect(screen.queryByRole('option', { name: 'Asha Singh' }))
       .not.toBeInTheDocument()
+  })
+
+  it('reorders the roster after dropping a player on a new position', () => {
+    const onPlayersChange = vi.fn()
+    const players = [
+      ...rosterSelections(5),
+      ...Array<TeamRosterSelection | null>(10).fill(null),
+    ]
+    render(
+      <TeamRosterList
+        players={players}
+        disabled={false}
+        onPlayersChange={onPlayersChange}
+        onPlayerInfo={vi.fn()}
+      />,
+    )
+
+    const draggedHandle = screen.getByLabelText('Drag Player5 VKCA to reorder')
+    fireEvent.dragStart(draggedHandle)
+    fireEvent.dragOver(screen.getByLabelText('Player 2 (required)'))
+    fireEvent.drop(screen.getByLabelText('Player 2 (required)'))
+
+    expect(onPlayersChange).toHaveBeenCalledWith([
+      players[0],
+      players[4],
+      players[1],
+      players[2],
+      players[3],
+      ...Array<TeamRosterSelection | null>(10).fill(null),
+    ])
+  })
+
+  it('moves players with accessible controls and disables unavailable directions', () => {
+    const onPlayersChange = vi.fn()
+    const players = [
+      ...rosterSelections(2),
+      ...Array<TeamRosterSelection | null>(13).fill(null),
+    ]
+    render(
+      <TeamRosterList
+        players={players}
+        disabled={false}
+        onPlayersChange={onPlayersChange}
+        onPlayerInfo={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'Move Player1 VKCA up' }))
+      .toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Move Player2 VKCA down' }))
+      .toBeDisabled()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Move Player2 VKCA up' }),
+    )
+
+    expect(onPlayersChange).toHaveBeenCalledWith([
+      players[1],
+      players[0],
+      ...Array<TeamRosterSelection | null>(13).fill(null),
+    ])
   })
 })

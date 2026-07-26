@@ -167,16 +167,16 @@
 
 ### Tests for User Story 5 (MANDATORY) ⚠️
 
-- [ ] T056 [P] [US5] Unit test for `TeamRosterList` drag-and-drop (order update after drop) in `frontend/src/tests/TeamRosterRow.test.tsx`
-- [ ] T057 [P] [US5] Unit test for move up/down controls (disabled at list boundaries, order update) in `frontend/src/tests/TeamRosterRow.test.tsx`
+- [X] T056 [P] [US5] Unit test for `TeamRosterList` drag-and-drop (order update after drop) in `frontend/src/tests/TeamRosterRow.test.tsx`
+- [X] T057 [P] [US5] Unit test for move up/down controls (disabled at list boundaries, order update) in `frontend/src/tests/TeamRosterRow.test.tsx`
 
 ### Implementation for User Story 5
 
-- [ ] T058 [US5] Add drag-and-drop to `TeamRosterRow`: six-dot grip icon with `draggable`, `dragstart`/`dragover`/`drop` handlers, visual feedback (opacity-50 on dragged, border-dashed on drop target) in `frontend/src/components/TeamRosterRow.tsx`
-- [ ] T059 [US5] Create `TeamRosterList` component: manages roster order state, handles drop reorder (reindex roster_order), passes reorder callbacks. Wraps ordered `TeamRosterRow` items in `frontend/src/components/TeamRosterList.tsx`
-- [ ] T060 [US5] Add Move Up / Move Down buttons to `TeamRosterRow`: accessible labels ("Move [Player] up/down"), disabled at list boundaries, preserve player data on move in `frontend/src/components/TeamRosterRow.tsx`
-- [ ] T061 [US5] Integrate `TeamRosterList` into `TeamForm` (create and edit modes), replacing flat row rendering in `frontend/src/components/TeamForm.tsx`
-- [ ] T062 [US5] Verify roster_order persistence: confirm `GET /api/v1/teams/{id}/players` returns order set by drag/drop and move controls across page reloads in `frontend/src/pages/TeamsPage.tsx`
+- [X] T058 [US5] Add drag-and-drop to `TeamRosterRow`: six-dot grip icon with `draggable`, `dragstart`/`dragover`/`drop` handlers, visual feedback (opacity-50 on dragged, border-dashed on drop target) in `frontend/src/components/TeamRosterRow.tsx`
+- [X] T059 [US5] Create `TeamRosterList` component: manages roster order state, handles drop reorder (reindex roster_order), passes reorder callbacks. Wraps ordered `TeamRosterRow` items in `frontend/src/components/TeamRosterList.tsx`
+- [X] T060 [US5] Add Move Up / Move Down buttons to `TeamRosterRow`: accessible labels ("Move [Player] up/down"), disabled at list boundaries, preserve player data on move in `frontend/src/components/TeamRosterRow.tsx`
+- [X] T061 [US5] Integrate `TeamRosterList` into `TeamForm` (create and edit modes), replacing flat row rendering in `frontend/src/components/TeamForm.tsx`
+- [X] T062 [US5] Verify roster_order persistence: confirm `GET /api/v1/teams/{id}/players` returns order set by drag/drop and move controls across page reloads in `frontend/src/pages/TeamsPage.tsx`
 
 **Checkpoint**: Roster reordering fully functional — drag-and-drop + keyboard Move Up/Down, order persists across reloads
 

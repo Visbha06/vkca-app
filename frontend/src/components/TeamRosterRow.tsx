@@ -1,4 +1,5 @@
 import type { TeamRosterSelection } from '../types/team'
+import type { DragEvent } from 'react'
 import PlayerSearchDropdown from './PlayerSearchDropdown'
 
 interface TeamRosterRowProps {
@@ -6,7 +7,17 @@ interface TeamRosterRowProps {
   player: TeamRosterSelection | null
   selectedPlayerIds: string[]
   disabled?: boolean
+  isDragging?: boolean
+  isDropTarget?: boolean
+  canMoveUp?: boolean
+  canMoveDown?: boolean
   onChange: (player: TeamRosterSelection | null) => void
+  onDragStart?: () => void
+  onDragOver?: (event: DragEvent<HTMLLIElement>) => void
+  onDrop?: (event: DragEvent<HTMLLIElement>) => void
+  onDragEnd?: () => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
   onPlayerInfo: (player: TeamRosterSelection) => void
 }
 
@@ -19,7 +30,17 @@ export default function TeamRosterRow({
   player,
   selectedPlayerIds,
   disabled = false,
+  isDragging = false,
+  isDropTarget = false,
+  canMoveUp = false,
+  canMoveDown = false,
   onChange,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  onMoveUp,
+  onMoveDown,
   onPlayerInfo,
 }: TeamRosterRowProps) {
   const rowNumber = index + 1
@@ -27,12 +48,26 @@ export default function TeamRosterRow({
   const name = player === null ? null : fullName(player)
 
   return (
-    <li className="flex flex-col gap-2 border-b border-slate-200 py-3 last:border-b-0 sm:flex-row sm:items-center">
+    <li
+      className={`flex flex-col gap-2 border-b border-slate-200 py-3 last:border-b-0 sm:flex-row sm:items-center ${
+        isDragging ? 'opacity-50' : ''
+      } ${isDropTarget ? 'border-2 border-dashed border-academy px-2' : ''}`}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
       <div className="flex min-h-11 items-center gap-2 sm:w-28 sm:shrink-0">
         <span
-          aria-hidden="true"
-          className="flex size-11 items-center justify-center text-slate-500"
-          title="Roster position"
+          role="img"
+          aria-label={
+            name === null
+              ? `Drag player ${rowNumber} to reorder`
+              : `Drag ${name} to reorder`
+          }
+          draggable={!disabled && player !== null}
+          className="flex size-11 cursor-grab items-center justify-center text-slate-500 active:cursor-grabbing"
+          title={name === null ? 'Select a player before reordering' : 'Drag to reorder'}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
         >
           <svg className="size-5" fill="currentColor" viewBox="0 0 20 20">
             <circle cx="6" cy="5" r="1.5" />
@@ -72,6 +107,34 @@ export default function TeamRosterRow({
       </div>
 
       <div className="flex items-center justify-end gap-1 sm:shrink-0">
+        <button
+          type="button"
+          aria-label={
+            name === null ? `Move player ${rowNumber} up` : `Move ${name} up`
+          }
+          disabled={disabled || player === null || !canMoveUp}
+          className="flex size-11 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent"
+          onClick={onMoveUp}
+        >
+          <svg aria-hidden="true" className="size-5" fill="none" viewBox="0 0 24 24">
+            <path d="m7 14 5-5 5 5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          aria-label={
+            name === null
+              ? `Move player ${rowNumber} down`
+              : `Move ${name} down`
+          }
+          disabled={disabled || player === null || !canMoveDown}
+          className="flex size-11 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent"
+          onClick={onMoveDown}
+        >
+          <svg aria-hidden="true" className="size-5" fill="none" viewBox="0 0 24 24">
+            <path d="m7 10 5 5 5-5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />
+          </svg>
+        </button>
         <button
           type="button"
           aria-label={

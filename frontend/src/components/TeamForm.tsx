@@ -8,7 +8,7 @@ import type {
   TeamUpdatePayload,
 } from '../types/team'
 import TeamDetailsFields from './TeamDetailsFields'
-import TeamRosterFields from './TeamRosterFields'
+import TeamRosterList from './TeamRosterList'
 interface TeamFormProps {
   team?: TeamResponse
   roster?: TeamRosterResponse
@@ -89,15 +89,8 @@ export default function TeamForm({
     onDirtyChange?.(isDirty)
   }, [isDirty, onDirtyChange])
 
-  function updatePlayer(
-    index: number,
-    player: TeamRosterSelection | null,
-  ) {
-    setPlayers((current) =>
-      current.map((value, playerIndex) =>
-        playerIndex === index ? player : value,
-      ),
-    )
+  function updatePlayers(nextPlayers: (TeamRosterSelection | null)[]) {
+    setPlayers(nextPlayers)
     setErrors((current) => ({ ...current, roster: undefined }))
     onChange?.()
   }
@@ -177,13 +170,34 @@ export default function TeamForm({
             onChange?.()
           }}
         />
-        <TeamRosterFields
-          players={players}
-          error={errors.roster}
-          disabled={isSubmitting}
-          onChange={updatePlayer}
-          onPlayerInfo={onPlayerInfo}
-        />
+        <section aria-labelledby="team-roster-title">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <h3 id="team-roster-title" className="text-base font-bold text-slate-900">
+                Roster
+              </h3>
+              <p className="mt-1 text-sm text-slate-700">
+                Select 7–15 active players in roster order. Drag a grip or use Move Up and Move Down.
+              </p>
+            </div>
+            <p className="text-sm font-semibold text-slate-700">
+              {players.filter((player) => player !== null).length} / 15 selected
+            </p>
+          </div>
+          {errors.roster ? (
+            <p id="team-roster-error" className="mt-3 text-sm font-medium text-red-800">
+              {errors.roster}
+            </p>
+          ) : null}
+          <div aria-describedby={errors.roster ? 'team-roster-error' : undefined}>
+            <TeamRosterList
+              players={players}
+              disabled={isSubmitting}
+              onPlayersChange={updatePlayers}
+              onPlayerInfo={onPlayerInfo}
+            />
+          </div>
+        </section>
         {isEditing ? <input type="hidden" name="version_number" value={team.version_number} /> : null}
       </div>
 

@@ -141,6 +141,42 @@ describe('TeamForm', () => {
     })
   })
 
+  it('submits the roster order set with keyboard move controls', () => {
+    const onSubmit = vi.fn()
+    render(
+      <TeamForm
+        initialRoster={rosterPlayers()}
+        onCancel={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Team name'), {
+      target: { value: 'Falcons' },
+    })
+    fireEvent.change(screen.getByLabelText('Age group'), {
+      target: { value: 'U13' },
+    })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Move Player2 VKCA up' }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Create team' }))
+
+    expect(onSubmit).toHaveBeenCalledWith({
+      name: 'Falcons',
+      age_group: 'U13',
+      player_ids: [
+        'player-2',
+        'player-1',
+        'player-3',
+        'player-4',
+        'player-5',
+        'player-6',
+        'player-7',
+      ],
+    })
+  })
+
   it('prefills edit values and includes the current version in the payload', () => {
     const onSubmit = vi.fn()
     render(
