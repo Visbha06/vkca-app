@@ -128,8 +128,15 @@ test.describe('application shell primary journey', () => {
       page.getByText('This section will be available in a future update.'),
     ).toHaveCount(0)
 
+    await page.goto('/teams')
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Teams' }),
+    ).toBeVisible()
+    await expect(
+      page.getByText('This section will be available in a future update.'),
+    ).toHaveCount(0)
+
     const routes = [
-      ['/teams', 'Teams'],
       ['/coaches', 'Coaches Portal'],
       ['/calendar', 'Calendar'],
     ] as const

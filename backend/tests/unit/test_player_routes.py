@@ -15,6 +15,7 @@ from src.middleware.auth import get_current_user
 from src.models.player import Player
 from src.schemas.player import PaginatedPlayerResponse, PlayerResponse, TeamSummary
 from src.services.occ import StaleVersionError
+from src.services.player_service import PlayerService
 
 
 def make_player_response(player_id: UUID | None = None) -> PlayerResponse:
@@ -199,6 +200,29 @@ async def test_list_players_forwards_optional_search(
         unassigned=False,
         search=search,
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("search", ["Sachin", "Tendulkar", "Sachin Tendulkar"])
+async def test_player_search_matches_first_last_and_full_name(search: str) -> None:
+    """Build a search query covering each documented name representation."""
+
+    session = Mock()
+    session.scalar = AsyncMock(return_value=0)
+    scalar_result = Mock()
+    scalar_result.all.return_value = []
+    session.scalars = AsyncMock(return_value=scalar_result)
+
+    await PlayerService(session).list_players(search=search)
+
+    statement = session.scalars.await_args.args[0]
+    sql = str(statement).lower()
+    assert "lower(players.first_name)" in sql
+    assert "lower(players.last_name)" in sql
+    assert "lower(concat(players.first_name" in sql
+    assert f"%{search.lower()}%" in {
+        str(value).lower() for value in statement.compile().params.values()
+    }
 
 
 @pytest.mark.asyncio

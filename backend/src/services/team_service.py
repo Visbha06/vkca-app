@@ -96,9 +96,8 @@ class TeamService:
     ) -> None:
         """Reject normalized name collisions within one age group."""
 
-        normalized_name = name.strip().lower()
         statement = select(Team.id).where(
-            func.lower(func.trim(Team.name)) == normalized_name,
+            func.lower(func.trim(Team.name)) == func.lower(func.trim(name)),
             Team.age_group == age_group,
         )
         if exclude_team_id is not None:

@@ -186,8 +186,9 @@ async def test_create_team_rejects_normalized_name_conflicts() -> None:
         await TeamService(session).create_team(make_create_payload(player_ids))
 
     uniqueness_statement = session.scalar.await_args.args[0]
-    assert "lower(trim(teams.name))" in str(uniqueness_statement).lower()
-    assert "teams.age_group" in str(uniqueness_statement)
+    uniqueness_sql = str(uniqueness_statement).lower()
+    assert "lower(trim(teams.name)) = lower(trim(" in uniqueness_sql
+    assert "teams.age_group" in uniqueness_sql
     session.rollback.assert_awaited_once()
     session.add.assert_not_called()
 

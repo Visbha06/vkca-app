@@ -186,12 +186,12 @@
 
 **Purpose**: E2E test, quickstart validation test, documentation, and final verification
 
-- [ ] T063 [P] Write E2E Playwright test: login, open Teams page, create team as coach, select+reorder 8 players, submit, open details, edit roster, verify order persists after reload in `frontend/e2e/teams-flow.spec.ts`
-- [ ] T064 Write quickstart integration test covering all 12 scenarios from quickstart.md in `backend/tests/integration/quickstart/test_006_quickstart_flow.py`
-- [ ] T065 Implement `TeamService` name uniqueness helper: `LOWER(TRIM(name)) = LOWER(TRIM(:name)) AND age_group = :age_group` query, used in both create and update in `backend/src/services/team_service.py`
-- [ ] T066 Verify `GET /api/v1/players?search=` supports first_name/last_name/full_name matching (per research, already implemented — validate with test) in `backend/tests/unit/test_player_routes.py`
-- [ ] T067 Write feature documentation in `docs/teams-interface.md` (MANDATORY per constitution XII — concise version of spec, written after implementation)
-- [ ] T068 Run full test suite: backend unit tests, frontend unit tests, E2E test, quickstart test. Fix any failures
+- [X] T063 [P] Write E2E Playwright test: login, open Teams page, create team as coach, select+reorder 8 players, submit, open details, edit roster, verify order persists after reload in `frontend/e2e/teams-flow.spec.ts`
+- [X] T064 Write quickstart integration test covering all 12 scenarios from quickstart.md in `backend/tests/integration/quickstart/test_006_quickstart_flow.py`
+- [X] T065 Implement `TeamService` name uniqueness helper: `LOWER(TRIM(name)) = LOWER(TRIM(:name)) AND age_group = :age_group` query, used in both create and update in `backend/src/services/team_service.py`
+- [X] T066 Verify `GET /api/v1/players?search=` supports first_name/last_name/full_name matching (per research, already implemented — validate with test) in `backend/tests/unit/test_player_routes.py`
+- [X] T067 Write feature documentation in `docs/teams-interface.md` (MANDATORY per constitution XII — concise version of spec, written after implementation)
+- [X] T068 Run full test suite: backend unit tests, frontend unit tests, E2E test, quickstart test. Fix any failures
 
 ---
 
