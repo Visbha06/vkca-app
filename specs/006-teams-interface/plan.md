@@ -77,7 +77,7 @@ backend/
 │   │   ├── team.py                       # Modify: constrain age_group to AgeGroup enum
 │   │   └── team_player.py                # Modify: add roster_order column
 │   ├── schemas/
-│   │   ├── team.py                       # Extend: TeamCreate w/ player_ids, TeamUpdate, TeamDetailResponse, PaginatedTeamResponse, TeamRosterPlayerResponse
+│   │   ├── team.py                       # Extend: TeamCreate w/ player_ids, TeamUpdate, TeamResponse, PaginatedTeamResponse, TeamRosterPlayerResponse
 │   │   └── player.py                     # Verify: player search supports name filtering
 │   ├── routes/
 │   │   ├── teams.py                      # Replace: add GET (paginated), POST (atomic create w/ roster), PUT (atomic edit w/ roster), GET /{id}/players

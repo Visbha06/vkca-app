@@ -170,7 +170,7 @@ A coach reorders players in the team form using both drag-and-drop (with a grip 
 
 - **FR-025**: The Edit Team control MUST be visible only to Head Coach and Assistant Coach users in the Team Details modal. Player-role users MUST NOT see it.
 - **FR-026**: Selecting Edit Team MUST open the reusable Team form pre-filled with the current team name, age group, ordered roster, and version number. The details modal MUST close before the edit form opens.
-- **FR-027**: The edit form MUST allow changing the team name, age group, and roster (add, remove, replace, reorder players), applying the same validation rules as creation (7–15 players, no duplicates, active players only, unique normalized name within age group). The complete Edit Team submission MUST update both team details and the full roster in a single atomic backend transaction — rolling back entirely if any validation, authorization, or database operation fails — using `PUT /api/v1/teams/{team_id}` with a request body containing the team name, age group, ordered player IDs, and the current version number.
+- **FR-027**: The edit form MUST allow changing the team name, age group, and roster (add, remove, replace, reorder players), applying the same validation rules as creation (7–15 players, no duplicates, active players only, unique normalized name within age group). The complete Edit Team submission MUST call `PUT /api/v1/teams/{team_id}` (see FR-028).
 
 #### Team Update Endpoints
 
@@ -233,7 +233,7 @@ A coach reorders players in the team form using both drag-and-drop (with a grip 
 ### Measurable Outcomes
 
 - **SC-001**: Users can browse, create, and view team details on desktop, tablet, and mobile devices without horizontal scrolling or layout breakage.
-- **SC-002**: Team page loads and displays the first page of 12 team cards in under 2 seconds under normal network conditions.
+- **SC-002**: Team page loads and displays the first page of 12 team cards in under 2 seconds. Validated manually during acceptance testing — the academy-scale data volume (tens of teams) makes this a reliably achievable target on the project stack.
 - **SC-003**: Coaches can create a complete team with a 15-player ordered roster in under 3 minutes from form open to confirmation.
 - **SC-004**: Roster order persists correctly across page reloads and repeated detail requests — saved order always matches displayed order.
 - **SC-005**: 100% of unauthorized create/edit attempts are rejected by the backend with HTTP 403, regardless of frontend visibility toggles.
