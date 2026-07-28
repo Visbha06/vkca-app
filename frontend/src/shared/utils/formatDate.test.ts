@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { toApiDate, toDisplayDate } from '@shared/utils/formatDate'
+import {
+  toApiDate,
+  toDisplayDate,
+  toLongDisplayDate,
+} from '@shared/utils/formatDate'
 
 describe('date formatting', () => {
   it('formats an API date without a timezone shift', () => {
     expect(toDisplayDate('1973-04-24')).toBe('24 Apr 1973')
+    expect(toLongDisplayDate('2005-08-17')).toBe('August 17, 2005')
   })
 
   it('formats a Date as an API calendar date', () => {

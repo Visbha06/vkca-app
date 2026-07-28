@@ -8,7 +8,7 @@ import {
   BOWLING_STYLE_LABELS,
   PLAYER_TYPE_LABELS,
 } from '../../utils/playerLabels'
-import { toDisplayDate } from '@shared/utils/formatDate'
+import DateOfBirthPicker from '@shared/components/forms/date-of-birth/DateOfBirthPicker'
 
 export interface PlayerFormValues {
   firstName: string
@@ -89,22 +89,15 @@ export default function PlayerFormFields({
         <label htmlFor="player-date-of-birth" className="text-sm font-semibold text-slate-800">
           Date of birth
         </label>
-        <input
+        <DateOfBirthPicker
           id="player-date-of-birth"
-          type="date"
           value={values.dateOfBirth}
           disabled={disabled}
-          aria-invalid={errors.dateOfBirth !== undefined}
-          aria-describedby={errors.dateOfBirth ? 'player-date-error' : undefined}
-          className={`mt-2 ${inputClass}`}
-          onChange={(event) => onChange('dateOfBirth', event.target.value)}
+          error={errors.dateOfBirth}
+          errorId="player-date-error"
+          onChange={(value) => onChange('dateOfBirth', value)}
         />
         <FieldError id="player-date-error" message={errors.dateOfBirth} />
-        {values.dateOfBirth ? (
-          <p className="mt-2 text-sm text-slate-600">
-            {toDisplayDate(values.dateOfBirth)}
-          </p>
-        ) : null}
       </div>
 
       <div>

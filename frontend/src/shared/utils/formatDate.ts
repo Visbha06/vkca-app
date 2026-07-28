@@ -1,4 +1,8 @@
-const API_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
+import {
+  calendarDateForFormatting,
+  parseCalendarDate,
+} from './calendarDate'
+
 const MONTH_LABELS = [
   'Jan',
   'Feb',
@@ -15,30 +19,24 @@ const MONTH_LABELS = [
 ] as const
 
 function readApiDate(apiDate: string) {
-  const match = API_DATE_PATTERN.exec(apiDate)
-  if (match === null) throw new RangeError('Invalid API date')
-
-  const year = Number(match[1])
-  const month = Number(match[2])
-  const day = Number(match[3])
-  const parsed = new Date(0)
-  parsed.setUTCHours(0, 0, 0, 0)
-  parsed.setUTCFullYear(year, month - 1, day)
-
-  if (
-    parsed.getUTCFullYear() !== year ||
-    parsed.getUTCMonth() !== month - 1 ||
-    parsed.getUTCDate() !== day
-  ) {
-    throw new RangeError('Invalid API date')
-  }
-
-  return { year, month, day }
+  const date = parseCalendarDate(apiDate)
+  if (date === null) throw new RangeError('Invalid API date')
+  return date
 }
 
 export function toDisplayDate(apiDate: string) {
   const { year, month, day } = readApiDate(apiDate)
   return `${String(day).padStart(2, '0')} ${MONTH_LABELS[month - 1]} ${year}`
+}
+
+export function toLongDisplayDate(apiDate: string) {
+  const date = readApiDate(apiDate)
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(calendarDateForFormatting(date))
 }
 
 export function toApiDate(date: Date) {

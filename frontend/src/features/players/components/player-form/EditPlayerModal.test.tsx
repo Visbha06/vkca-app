@@ -60,8 +60,9 @@ describe('EditPlayerModal', () => {
     expect(screen.getByRole('textbox', { name: 'Last name' })).toHaveValue(
       'Singh',
     )
-    expect(screen.getByLabelText('Date of birth')).toHaveValue('2008-04-24')
-    expect(screen.getByText('24 Apr 2008')).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Date of birth' }),
+    ).toHaveTextContent('April 24, 2008')
     expect(screen.getByRole('combobox', { name: 'Batting style' })).toHaveValue(
       'right',
     )
@@ -91,6 +92,7 @@ describe('EditPlayerModal', () => {
   it('submits updates with the current version and reports success', async () => {
     const updatedPlayer = {
       ...player,
+      date_of_birth: '2008-04-25',
       bio: 'Opening batter and vice-captain',
       version_number: 4,
     }
@@ -105,6 +107,12 @@ describe('EditPlayerModal', () => {
       />,
     )
 
+    fireEvent.click(screen.getByRole('button', { name: 'Date of birth' }))
+    fireEvent.click(
+      screen.getByRole('gridcell', {
+        name: 'Friday, April 25, 2008',
+      }),
+    )
     fireEvent.change(screen.getByRole('textbox', { name: /^Bio/ }), {
       target: { value: 'Opening batter and vice-captain' },
     })
@@ -116,7 +124,7 @@ describe('EditPlayerModal', () => {
         expect(updatePlayer).toHaveBeenCalledWith('player-1', {
           first_name: 'Asha',
           last_name: 'Singh',
-          date_of_birth: '2008-04-24',
+          date_of_birth: '2008-04-25',
           bio: 'Opening batter and vice-captain',
           batting_style: 'right',
           bowling_style: 'right-arm medium',

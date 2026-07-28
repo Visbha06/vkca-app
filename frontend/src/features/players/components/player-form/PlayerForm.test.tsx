@@ -13,9 +13,18 @@ function fillRequiredFields() {
   fireEvent.change(screen.getByRole('textbox', { name: 'Last name' }), {
     target: { value: 'Patel' },
   })
-  fireEvent.change(screen.getByLabelText('Date of birth'), {
-    target: { value: '2009-06-12' },
+  fireEvent.click(screen.getByRole('button', { name: 'Date of birth' }))
+  fireEvent.change(screen.getByRole('combobox', { name: 'Year' }), {
+    target: { value: '2009' },
   })
+  fireEvent.change(screen.getByRole('combobox', { name: 'Month' }), {
+    target: { value: '6' },
+  })
+  fireEvent.click(
+    screen.getByRole('gridcell', {
+      name: 'Friday, June 12, 2009',
+    }),
+  )
   fireEvent.change(screen.getByRole('combobox', { name: 'Batting style' }), {
     target: { value: 'left' },
   })
@@ -48,11 +57,13 @@ describe('PlayerForm', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
-  it('renders native date and human-readable enum controls, then submits API values', async () => {
+  it('renders the custom date picker and enum controls, then submits API values', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined)
     render(<PlayerForm onSubmit={onSubmit} onCancel={vi.fn()} />)
 
-    expect(screen.getByLabelText('Date of birth')).toHaveAttribute('type', 'date')
+    expect(
+      screen.getByRole('button', { name: 'Date of birth' }),
+    ).toHaveTextContent('Select date of birth')
     expect(
       screen.getByRole('option', { name: 'Right-Arm Fast' }),
     ).toHaveValue('right-arm fast')
