@@ -68,7 +68,12 @@ test.describe('players interface', () => {
     await page.getByRole('button', { name: 'Add Player' }).click()
     await page.getByRole('textbox', { name: 'First name' }).fill('Isha')
     await page.getByRole('textbox', { name: 'Last name' }).fill('Nair')
-    await page.getByLabel('Date of birth').fill('2010-02-14')
+    await page.getByRole('button', { name: 'Date of birth' }).click()
+    await page.getByRole('combobox', { name: 'Year' }).selectOption('2010')
+    await page.getByRole('combobox', { name: 'Month' }).selectOption('2')
+    await page
+      .getByRole('gridcell', { name: 'Sunday, February 14, 2010' })
+      .click()
     await page.getByRole('combobox', { name: 'Batting style' }).selectOption(
       'left',
     )
@@ -87,6 +92,17 @@ test.describe('players interface', () => {
       page.getByRole('button', { name: /view isha nair details/i }),
     ).toBeVisible()
     expect(api.creates).toBe(1)
+    expect(
+      api.players.find(({ first_name }) => first_name === 'Isha')
+        ?.date_of_birth,
+    ).toBe('2010-02-14')
+    await page
+      .getByRole('button', { name: /view isha nair details/i })
+      .click()
+    await expect(
+      page.getByRole('dialog', { name: 'Isha Nair' }).getByText('14 Feb 2010'),
+    ).toBeVisible()
+    await page.getByRole('button', { name: 'Close player details' }).click()
   })
 
   test('reflows without horizontal overflow at mobile and desktop widths', async ({
@@ -131,6 +147,68 @@ test.describe('players interface', () => {
       expect(dialogBox!.x).toBeGreaterThanOrEqual(0)
       expect(dialogBox!.x + dialogBox!.width).toBeLessThanOrEqual(width)
       await page.getByRole('button', { name: 'Close player details' }).click()
+    }
+
+    for (const width of [320, 390, 768, 1280, 1920]) {
+      await page.setViewportSize({ width, height: 800 })
+      await page.goto('/players')
+      await page.getByRole('button', { name: 'Add Player' }).click()
+      const trigger = page.getByRole('button', { name: 'Date of birth' })
+      await trigger.click()
+      const calendar = page.getByRole('dialog', {
+        name: /Choose date of birth/,
+      })
+      const calendarBox = await calendar.boundingBox()
+      expect(calendarBox).not.toBeNull()
+      expect(calendarBox!.x).toBeGreaterThanOrEqual(0)
+      expect(calendarBox!.x + calendarBox!.width).toBeLessThanOrEqual(width)
+      expect(
+        await page.evaluate(
+          () =>
+            document.documentElement.scrollWidth <=
+            document.documentElement.clientWidth,
+        ),
+      ).toBe(true)
+      const dayBox = await page
+        .getByRole('gridcell', { name: /Today/ })
+        .boundingBox()
+      expect(dayBox?.height).toBeGreaterThanOrEqual(44)
+      expect(dayBox?.width).toBeGreaterThanOrEqual(44)
+      if (width === 320) {
+        await page.getByRole('combobox', { name: 'Year' }).selectOption('2025')
+        await page.getByRole('combobox', { name: 'Month' }).selectOption('7')
+        const leadingDate = page.getByRole('gridcell', {
+          name: 'Sunday, June 29, 2025',
+        })
+        const trailingDate = page.getByRole('gridcell', {
+          name: 'Saturday, August 2, 2025',
+        })
+        const currentMonthDate = page.getByRole('gridcell', {
+          name: 'Tuesday, July 1, 2025',
+        })
+        const [leadingStyle, trailingStyle, currentMonthStyle] =
+          await Promise.all(
+            [leadingDate, trailingDate, currentMonthDate].map((date) =>
+              date.evaluate((element) => {
+                const style = getComputedStyle(element)
+                return {
+                  backgroundColor: style.backgroundColor,
+                  color: style.color,
+                }
+              }),
+            ),
+          )
+
+        expect(leadingStyle).toEqual(trailingStyle)
+        expect(leadingStyle.color).not.toBe(currentMonthStyle.color)
+        expect(leadingStyle.backgroundColor).toBe(
+          currentMonthStyle.backgroundColor,
+        )
+      }
+      await page.keyboard.press('Escape')
+      await expect(calendar).toBeHidden()
+      await expect(trigger).toBeFocused()
+      await page.getByRole('button', { name: 'Close Add Player' }).click()
     }
   })
 })

@@ -121,6 +121,10 @@
     );
   }
 
+  .date-of-birth-popover {
+    max-height: calc(100dvh - (var(--spacing) * 6));
+  }
+
   body:has(.modal-dialog[open]) .skip-link {
     visibility: hidden;
   }
