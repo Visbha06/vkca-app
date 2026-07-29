@@ -71,14 +71,13 @@ backend/
 │   ├── models/
 │   │   └── team_coach.py                    # NEW: TeamCoach join model
 │   ├── schemas/
-│   │   ├── coach.py                         # NEW: CoachList, CoachDetail, CoachCreate, assignment schemas
-│   │   └── user.py                          # MODIFY: UserCreate for coach creation (password = optional for server-generated)
+│   │   └── coach.py                         # NEW: CoachList, CoachDetail, CoachCreate, assignment schemas
 │   ├── routes/
 │   │   ├── coaches.py                       # NEW: /coaches endpoints
 │   │   └── users.py                         # MODIFY: Add reactivate endpoint
 │   ├── services/
 │   │   ├── coach_service.py                 # NEW: coach list/create/status/assignment logic
-│   │   └── user_service.py                  # MODIFY: Optional: add reactivate helper
+│   │   └── user_service.py                  # MODIFY: add reactivate_user method
 │   └── migrations/
 │       └── versions/
 │           └── XXXX_create_team_coaches.py   # NEW: Migration for team_coaches table
