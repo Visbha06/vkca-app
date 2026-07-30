@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import LogoutButton from '@features/auth/components/LogoutButton'
+import { useAuth } from '@features/auth'
 import {
   CalendarIcon,
   CoachesIcon,
@@ -38,6 +39,7 @@ const navigationItems = [
 ]
 
 function AppLayoutShell() {
+  const { user } = useAuth()
   const { closeMobile, expanded, mobileOpen } = useSidebar()
   const { pathname } = useLocation()
   const sidebarRef = useRef<HTMLElement>(null)
@@ -75,9 +77,13 @@ function AppLayoutShell() {
           <MobileNavCloseButton />
         </div>
         <nav aria-label="Primary navigation" className="flex-1 space-y-1">
-          {navigationItems.map((item) => (
+          {navigationItems
+            .filter(
+              (item) => item.to !== '/coaches' || user?.role !== 'player',
+            )
+            .map((item) => (
             <SidebarNavLink key={item.to} {...item} />
-          ))}
+            ))}
         </nav>
         <div
           className={`mt-4 flex gap-2 border-t border-white/20 pt-3 ${

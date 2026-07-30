@@ -25,8 +25,8 @@
 
 **Purpose**: Create directory structure and scaffold feature modules
 
-- [ ] T001 Create frontend feature module directories: `frontend/src/features/coaches/{api,components/coach-directory,components/coach-details,components/coach-form,components/coach-assignments,hooks,pages,types}` and `frontend/src/features/coaches/index.ts`
-- [ ] T002 [P] Create `backend/tests/unit/` scaffolding for coach test files: confirm `test_coach_routes.py`, `test_coach_schemas.py`, `test_coach_service.py` target paths exist
+- [X] T001 Create frontend feature module directories: `frontend/src/features/coaches/{api,components/coach-directory,components/coach-details,components/coach-form,components/coach-assignments,hooks,pages,types}` and `frontend/src/features/coaches/index.ts`
+- [X] T002 [P] Create `backend/tests/unit/` scaffolding for coach test files: confirm `test_coach_routes.py`, `test_coach_schemas.py`, `test_coach_service.py` target paths exist
 
 ---
 
@@ -38,25 +38,25 @@
 
 ### Database & Backend Models
 
-- [ ] T003 Create Alembic migration for `team_coaches` table with columns `team_id (UUID, PK, FK→teams.id)`, `user_id (UUID, PK, FK→users.id)`, `created_at`, `updated_at`, `version_number`, and unique constraint on `(team_id, user_id)` in `backend/src/migrations/versions/`
-- [ ] T004 [P] Create `TeamCoach` SQLAlchemy model extending `TimestampMixin`, `VersionMixin`, `Base` with composite PK (`team_id`, `user_id`) and relationship backrefs in `backend/src/models/team_coach.py`
-- [ ] T005 [P] Register `TeamCoach` in `backend/src/models/__init__.py` exports
-- [ ] T006 Apply migration and verify table creation against local Docker PostgreSQL
+- [X] T003 Create Alembic migration for `team_coaches` table with columns `team_id (UUID, PK, FK→teams.id)`, `user_id (UUID, PK, FK→users.id)`, `created_at`, `updated_at`, `version_number`, and unique constraint on `(team_id, user_id)` in `backend/src/migrations/versions/`
+- [X] T004 [P] Create `TeamCoach` SQLAlchemy model extending `TimestampMixin`, `VersionMixin`, `Base` with composite PK (`team_id`, `user_id`) and relationship backrefs in `backend/src/models/team_coach.py`
+- [X] T005 [P] Register `TeamCoach` in `backend/src/models/__init__.py` exports
+- [X] T006 Apply migration and verify table creation against local Docker PostgreSQL
 
 ### Backend Schemas
 
-- [ ] T007 [P] Create `CoachResponse` Pydantic schema (id, first_name, last_name, email, role, is_active, version_number, created_at, updated_at, teams list) in `backend/src/schemas/coach.py`
-- [ ] T008 [P] Create `PaginatedCoachResponse` Pydantic schema (coaches list, page, page_size, total_coaches, total_pages, has_previous, has_next) in `backend/src/schemas/coach.py`
-- [ ] T009 [P] Create `CoachCreate` Pydantic schema (first_name, last_name, email, optional team_ids list) with email validation in `backend/src/schemas/coach.py`
-- [ ] T010 [P] Create `CoachTeamUpdate` Pydantic schema (team_ids list, version_number) in `backend/src/schemas/coach.py`
-- [ ] T011 Register coach schemas in `backend/src/schemas/__init__.py` exports
+- [X] T007 [P] Create `CoachResponse` Pydantic schema (id, first_name, last_name, email, role, is_active, version_number, created_at, updated_at, teams list) in `backend/src/schemas/coach.py`
+- [X] T008 [P] Create `PaginatedCoachResponse` Pydantic schema (coaches list, page, page_size, total_coaches, total_pages, has_previous, has_next) in `backend/src/schemas/coach.py`
+- [X] T009 [P] Create `CoachCreate` Pydantic schema (first_name, last_name, email, optional team_ids list) with email validation in `backend/src/schemas/coach.py`
+- [X] T010 [P] Create `CoachTeamUpdate` Pydantic schema (team_ids list, version_number) in `backend/src/schemas/coach.py`
+- [X] T011 Register coach schemas in `backend/src/schemas/__init__.py` exports
 
 ### Frontend Types & Shared Components
 
-- [ ] T012 [P] Create TypeScript types `CoachResponse`, `PaginatedCoachResponse`, `CoachCreatePayload`, `CoachTeamUpdatePayload` mirroring Pydantic schemas in `frontend/src/features/coaches/types/coach.ts`
-- [ ] T013 [P] Create `ForbiddenPage` component displaying 403 message with "Disciplined Clubhouse" styling (Practice Night heading, Body Copy description, "Return to Dashboard" link) in `frontend/src/pages/ForbiddenPage.tsx`
-- [ ] T014 Modify `AppLayout.tsx` to filter `navigationItems` array removing Coaches Portal entry when `user.role === 'player'` in `frontend/src/layouts/AppLayout.tsx`
-- [ ] T015 Modify `frontend/src/pages/CoachesPage.tsx` to delegate to `features/coaches/pages/CoachesPage.tsx` with role check: render `ForbiddenPage` for Player-role users, otherwise render feature page
+- [X] T012 [P] Create TypeScript types `CoachResponse`, `PaginatedCoachResponse`, `CoachCreatePayload`, `CoachTeamUpdatePayload` mirroring Pydantic schemas in `frontend/src/features/coaches/types/coach.ts`
+- [X] T013 [P] Create `ForbiddenPage` component displaying 403 message with "Disciplined Clubhouse" styling (Practice Night heading, Body Copy description, "Return to Dashboard" link) in `frontend/src/pages/ForbiddenPage.tsx`
+- [X] T014 Modify `AppLayout.tsx` to filter `navigationItems` array removing Coaches Portal entry when `user.role === 'player'` in `frontend/src/layouts/AppLayout.tsx`
+- [X] T015 Modify `frontend/src/pages/CoachesPage.tsx` to delegate to `features/coaches/pages/CoachesPage.tsx` with role check: render `ForbiddenPage` for Player-role users, otherwise render feature page
 
 ---
 
@@ -68,33 +68,33 @@
 
 ### Tests for User Story 1 (MANDATORY) ⚠️
 
-- [ ] T016 [P] [US1] Unit tests for `GET /coaches` route: filtering (active/inactive/all), pagination, ordering, role-authorization (403 for player), 401 for unauthenticated in `backend/tests/unit/test_coach_routes.py`
-- [ ] T017 [P] [US1] Unit tests for `CoachResponse` and `PaginatedCoachResponse` schemas in `backend/tests/unit/test_coach_schemas.py`
-- [ ] T018 [P] [US1] Unit tests for `CoachService.list_coaches` method: status filtering, pagination math, stable ordering in `backend/tests/unit/test_coach_service.py`
-- [ ] T019 [P] [US1] Unit tests for `CoachesPage` component: renders coach cards, handles loading/empty/error states, filter interaction in `frontend/src/features/coaches/pages/CoachesPage.test.tsx`
-- [ ] T020 [P] [US1] Unit tests for `CoachCard` component: avatar styling (light red HC, light blue AC), full name, role badge, team display (≤2 plus "+N more"), status indicator in `frontend/src/features/coaches/components/coach-directory/CoachCard.test.tsx`
-- [ ] T021 [P] [US1] Unit tests for `CoachCardGrid`: skeleton loading, responsive grid, empty state with "No Assistant Coaches have been added yet." message in `frontend/src/features/coaches/components/coach-directory/CoachCardGrid.test.tsx`
-- [ ] T022 [P] [US1] Unit tests for `CoachStatusFilter`: renders all options, defaults to Active, calls onFilterChange in `frontend/src/features/coaches/components/coach-directory/CoachStatusFilter.test.tsx`
-- [ ] T023 [P] [US1] Unit tests for `CoachesPageHeader`: renders heading, Add Coach button visibility by role, filter integration in `frontend/src/features/coaches/components/coach-directory/CoachesPageHeader.test.tsx`
+- [X] T016 [P] [US1] Unit tests for `GET /coaches` route: filtering (active/inactive/all), pagination, ordering, role-authorization (403 for player), 401 for unauthenticated in `backend/tests/unit/test_coach_routes.py`
+- [X] T017 [P] [US1] Unit tests for `CoachResponse` and `PaginatedCoachResponse` schemas in `backend/tests/unit/test_coach_schemas.py`
+- [X] T018 [P] [US1] Unit tests for `CoachService.list_coaches` method: status filtering, pagination math, stable ordering in `backend/tests/unit/test_coach_service.py`
+- [X] T019 [P] [US1] Unit tests for `CoachesPage` component: renders coach cards, handles loading/empty/error states, filter interaction in `frontend/src/features/coaches/pages/CoachesPage.test.tsx`
+- [X] T020 [P] [US1] Unit tests for `CoachCard` component: avatar styling (light red HC, light blue AC), full name, role badge, team display (≤2 plus "+N more"), status indicator in `frontend/src/features/coaches/components/coach-directory/CoachCard.test.tsx`
+- [X] T021 [P] [US1] Unit tests for `CoachCardGrid`: skeleton loading, responsive grid, empty state with "No Assistant Coaches have been added yet." message in `frontend/src/features/coaches/components/coach-directory/CoachCardGrid.test.tsx`
+- [X] T022 [P] [US1] Unit tests for `CoachStatusFilter`: renders all options, defaults to Active, calls onFilterChange in `frontend/src/features/coaches/components/coach-directory/CoachStatusFilter.test.tsx`
+- [X] T023 [P] [US1] Unit tests for `CoachesPageHeader`: renders heading, Add Coach button visibility by role, filter integration in `frontend/src/features/coaches/components/coach-directory/CoachesPageHeader.test.tsx`
 
 ### Backend Implementation for User Story 1
 
-- [ ] T024 [US1] Implement `CoachService.list_coaches` with server-side filtering on `is_active` and `role IN ('head coach', 'assistant coach')`, `CASE`-based ordering, `LIMIT`/`OFFSET` pagination, `outerjoin` to `TeamCoach`+`Team` for eager-loaded team names in `backend/src/services/coach_service.py`
-- [ ] T025 [US1] Implement `GET /coaches` route with query params (`status`, `page`, `page_size`), authorization check (`require_role(HEAD_COACH, ASSISTANT_COACH)`), and `PaginatedCoachResponse` output in `backend/src/routes/coaches.py`
-- [ ] T026 [US1] Register coaches router in `backend/src/main.py` (mount under `/api/v1`)
+- [X] T024 [US1] Implement `CoachService.list_coaches` with server-side filtering on `is_active` and `role IN ('head coach', 'assistant coach')`, `CASE`-based ordering, `LIMIT`/`OFFSET` pagination, `outerjoin` to `TeamCoach`+`Team` for eager-loaded team names in `backend/src/services/coach_service.py`
+- [X] T025 [US1] Implement `GET /coaches` route with query params (`status`, `page`, `page_size`), authorization check (`require_role(HEAD_COACH, ASSISTANT_COACH)`), and `PaginatedCoachResponse` output in `backend/src/routes/coaches.py`
+- [X] T026 [US1] Register coaches router in `backend/src/main.py` (mount under `/api/v1`)
 
 ### Frontend Implementation for User Story 1
 
-- [ ] T027 [US1] Implement `coachApi.fetchCoaches` function with query params (status, page, page_size), `AbortSignal` support, and typed response in `frontend/src/features/coaches/api/coachApi.ts`
-- [ ] T028 [US1] Implement `useCoachDirectory` hook wrapping `fetchCoaches` with state management for page, status filter, result, loading, error, retry, and success message in `frontend/src/features/coaches/hooks/useCoachDirectory.ts`
-- [ ] T029 [US1] Implement `CoachIdentity` component: initials avatar (light red HC, light blue AC), full name display in `frontend/src/features/coaches/components/coach-details/CoachIdentity.tsx`
-- [ ] T030 [US1] Implement `CoachRoleBadge` component: pill badge with role label in `frontend/src/features/coaches/components/coach-details/CoachRoleBadge.tsx`
-- [ ] T031 [US1] Implement `CoachCard` component: avatar, name, role badge, team list (first 2 + "+N more" indicator, or "No teams assigned"), active/inactive muted styling, full-card clickable button with Enter/Space in `frontend/src/features/coaches/components/coach-directory/CoachCard.tsx`
-- [ ] T032 [US1] Implement `CoachCardGrid` component: responsive grid (1/2/3 cols), skeleton loading state, true-empty state with "No Assistant Coaches have been added yet." message, filtered-no-results state in `frontend/src/features/coaches/components/coach-directory/CoachCardGrid.tsx`
-- [ ] T033 [US1] Implement `CoachStatusFilter` component: dropdown with Active/Inactive/All, defaults to Active, accessible label in `frontend/src/features/coaches/components/coach-directory/CoachStatusFilter.tsx`
-- [ ] T034 [US1] Implement `CoachesPageHeader` component: page heading, status filter, Add Coach button (visible only to Head Coach), result count in `frontend/src/features/coaches/components/coach-directory/CoachesPageHeader.tsx`
-- [ ] T035 [US1] Implement `CoachesPage` feature page: compose header, card grid, pagination controls (reusing shared `Pagination` component from `frontend/src/shared/components/navigation/Pagination.tsx`), all UI states (loading, empty, error, filtered-no-results, success) in `frontend/src/features/coaches/pages/CoachesPage.tsx`
-- [ ] T036 [US1] Implement barrel export in `frontend/src/features/coaches/index.ts` exporting `CoachesPage` and public types
+- [X] T027 [US1] Implement `coachApi.fetchCoaches` function with query params (status, page, page_size), `AbortSignal` support, and typed response in `frontend/src/features/coaches/api/coachApi.ts`
+- [X] T028 [US1] Implement `useCoachDirectory` hook wrapping `fetchCoaches` with state management for page, status filter, result, loading, error, retry, and success message in `frontend/src/features/coaches/hooks/useCoachDirectory.ts`
+- [X] T029 [US1] Implement `CoachIdentity` component: initials avatar (light red HC, light blue AC), full name display in `frontend/src/features/coaches/components/coach-details/CoachIdentity.tsx`
+- [X] T030 [US1] Implement `CoachRoleBadge` component: pill badge with role label in `frontend/src/features/coaches/components/coach-details/CoachRoleBadge.tsx`
+- [X] T031 [US1] Implement `CoachCard` component: avatar, name, role badge, team list (first 2 + "+N more" indicator, or "No teams assigned"), active/inactive muted styling, full-card clickable button with Enter/Space in `frontend/src/features/coaches/components/coach-directory/CoachCard.tsx`
+- [X] T032 [US1] Implement `CoachCardGrid` component: responsive grid (1/2/3 cols), skeleton loading state, true-empty state with "No Assistant Coaches have been added yet." message, filtered-no-results state in `frontend/src/features/coaches/components/coach-directory/CoachCardGrid.tsx`
+- [X] T033 [US1] Implement `CoachStatusFilter` component: dropdown with Active/Inactive/All, defaults to Active, accessible label in `frontend/src/features/coaches/components/coach-directory/CoachStatusFilter.tsx`
+- [X] T034 [US1] Implement `CoachesPageHeader` component: page heading, status filter, Add Coach button (visible only to Head Coach), result count in `frontend/src/features/coaches/components/coach-directory/CoachesPageHeader.tsx`
+- [X] T035 [US1] Implement `CoachesPage` feature page: compose header, card grid, pagination controls (reusing shared `Pagination` component from `frontend/src/shared/components/navigation/Pagination.tsx`), all UI states (loading, empty, error, filtered-no-results, success) in `frontend/src/features/coaches/pages/CoachesPage.tsx`
+- [X] T036 [US1] Implement barrel export in `frontend/src/features/coaches/index.ts` exporting `CoachesPage` and public types
 
 **Checkpoint**: At this point, the Coaches Portal displays a functional card grid with status filtering and server-side pagination. No modals or mutations yet.
 
@@ -108,19 +108,19 @@
 
 ### Tests for User Story 2 (MANDATORY) ⚠️
 
-- [ ] T037 [P] [US2] Unit tests for `GET /coaches/{id}` route: returns 200 for active coach (any role), 403 for AC requesting inactive coach, 404 for non-coach user in `backend/tests/unit/test_coach_routes.py`
-- [ ] T038 [P] [US2] Unit tests for `CoachDetailsModal` component: renders all fields, placeholder stats, role-based action visibility, Escape/close button/focus trap/scroll lock in `frontend/src/features/coaches/components/coach-details/CoachDetailsModal.test.tsx`
+- [X] T037 [P] [US2] Unit tests for `GET /coaches/{id}` route: returns 200 for active coach (any role), 403 for AC requesting inactive coach, 404 for non-coach user in `backend/tests/unit/test_coach_routes.py`
+- [X] T038 [P] [US2] Unit tests for `CoachDetailsModal` component: renders all fields, placeholder stats, role-based action visibility, Escape/close button/focus trap/scroll lock in `frontend/src/features/coaches/components/coach-details/CoachDetailsModal.test.tsx`
 
 ### Backend Implementation for User Story 2
 
-- [ ] T039 [US2] Implement `CoachService.get_coach` method: fetch single User by ID with `role IN ('head coach', 'assistant coach')` filter, eager-load team assignments; raise 404 for non-coach or missing in `backend/src/services/coach_service.py`
-- [ ] T040 [US2] Implement `GET /coaches/{coach_id}` route with authorization: Head Coach can view any coach; Assistant Coach can only view active coaches (return 403 for inactive) in `backend/src/routes/coaches.py`
+- [X] T039 [US2] Implement `CoachService.get_coach` method: fetch single User by ID with `role IN ('head coach', 'assistant coach')` filter, eager-load team assignments; raise 404 for non-coach or missing in `backend/src/services/coach_service.py`
+- [X] T040 [US2] Implement `GET /coaches/{coach_id}` route with authorization: Head Coach can view any coach; Assistant Coach can only view active coaches (return 403 for inactive) in `backend/src/routes/coaches.py`
 
 ### Frontend Implementation for User Story 2
 
-- [ ] T041 [US2] Implement `coachApi.fetchCoachDetails` function in `frontend/src/features/coaches/api/coachApi.ts`
-- [ ] T042 [US2] Implement `CoachDetailsModal` component reusing `ModalDialog`: display full name, email, role badge, active/inactive status, assigned teams list or "No teams assigned", placeholder stats section with fixed values, role-appropriate action visibility, keyboard/close/Escape support in `frontend/src/features/coaches/components/coach-details/CoachDetailsModal.tsx`
-- [ ] T043 [US2] Wire `CoachCard` `onSelect` to open `CoachDetailsModal` in `CoachesPage`. For Assistant Coach users, inactive cards do not trigger modal open and MUST be removed from the tab order (e.g., `tabIndex={-1}`) so they do not appear keyboard-actionable per FR-052 in `frontend/src/features/coaches/pages/CoachesPage.tsx`
+- [X] T041 [US2] Implement `coachApi.fetchCoachDetails` function in `frontend/src/features/coaches/api/coachApi.ts`
+- [X] T042 [US2] Implement `CoachDetailsModal` component reusing `ModalDialog`: display full name, email, role badge, active/inactive status, assigned teams list or "No teams assigned", placeholder stats section with fixed values, role-appropriate action visibility, keyboard/close/Escape support in `frontend/src/features/coaches/components/coach-details/CoachDetailsModal.tsx`
+- [X] T043 [US2] Wire `CoachCard` `onSelect` to open `CoachDetailsModal` in `CoachesPage`. For Assistant Coach users, inactive cards do not trigger modal open and MUST be removed from the tab order (e.g., `tabIndex={-1}`) so they do not appear keyboard-actionable per FR-052 in `frontend/src/features/coaches/pages/CoachesPage.tsx`
 
 **Checkpoint**: Coach details modal fully functional. Store placeholder stat values ("Not available", "0") as constants.
 

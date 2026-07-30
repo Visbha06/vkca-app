@@ -34,9 +34,9 @@ function ContextProbe() {
   )
 }
 
-function renderLayout(child = <h1>Test content</h1>) {
+function renderLayout(child = <h1>Test content</h1>, user = authValue.user) {
   render(
-    <AuthContext.Provider value={authValue}>
+    <AuthContext.Provider value={{ ...authValue, user }}>
       <MemoryRouter initialEntries={['/']}>
         <Routes>
           <Route element={<AppLayout />}>
@@ -70,5 +70,21 @@ describe('AppLayout', () => {
     expect(
       screen.getByText('Sidebar context: expanded, closed'),
     ).toBeInTheDocument()
+  })
+
+  it('hides Coaches Portal navigation from player-role users', () => {
+    renderLayout(<h1>Player dashboard</h1>, {
+      id: 'player-1',
+      first_name: 'Asha',
+      last_name: 'Patel',
+      email: 'asha@vkca.test',
+      role: 'player',
+      is_active: true,
+      created_at: '',
+      updated_at: '',
+      session: { session_id: '', created_at: '', last_used_at: '', expires_at: '' },
+    })
+
+    expect(screen.queryByRole('link', { name: 'Coaches Portal' })).not.toBeInTheDocument()
   })
 })
