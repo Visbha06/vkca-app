@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCoaches } from '../api/coachApi'
 import type {
   CoachResponse,
@@ -43,6 +43,9 @@ export default function useCoachDirectory() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const listRegionRef = useRef<HTMLDivElement>(null)
   const focusListAfterLoadRef = useRef(false)
+  const dismissSuccessMessage = useCallback(() => {
+    setSuccessMessage(null)
+  }, [])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -164,6 +167,7 @@ export default function useCoachDirectory() {
 
   return {
     errorMessage,
+    dismissSuccessMessage,
     handleCoachAssignmentsChanged,
     handleCoachCreated,
     handleCoachReloaded: (coach: CoachResponse) =>

@@ -1,6 +1,7 @@
 import type { CoachResponse } from '../../types/coach'
 import CoachIdentity from '../coach-details/CoachIdentity'
 import CoachRoleBadge from '../coach-details/CoachRoleBadge'
+import CoachStatusIndicator from './CoachStatusIndicator'
 
 interface CoachCardProps {
   coach: CoachResponse
@@ -35,21 +36,22 @@ export default function CoachCard({
         coach={coach}
         trailing={<span aria-hidden="true" className="text-slate-500 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none">→</span>}
       />
-      <span className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-2">
+      <span className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-slate-200 pt-2">
         <CoachRoleBadge role={coach.role} />
-        <span className={`text-xs font-semibold ${coach.is_active ? 'text-emerald-800' : 'text-slate-600'}`}>
-          {coach.is_active ? 'Active' : 'Inactive'}
-        </span>
+        <CoachStatusIndicator isActive={coach.is_active} />
       </span>
-      <span className="mt-auto pt-2 text-sm leading-5 text-slate-600">
-        {visibleTeams.length === 0 ? (
-          'No teams assigned'
-        ) : (
-          <>
-            {visibleTeams.map((team) => team.name).join(', ')}
-            {additionalTeams > 0 ? ` +${additionalTeams} more` : ''}
-          </>
-        )}
+      <span className="mt-auto pt-2 text-sm leading-5">
+        <span className="font-medium text-slate-500">Teams:</span>{' '}
+        <span className="text-slate-700">
+          {visibleTeams.length === 0 ? (
+            'No teams assigned'
+          ) : (
+            <>
+              {visibleTeams.map((team) => team.name).join(', ')}
+              {additionalTeams > 0 ? ` +${additionalTeams} more` : ''}
+            </>
+          )}
+        </span>
       </span>
     </button>
   )

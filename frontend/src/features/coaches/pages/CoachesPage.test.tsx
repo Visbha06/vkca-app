@@ -179,6 +179,10 @@ describe('CoachesPage', () => {
     expect(
       screen.getByText('Asha Patel was added successfully.'),
     ).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(
+      screen.queryByText('Asha Patel was added successfully.'),
+    ).not.toBeInTheDocument()
     expect(screen.getByDisplayValue('Aa1!temporary-token')).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(

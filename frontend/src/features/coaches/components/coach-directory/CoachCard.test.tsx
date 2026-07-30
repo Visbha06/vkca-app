@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import CoachCard from './CoachCard'
 import type { CoachResponse } from '../../types/coach'
@@ -21,7 +27,16 @@ describe('CoachCard', () => {
     render(<CoachCard coach={coach} onSelect={onSelect} />)
     expect(screen.getByText('Vikram Kumar')).toBeVisible()
     expect(screen.getByText('Head Coach')).toBeVisible()
+    expect(screen.getByText('Teams:')).toHaveClass('text-slate-500')
+    expect(screen.getByText(/U13 Lions, U15 Tigers/)).toHaveClass(
+      'text-slate-700',
+    )
     expect(screen.getByText(/\+1 more/)).toBeVisible()
+    const activeStatus = screen.getByLabelText('Status: Active')
+    expect(activeStatus).toHaveTextContent('Active')
+    expect(
+      within(activeStatus).getByText('', { selector: '[aria-hidden="true"]' }),
+    ).toHaveClass('bg-emerald-600')
     fireEvent.click(screen.getByRole('button', { name: /view vikram kumar/i }))
     expect(onSelect).toHaveBeenCalledWith(coach)
   })
@@ -30,7 +45,13 @@ describe('CoachCard', () => {
     const inactiveAssistant = { ...coach, role: 'assistant coach' as const, is_active: false, teams: [] }
     const view = render(<CoachCard coach={inactiveAssistant} onSelect={vi.fn()} />)
     expect(view.getByText('VK').className).toContain('bg-sky-100')
-    expect(view.getByText('Inactive')).toBeVisible()
+    const inactiveStatus = view.getByLabelText('Status: Inactive')
+    expect(inactiveStatus).toHaveTextContent('Inactive')
+    expect(
+      within(inactiveStatus).getByText('', {
+        selector: '[aria-hidden="true"]',
+      }),
+    ).toHaveClass('bg-red-500')
     expect(view.getByText('No teams assigned')).toBeVisible()
   })
 })

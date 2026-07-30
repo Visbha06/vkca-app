@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '@features/auth'
 import Pagination from '@shared/components/navigation/Pagination'
-import SuccessMessage from '@shared/components/feedback/SuccessMessage'
+import SuccessToast from '@shared/components/feedback/SuccessToast'
 import CoachCardGrid from '../components/coach-directory/CoachCardGrid'
 import CoachesPageHeader from '../components/coach-directory/CoachesPageHeader'
 import CoachDetailsModal from '../components/coach-details/CoachDetailsModal'
@@ -14,6 +14,7 @@ import type { CoachResponse } from '../types/coach'
 export default function CoachesPage() {
   const { user } = useAuth()
   const {
+    dismissSuccessMessage,
     errorMessage,
     handleCoachAssignmentsChanged,
     handleCoachCreated,
@@ -78,7 +79,10 @@ export default function CoachesPage() {
         onFilterChange={handleFilterChange}
       />
       {successMessage ? (
-        <SuccessMessage>{successMessage}</SuccessMessage>
+        <SuccessToast
+          message={successMessage}
+          onDismiss={dismissSuccessMessage}
+        />
       ) : null}
       <div
         ref={listRegionRef}
