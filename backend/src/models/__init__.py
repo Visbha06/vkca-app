@@ -12,6 +12,7 @@ from src.models.player import Player
 from src.models.player_batting_stats import PlayerBattingStats
 from src.models.player_bowling_stats import PlayerBowlingStats
 from src.models.team import Team
+from src.models.team_coach import TeamCoach
 from src.models.team_player import TeamPlayer
 from src.models.user import User
 
@@ -28,6 +29,7 @@ __all__ = [
     "PlayerBattingStats",
     "PlayerBowlingStats",
     "Team",
+    "TeamCoach",
     "TeamPlayer",
     "TimestampMixin",
     "User",

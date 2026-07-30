@@ -117,7 +117,7 @@ test.describe('application shell primary journey', () => {
     expect(hasHorizontalOverflow).toBe(false)
   })
 
-  test('renders direct placeholder routes and the recoverable 404 page', async ({
+  test('renders implemented routes, remaining placeholders, and the recoverable 404 page', async ({
     page,
   }) => {
     await page.goto('/players')
@@ -136,21 +136,26 @@ test.describe('application shell primary journey', () => {
       page.getByText('This section will be available in a future update.'),
     ).toHaveCount(0)
 
-    const routes = [
-      ['/coaches', 'Coaches Portal'],
-      ['/calendar', 'Calendar'],
-    ] as const
+    await page.goto('/coaches')
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Coaches Portal' }),
+    ).toBeVisible()
+    await expect(
+      page.getByText('This section will be available in a future update.'),
+    ).toHaveCount(0)
+    await expect(
+      page.getByRole('combobox', { name: 'Coach status' }),
+    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Add Coach' })).toBeVisible()
 
-    for (const [path, heading] of routes) {
-      await page.goto(path)
-      await expect(
-        page.getByRole('heading', { level: 1, name: heading }),
-      ).toBeVisible()
-      await expect(
-        page.getByText('This section will be available in a future update.'),
-      ).toBeVisible()
-      await expect(page.locator('main form, main input, main select')).toHaveCount(0)
-    }
+    await page.goto('/calendar')
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Calendar' }),
+    ).toBeVisible()
+    await expect(
+      page.getByText('This section will be available in a future update.'),
+    ).toBeVisible()
+    await expect(page.locator('main form, main input, main select')).toHaveCount(0)
 
     await page.goto('/settings')
     await expect(page.getByRole('dialog', { name: 'User Settings' })).toBeVisible()

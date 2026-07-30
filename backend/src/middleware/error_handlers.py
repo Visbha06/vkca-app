@@ -3,12 +3,41 @@
 import logging
 
 from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.exc import IntegrityError
 
 from src.services.occ import StaleVersionError
 
 logger = logging.getLogger(__name__)
+
+
+async def validation_error_handler(
+    request: Request,
+    exc: Exception,
+) -> Response:
+    """Use coach mutation contracts' field-oriented HTTP 400 response."""
+
+    if not isinstance(exc, RequestValidationError):
+        raise exc
+    is_coach_creation = (
+        request.method == "POST" and request.url.path == "/api/v1/coaches"
+    )
+    is_assignment_update = (
+        request.method == "PUT"
+        and request.url.path.startswith("/api/v1/coaches/")
+        and request.url.path.endswith("/teams")
+    )
+    if is_coach_creation or is_assignment_update:
+        error = exc.errors()[0]
+        field_path = ".".join(str(part) for part in error["loc"] if part != "body")
+        detail = f"{field_path}: {error['msg']}" if field_path else error["msg"]
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": detail},
+        )
+    return await request_validation_exception_handler(request, exc)
 
 
 async def stale_version_error_handler(
@@ -54,6 +83,7 @@ async def unhandled_exception_handler(
 def register_error_handlers(app: FastAPI) -> None:
     """Register application-wide exception-to-response mappings."""
 
+    app.add_exception_handler(RequestValidationError, validation_error_handler)
     app.add_exception_handler(StaleVersionError, stale_version_error_handler)
     app.add_exception_handler(IntegrityError, integrity_error_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)
