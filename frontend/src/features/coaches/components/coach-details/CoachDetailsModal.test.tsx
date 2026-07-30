@@ -1,10 +1,28 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { ApiClientError } from '@shared/api/client'
+import {
+  deactivateCoach,
+  fetchCoachDetails,
+  reactivateCoach,
+} from '../../api/coachApi'
 import CoachDetailsModal from './CoachDetailsModal'
 import type { CoachResponse } from '../../types/coach'
+
+vi.mock('../../api/coachApi', () => ({
+  deactivateCoach: vi.fn(),
+  fetchCoachDetails: vi.fn(),
+  reactivateCoach: vi.fn(),
+}))
 
 const coach: CoachResponse = {
   id: 'coach-1',
@@ -21,6 +39,7 @@ const coach: CoachResponse = {
 
 afterEach(() => {
   cleanup()
+  vi.clearAllMocks()
   document.body.style.overflow = ''
 })
 
@@ -29,6 +48,7 @@ describe('CoachDetailsModal', () => {
     render(
       <CoachDetailsModal
         coach={coach}
+        currentUserId="head-2"
         currentUserRole="head coach"
         onClose={vi.fn()}
       />,
@@ -49,6 +69,7 @@ describe('CoachDetailsModal', () => {
     render(
       <CoachDetailsModal
         coach={{ ...coach, teams: [] }}
+        currentUserId="assistant-1"
         currentUserRole="assistant coach"
         onClose={vi.fn()}
       />,
@@ -63,6 +84,7 @@ describe('CoachDetailsModal', () => {
     render(
       <CoachDetailsModal
         coach={coach}
+        currentUserId="head-2"
         currentUserRole="head coach"
         onClose={onClose}
       />,
@@ -72,9 +94,94 @@ describe('CoachDetailsModal', () => {
     expect(document.body.style.overflow).toBe('hidden')
     expect(close).toHaveFocus()
     fireEvent.keyDown(document, { key: 'Tab' })
-    expect(close).toHaveFocus()
+    expect(
+      screen.getByRole('button', { name: 'Deactivate coach' }),
+    ).toHaveFocus()
     fireEvent.keyDown(document, { key: 'Escape' })
     fireEvent.click(close)
     expect(onClose).toHaveBeenCalledTimes(2)
+  })
+
+  it('applies a successful status update immediately', async () => {
+    const onCoachUpdated = vi.fn()
+    vi.mocked(deactivateCoach).mockResolvedValue({
+      id: coach.id,
+      first_name: coach.first_name,
+      last_name: coach.last_name,
+      email: coach.email,
+      role: coach.role,
+      is_active: false,
+      version_number: 2,
+      created_at: coach.created_at,
+      updated_at: coach.updated_at,
+    })
+    render(
+      <CoachDetailsModal
+        coach={coach}
+        currentUserId="head-2"
+        currentUserRole="head coach"
+        onClose={vi.fn()}
+        onCoachUpdated={onCoachUpdated}
+      />,
+    )
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Deactivate coach' }),
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm deactivation' }),
+    )
+
+    expect(await screen.findByText('Inactive')).toBeVisible()
+    expect(deactivateCoach).toHaveBeenCalledWith(coach.id, 1)
+    expect(onCoachUpdated).toHaveBeenCalledWith({
+      ...coach,
+      is_active: false,
+      version_number: 2,
+    })
+  })
+
+  it('updates status and offers reload after an OCC conflict', async () => {
+    const onCoachUpdated = vi.fn()
+    const onCoachReloaded = vi.fn()
+    vi.mocked(deactivateCoach).mockRejectedValue(
+      new ApiClientError(409, {
+        detail: 'Stale version 1 for users entity coach-1.',
+      }),
+    )
+    vi.mocked(fetchCoachDetails).mockResolvedValue({
+      ...coach,
+      version_number: 2,
+    })
+    render(
+      <CoachDetailsModal
+        coach={coach}
+        currentUserId="head-2"
+        currentUserRole="head coach"
+        onClose={vi.fn()}
+        onCoachUpdated={onCoachUpdated}
+        onCoachReloaded={onCoachReloaded}
+      />,
+    )
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Deactivate coach' }),
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm deactivation' }),
+    )
+    expect(
+      await screen.findByText(/updated by another user/i),
+    ).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Reload' }))
+    await waitFor(() =>
+      expect(fetchCoachDetails).toHaveBeenCalledWith(coach.id),
+    )
+    expect(onCoachReloaded).toHaveBeenCalledWith({
+      ...coach,
+      version_number: 2,
+    })
+    expect(onCoachUpdated).not.toHaveBeenCalled()
+    expect(reactivateCoach).not.toHaveBeenCalled()
   })
 })

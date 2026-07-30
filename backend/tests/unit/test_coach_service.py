@@ -1,13 +1,22 @@
 """Unit tests for paginated coach directory queries."""
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
 
 from src.enums import UserRole
-from src.services.coach_service import CoachService
+from src.models.team_coach import TeamCoach
+from src.models.user import User
+from src.schemas.coach import CoachCreate
+from src.services.coach_service import (
+    CoachAlreadyExistsError,
+    CoachService,
+    CoachTeamValidationError,
+)
+from src.services.password_service import PasswordService
 
 
 class CoachEntity:
@@ -94,3 +103,146 @@ async def test_get_coach_loads_team_assignments_and_excludes_non_coaches() -> No
     statement = session.execute.await_args.args[0]
     assert "users.role IN" in str(statement)
     assert "team_coaches" in str(statement)
+
+
+def test_generate_temporary_password_satisfies_policy() -> None:
+    first = CoachService.generate_temporary_password()
+    second = CoachService.generate_temporary_password()
+
+    PasswordService.validate_password_policy(first)
+    PasswordService.validate_password_policy(second)
+    assert first != second
+    assert len(first) <= 128
+
+
+@pytest.mark.asyncio
+async def test_create_coach_persists_account_and_assignments_atomically(
+    mocker,
+) -> None:
+    team_id = uuid4()
+    team = SimpleNamespace(id=team_id, name="U13 Lions")
+    session = Mock()
+    session.scalar = AsyncMock(return_value=None)
+    teams = Mock()
+    teams.all.return_value = [team]
+    session.scalars = AsyncMock(return_value=teams)
+    session.add = Mock()
+    session.add_all = Mock()
+    session.flush = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    now = datetime.now(UTC)
+
+    async def populate_server_fields(coach: User) -> None:
+        coach.id = uuid4()
+        coach.version_number = 1
+        coach.created_at = now
+        coach.updated_at = now
+
+    session.refresh = AsyncMock(side_effect=populate_server_fields)
+    service = CoachService(session)
+    mocker.patch(
+        "src.services.coach_service.PasswordService.hash_password",
+        return_value="argon2-hash",
+    )
+
+    response, temporary_password = await service.create_coach(
+        CoachCreate(
+            first_name="Asha",
+            last_name="Patel",
+            email="ASHA@VKCA.TEST",
+            team_ids=[team_id],
+        )
+    )
+
+    assert response.email == "asha@vkca.test"
+    assert response.teams[0].name == "U13 Lions"
+    created_user = session.add.call_args.args[0]
+    assert isinstance(created_user, User)
+    assert created_user.email == "asha@vkca.test"
+    assert created_user.role == UserRole.ASSISTANT_COACH
+    assert created_user.is_active is True
+    PasswordService.validate_password_policy(temporary_password)
+    memberships = session.add_all.call_args.args[0]
+    assert len(memberships) == 1
+    assert isinstance(memberships[0], TeamCoach)
+    assert memberships[0].team_id == team_id
+    session.commit.assert_awaited_once()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_coach_rejects_duplicate_email_and_unknown_teams() -> None:
+    duplicate_session = Mock()
+    duplicate_session.scalar = AsyncMock(return_value=uuid4())
+    duplicate_session.rollback = AsyncMock()
+    with pytest.raises(CoachAlreadyExistsError):
+        await CoachService(duplicate_session).create_coach(
+            CoachCreate(
+                first_name="Asha",
+                last_name="Patel",
+                email="asha@vkca.test",
+            )
+        )
+
+    missing_team_session = Mock()
+    missing_team_session.scalar = AsyncMock(return_value=None)
+    teams = Mock()
+    teams.all.return_value = []
+    missing_team_session.scalars = AsyncMock(return_value=teams)
+    missing_team_session.rollback = AsyncMock()
+    with pytest.raises(CoachTeamValidationError):
+        await CoachService(missing_team_session).create_coach(
+            CoachCreate(
+                first_name="Asha",
+                last_name="Patel",
+                email="asha@vkca.test",
+                team_ids=[uuid4()],
+            )
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("desired_status", [False, True])
+async def test_toggle_coach_status_uses_occ_and_only_revokes_on_deactivate(
+    mocker,
+    desired_status: bool,
+) -> None:
+    coach = CoachEntity(role=UserRole.ASSISTANT_COACH)
+    session = Mock()
+    session.get = AsyncMock(return_value=coach)
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    service = CoachService(session)
+    updated_response = Mock()
+    service.get_coach = AsyncMock(return_value=updated_response)
+    increment = mocker.patch(
+        "src.services.coach_service.check_and_increment_version",
+        new=AsyncMock(return_value=2),
+    )
+    auth_service = Mock()
+    auth_service.revoke_user_sessions = AsyncMock(return_value=[])
+    mocker.patch(
+        "src.services.coach_service.AuthService",
+        return_value=auth_service,
+    )
+
+    response = await service.toggle_coach_status(
+        coach.id,
+        is_active=desired_status,
+        version_number=1,
+    )
+
+    assert response is updated_response
+    increment.assert_awaited_once_with(session, User, coach.id, 1)
+    assert coach.is_active is desired_status
+    assert coach.version_number == 2
+    session.commit.assert_awaited_once()
+    if desired_status:
+        auth_service.revoke_user_sessions.assert_not_awaited()
+    else:
+        auth_service.revoke_user_sessions.assert_awaited_once_with(
+            coach.id,
+            reason="user_disabled",
+            target_resource=f"/api/v1/users/{coach.id}/disable",
+        )

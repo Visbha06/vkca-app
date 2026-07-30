@@ -134,24 +134,24 @@
 
 ### Tests for User Story 3 (MANDATORY) ⚠️
 
-- [ ] T044 [P] [US3] Unit tests for `POST /coaches` route: successful creation with temp password returned, duplicate email 409, missing-field 400, player-role 403, AC-role 403 in `backend/tests/unit/test_coach_routes.py`
-- [ ] T045 [P] [US3] Unit tests for `CoachCreate` schema validation in `backend/tests/unit/test_coach_schemas.py`
-- [ ] T046 [P] [US3] Unit tests for `CoachService.create_coach`: atomic account+assignment creation, temp password policy compliance, duplicate email rejection, team validation in `backend/tests/unit/test_coach_service.py`
-- [ ] T047 [P] [US3] Unit tests for `AddCoachModal` component: form rendering, validation errors, temp password display, copy behavior, Add Coach button visibility by role in `frontend/src/features/coaches/components/coach-form/AddCoachModal.test.tsx`
+- [X] T044 [P] [US3] Unit tests for `POST /coaches` route: successful creation with temp password returned, duplicate email 409, missing-field 400, player-role 403, AC-role 403 in `backend/tests/unit/test_coach_routes.py`
+- [X] T045 [P] [US3] Unit tests for `CoachCreate` schema validation in `backend/tests/unit/test_coach_schemas.py`
+- [X] T046 [P] [US3] Unit tests for `CoachService.create_coach`: atomic account+assignment creation, temp password policy compliance, duplicate email rejection, team validation in `backend/tests/unit/test_coach_service.py`
+- [X] T047 [P] [US3] Unit tests for `AddCoachModal` component: form rendering, validation errors, temp password display, copy behavior, Add Coach button visibility by role in `frontend/src/features/coaches/components/coach-form/AddCoachModal.test.tsx`
 
 ### Backend Implementation for User Story 3
 
-- [ ] T048 [US3] Implement `CoachService.generate_temporary_password` using `secrets.token_urlsafe(16)` with policy-compliance prefix, ensuring the hash passes `PasswordService.validate_password_policy` in `backend/src/services/coach_service.py`
-- [ ] T049 [US3] Implement `CoachService.create_coach`: validate email uniqueness (normalized), generate temp password, hash it via `PasswordService.hash_password`, create User with role="assistant coach" and is_active=true, optionally create TeamCoach rows for team_ids, commit atomically; rollback on any failure in `backend/src/services/coach_service.py`
-- [ ] T050 [US3] Implement `POST /coaches` route: accept `CoachCreate` payload, require Head Coach role, return 201 with `CoachResponse` + `temporary_password` field; return 409 on duplicate email in `backend/src/routes/coaches.py`
+- [X] T048 [US3] Implement `CoachService.generate_temporary_password` using `secrets.token_urlsafe(16)` with policy-compliance prefix, ensuring the hash passes `PasswordService.validate_password_policy` in `backend/src/services/coach_service.py`
+- [X] T049 [US3] Implement `CoachService.create_coach`: validate email uniqueness (normalized), generate temp password, hash it via `PasswordService.hash_password`, create User with role="assistant coach" and is_active=true, optionally create TeamCoach rows for team_ids, commit atomically; rollback on any failure in `backend/src/services/coach_service.py`
+- [X] T050 [US3] Implement `POST /coaches` route: accept `CoachCreate` payload, require Head Coach role, return 201 with `CoachResponse` + `temporary_password` field; return 409 on duplicate email in `backend/src/routes/coaches.py`
 
 ### Frontend Implementation for User Story 3
 
-- [ ] T051 [US3] Implement `coachApi.createCoach` function sending first_name, last_name, email, optional team_ids; handling 400/409/403 responses in `frontend/src/features/coaches/api/coachApi.ts`
-- [ ] T052 [US3] Implement `AddCoachForm` component: first_name, last_name, email fields with field-level validation; optional team multi-select reusing existing team types; submission loading/disabled state; duplicate email field error in `frontend/src/features/coaches/components/coach-form/AddCoachForm.tsx`
-- [ ] T053 [US3] Implement `TemporaryPasswordDisplay` component: password shown with copy-to-clipboard button, "This password will only be shown once" warning banner, not stored in state after dismiss in `frontend/src/features/coaches/components/coach-form/TemporaryPasswordDisplay.tsx`
-- [ ] T054 [US3] Implement `AddCoachModal` component wrapping `AddCoachForm` and `TemporaryPasswordDisplay` inside `ModalDialog`; unsaved-changes confirmation on close in `frontend/src/features/coaches/components/coach-form/AddCoachModal.tsx`
-- [ ] T055 [US3] Wire `AddCoachModal` into `CoachesPage`: open on "Add Coach" button click, on success add coach to local state and show success message, on error display field-level or generic error in `frontend/src/features/coaches/pages/CoachesPage.tsx`
+- [X] T051 [US3] Implement `coachApi.createCoach` function sending first_name, last_name, email, optional team_ids; handling 400/409/403 responses in `frontend/src/features/coaches/api/coachApi.ts`
+- [X] T052 [US3] Implement `AddCoachForm` component: first_name, last_name, email fields with field-level validation; optional team multi-select reusing existing team types; submission loading/disabled state; duplicate email field error in `frontend/src/features/coaches/components/coach-form/AddCoachForm.tsx`
+- [X] T053 [US3] Implement `TemporaryPasswordDisplay` component: password shown with copy-to-clipboard button, "This password will only be shown once" warning banner, not stored in state after dismiss in `frontend/src/features/coaches/components/coach-form/TemporaryPasswordDisplay.tsx`
+- [X] T054 [US3] Implement `AddCoachModal` component wrapping `AddCoachForm` and `TemporaryPasswordDisplay` inside `ModalDialog`; unsaved-changes confirmation on close in `frontend/src/features/coaches/components/coach-form/AddCoachModal.tsx`
+- [X] T055 [US3] Wire `AddCoachModal` into `CoachesPage`: open on "Add Coach" button click, on success add coach to local state and show success message, on error display field-level or generic error in `frontend/src/features/coaches/pages/CoachesPage.tsx`
 
 **Checkpoint**: Head Coach can create Assistant Coach accounts with temp password display.
 
@@ -165,23 +165,23 @@
 
 ### Tests for User Story 4 (MANDATORY) ⚠️
 
-- [ ] T056 [P] [US4] Unit tests for `POST /users/{id}/disable` (modified): atomic is_active=false + session revocation, self-deactivation 403 in `backend/tests/unit/test_coach_routes.py`
-- [ ] T057 [P] [US4] Unit tests for `POST /users/{id}/reactivate`: sets is_active=true, does not restore sessions, 403 for non-HC, 404 for missing user in `backend/tests/unit/test_coach_routes.py`
-- [ ] T058 [P] [US4] Unit tests for `CoachService.toggle_coach_status`: OCC version check, session revocation on deactivate, no session restore on reactivate in `backend/tests/unit/test_coach_service.py`
-- [ ] T059 [P] [US4] Unit tests for `CoachStatusToggle` component: visible only to Head Coach, hidden/disabled for self, confirmation dialog content, loading state in `frontend/src/features/coaches/components/coach-details/CoachStatusToggle.test.tsx`
+- [X] T056 [P] [US4] Unit tests for `POST /users/{id}/disable` (modified): atomic is_active=false + session revocation, self-deactivation 403 in `backend/tests/unit/test_coach_routes.py`
+- [X] T057 [P] [US4] Unit tests for `POST /users/{id}/reactivate`: sets is_active=true, does not restore sessions, 403 for non-HC, 404 for missing user in `backend/tests/unit/test_coach_routes.py`
+- [X] T058 [P] [US4] Unit tests for `CoachService.toggle_coach_status`: OCC version check, session revocation on deactivate, no session restore on reactivate in `backend/tests/unit/test_coach_service.py`
+- [X] T059 [P] [US4] Unit tests for `CoachStatusToggle` component: visible only to Head Coach, hidden/disabled for self, confirmation dialog content, loading state in `frontend/src/features/coaches/components/coach-details/CoachStatusToggle.test.tsx`
 
 ### Backend Implementation for User Story 4
 
-- [ ] T060 [US4] Modify `POST /users/{user_id}/disable` route to make `is_active=false` update and `revoke_user_sessions` call happen within a single `session.commit()` boundary (atomicity per FR-040). Add self-deactivation check returning 403 in `backend/src/routes/users.py`
-- [ ] T061 [US4] Implement `UserService.reactivate_user` method: accept user_id, set `is_active=true`, increment `version_number`, commit, return updated User in `backend/src/services/user_service.py`
-- [ ] T062 [US4] Implement `POST /users/{user_id}/reactivate` route: require Head Coach role, call `UserService.reactivate_user`, do NOT restore sessions, commit in `backend/src/routes/users.py`
-- [ ] T063 [US4] Implement `CoachService.toggle_coach_status`: accept user_id, desired is_active state, incoming version_number; use `check_and_increment_version` for OCC; on deactivate call `revoke_user_sessions`; on reactivate skip session restoration in `backend/src/services/coach_service.py`
+- [X] T060 [US4] Modify `POST /users/{user_id}/disable` route to make `is_active=false` update and `revoke_user_sessions` call happen within a single `session.commit()` boundary (atomicity per FR-040). Add self-deactivation check returning 403 in `backend/src/routes/users.py`
+- [X] T061 [US4] Implement `UserService.reactivate_user` method: accept user_id, set `is_active=true`, increment `version_number`, commit, return updated User in `backend/src/services/user_service.py`
+- [X] T062 [US4] Implement `POST /users/{user_id}/reactivate` route: require Head Coach role, call `UserService.reactivate_user`, do NOT restore sessions, commit in `backend/src/routes/users.py`
+- [X] T063 [US4] Implement `CoachService.toggle_coach_status`: accept user_id, desired is_active state, incoming version_number; use `check_and_increment_version` for OCC; on deactivate call `revoke_user_sessions`; on reactivate skip session restoration in `backend/src/services/coach_service.py`
 
 ### Frontend Implementation for User Story 4
 
-- [ ] T064 [US4] Implement `coachApi.deactivateCoach` and `coachApi.reactivateCoach` functions in `frontend/src/features/coaches/api/coachApi.ts`
-- [ ] T065 [US4] Implement `CoachStatusToggle` component: toggle control visible only to Head Coach, disabled/hidden with explanation for self, confirmation dialog explicitly stating: the coach will no longer be able to log in, all active sessions will be revoked, team assignments and historical data will be preserved, and the account can be reactivated later — in `frontend/src/features/coaches/components/coach-details/CoachStatusToggle.tsx`
-- [ ] T066 [US4] Wire `CoachStatusToggle` into `CoachDetailsModal`: on toggle, call API with version_number, handle 200 (refresh card), 409 (show conflict + reload), 403 (show permission message). Update card styling immediately on success in `frontend/src/features/coaches/components/coach-details/CoachDetailsModal.tsx`
+- [X] T064 [US4] Implement `coachApi.deactivateCoach` and `coachApi.reactivateCoach` functions in `frontend/src/features/coaches/api/coachApi.ts`
+- [X] T065 [US4] Implement `CoachStatusToggle` component: toggle control visible only to Head Coach, disabled/hidden with explanation for self, confirmation dialog explicitly stating: the coach will no longer be able to log in, all active sessions will be revoked, team assignments and historical data will be preserved, and the account can be reactivated later — in `frontend/src/features/coaches/components/coach-details/CoachStatusToggle.tsx`
+- [X] T066 [US4] Wire `CoachStatusToggle` into `CoachDetailsModal`: on toggle, call API with version_number, handle 200 (refresh card), 409 (show conflict + reload), 403 (show permission message). Update card styling immediately on success in `frontend/src/features/coaches/components/coach-details/CoachDetailsModal.tsx`
 
 **Checkpoint**: Coach status lifecycle fully functional with atomic deactivation and OCC protection.
 

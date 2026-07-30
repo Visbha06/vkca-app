@@ -11,6 +11,7 @@ from src.database import get_db
 from src.enums import UserRole
 from src.middleware.auth import AuthenticatedUser, get_current_user, require_role
 from src.models.user import User
+from src.schemas.coach import CoachStatusUpdate
 from src.schemas.user import (
     UserCreate,
     UserPasswordChange,
@@ -19,8 +20,13 @@ from src.schemas.user import (
 )
 from src.services.audit_service import AuditService
 from src.services.auth_service import AuthService
+from src.services.occ import check_and_increment_version
 from src.services.password_service import PasswordService
-from src.services.user_service import UserAlreadyExistsError, UserService
+from src.services.user_service import (
+    UserAlreadyExistsError,
+    UserNotFoundError,
+    UserService,
+)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -108,25 +114,75 @@ async def disable_user(
         None,
         Depends(require_role(UserRole.HEAD_COACH)),
     ],
+    authenticated: Annotated[
+        AuthenticatedUser | None,
+        Depends(get_current_user),
+    ] = None,
+    payload: CoachStatusUpdate | None = None,
 ) -> UserResponse:
     """Disable an account and revoke all of its active sessions."""
 
+    actor = authenticated[0] if authenticated is not None else None
+    if actor is not None and actor.id == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized",
+        )
+
     user = await _find_user(session, user_id)
-    user.is_active = False
-    user.version_number += 1
-    await AuthService(session).revoke_user_sessions(
-        user.id,
-        reason="user_disabled",
-        target_resource=f"/api/v1/users/{user.id}/disable",
-    )
-    await AuditService.log_event(
-        session,
-        "user_disablement",
-        user_id=user.id,
-        result="success",
-        target_resource=f"/api/v1/users/{user.id}/disable",
-    )
-    await session.commit()
+    try:
+        if payload is None:
+            user.version_number += 1
+        else:
+            user.version_number = await check_and_increment_version(
+                session,
+                User,
+                user_id,
+                payload.version_number,
+            )
+        user.is_active = False
+        await AuthService(session).revoke_user_sessions(
+            user.id,
+            reason="user_disabled",
+            target_resource=f"/api/v1/users/{user.id}/disable",
+        )
+        await AuditService.log_event(
+            session,
+            "user_disablement",
+            user_id=user.id,
+            result="success",
+            target_resource=f"/api/v1/users/{user.id}/disable",
+        )
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    await session.refresh(user)
+    return UserResponse.model_validate(user)
+
+
+@router.post("/{user_id}/reactivate", response_model=UserResponse)
+async def reactivate_user(
+    user_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _require_hc: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH)),
+    ],
+    payload: CoachStatusUpdate | None = None,
+) -> UserResponse:
+    """Reactivate an account without restoring revoked sessions."""
+
+    try:
+        user = await UserService(session).reactivate_user(
+            user_id,
+            None if payload is None else payload.version_number,
+        )
+    except UserNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
     return UserResponse.model_validate(user)
 
 

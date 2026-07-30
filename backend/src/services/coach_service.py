@@ -1,10 +1,14 @@
-"""Read-only coach-directory query operations."""
+"""Coach-directory query and account-management operations."""
 
+import secrets
 from collections import defaultdict
+from collections.abc import Sequence
 from typing import Literal
 from uuid import UUID
 
 from sqlalchemy import case, func, select
+from sqlalchemy.engine import Row
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.enums import UserRole
@@ -12,10 +16,14 @@ from src.models.team import Team
 from src.models.team_coach import TeamCoach
 from src.models.user import User
 from src.schemas.coach import (
+    CoachCreate,
     CoachResponse,
     CoachTeamResponse,
     PaginatedCoachResponse,
 )
+from src.services.auth_service import AuthService
+from src.services.occ import check_and_increment_version
+from src.services.password_service import PasswordService
 
 CoachStatus = Literal["active", "inactive", "all"]
 
@@ -27,15 +35,30 @@ class CoachNotFoundError(Exception):
         super().__init__("Coach not found")
 
 
+class CoachAlreadyExistsError(Exception):
+    """Raised when an email address already belongs to an account."""
+
+    def __init__(self, email: str) -> None:
+        self.email = email
+        super().__init__(f"A user with email '{email}' already exists.")
+
+
+class CoachTeamValidationError(Exception):
+    """Raised when initial assignments reference unknown teams."""
+
+    def __init__(self) -> None:
+        super().__init__("team_ids: one or more teams do not exist")
+
+
 class CoachService:
-    """List coach accounts while preserving a stable, paginated order."""
+    """Query and manage coach accounts."""
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
     @staticmethod
     def _coach_response(
-        rows: list[tuple[User, object | None, str | None]],
+        rows: Sequence[Row[tuple[User, UUID, str]]],
     ) -> CoachResponse:
         """Build one coach response from its outer-joined team rows."""
 
@@ -48,6 +71,75 @@ class CoachService:
         return CoachResponse.model_validate(coach).model_copy(
             update={"teams": teams}
         )
+
+    @staticmethod
+    def generate_temporary_password() -> str:
+        """Return a secure one-time password that always satisfies policy."""
+
+        password = f"Aa1!{secrets.token_urlsafe(16)}"
+        PasswordService.validate_password_policy(password)
+        return password
+
+    async def create_coach(
+        self,
+        payload: CoachCreate,
+    ) -> tuple[CoachResponse, str]:
+        """Atomically create an Assistant Coach and initial assignments."""
+
+        normalized_email = payload.email.strip().lower()
+        duplicate = await self.session.scalar(
+            select(User.id).where(func.lower(User.email) == normalized_email)
+        )
+        if duplicate is not None:
+            raise CoachAlreadyExistsError(normalized_email)
+
+        teams: list[Team] = []
+        if payload.team_ids:
+            team_result = await self.session.scalars(
+                select(Team)
+                .where(Team.id.in_(payload.team_ids))
+                .order_by(Team.name, Team.id)
+            )
+            teams = list(team_result.all())
+            if {team.id for team in teams} != set(payload.team_ids):
+                raise CoachTeamValidationError
+
+        temporary_password = self.generate_temporary_password()
+        coach = User(
+            first_name=payload.first_name.strip(),
+            last_name=payload.last_name.strip(),
+            email=normalized_email,
+            hashed_password=PasswordService.hash_password(temporary_password),
+            role=UserRole.ASSISTANT_COACH,
+            is_active=True,
+        )
+        self.session.add(coach)
+        try:
+            await self.session.flush()
+            self.session.add_all(
+                [
+                    TeamCoach(team_id=team.id, user_id=coach.id)
+                    for team in teams
+                ]
+            )
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            raise CoachAlreadyExistsError(normalized_email) from exc
+        except Exception:
+            await self.session.rollback()
+            raise
+
+        await self.session.refresh(coach)
+        response = CoachResponse.model_validate(coach).model_copy(
+            update={
+                "teams": [
+                    CoachTeamResponse(id=team.id, name=team.name)
+                    for team in teams
+                ]
+            }
+        )
+        return response, temporary_password
 
     async def list_coaches(
         self,
@@ -144,3 +236,40 @@ class CoachService:
         if not rows:
             raise CoachNotFoundError
         return self._coach_response(rows)
+
+    async def toggle_coach_status(
+        self,
+        coach_id: UUID,
+        *,
+        is_active: bool,
+        version_number: int,
+    ) -> CoachResponse:
+        """Change coach status with OCC and atomic session revocation."""
+
+        coach = await self.session.get(User, coach_id)
+        if coach is None or coach.role not in {
+            UserRole.HEAD_COACH,
+            UserRole.ASSISTANT_COACH,
+        }:
+            raise CoachNotFoundError
+
+        try:
+            coach.version_number = await check_and_increment_version(
+                self.session,
+                User,
+                coach_id,
+                version_number,
+            )
+            coach.is_active = is_active
+            if not is_active:
+                await AuthService(self.session).revoke_user_sessions(
+                    coach.id,
+                    reason="user_disabled",
+                    target_resource=f"/api/v1/users/{coach.id}/disable",
+                )
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
+
+        return await self.get_coach(coach_id)

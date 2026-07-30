@@ -37,6 +37,12 @@ export interface CoachCreatePayload {
   team_ids?: string[]
 }
 
+export interface CoachCreateResponse extends CoachResponse {
+  temporary_password: string
+}
+
+export type CoachStatusResponse = Omit<CoachResponse, 'teams'>
+
 export interface CoachTeamUpdatePayload {
   team_ids: string[]
   version_number: number

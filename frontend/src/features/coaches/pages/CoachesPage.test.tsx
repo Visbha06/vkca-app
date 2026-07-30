@@ -5,11 +5,25 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AuthContext, type AuthContextValue } from '@features/auth'
 import CoachesPage from './CoachesPage'
-import { fetchCoachDetails, fetchCoaches } from '../api/coachApi'
+import {
+  createCoach,
+  deactivateCoach,
+  fetchCoachDetails,
+  fetchCoaches,
+  reactivateCoach,
+} from '../api/coachApi'
+import { fetchTeams } from '@features/teams/api/teamApi'
 
 vi.mock('../api/coachApi', () => ({
+  createCoach: vi.fn(),
+  deactivateCoach: vi.fn(),
   fetchCoachDetails: vi.fn(),
   fetchCoaches: vi.fn(),
+  reactivateCoach: vi.fn(),
+}))
+
+vi.mock('@features/teams/api/teamApi', () => ({
+  fetchTeams: vi.fn(),
 }))
 
 afterEach(() => {
@@ -54,5 +68,119 @@ describe('CoachesPage', () => {
     expect(inactiveCard).toHaveAttribute('tabindex', '-1')
     fireEvent.click(inactiveCard)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('opens Add Coach only for a Head Coach', async () => {
+    vi.mocked(fetchCoaches).mockResolvedValue({
+      coaches: [],
+      page: 1,
+      page_size: 12,
+      total_coaches: 0,
+      total_pages: 0,
+      has_previous: false,
+      has_next: false,
+    })
+    vi.mocked(fetchTeams).mockResolvedValue({
+      teams: [],
+      page: 1,
+      page_size: 100,
+      total_teams: 0,
+      total_pages: 0,
+    })
+    render(
+      <AuthContext.Provider value={auth}>
+        <CoachesPage />
+      </AuthContext.Provider>,
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Add Coach' }),
+    )
+    expect(
+      screen.getByRole('dialog', { name: 'Add Assistant Coach' }),
+    ).toBeVisible()
+
+    cleanup()
+    render(
+      <AuthContext.Provider
+        value={{
+          ...auth,
+          user: { ...auth.user!, role: 'assistant coach' },
+        }}
+      >
+        <CoachesPage />
+      </AuthContext.Provider>,
+    )
+    expect(
+      await screen.findByText('No Assistant Coaches have been added yet.'),
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('button', { name: 'Add Coach' }),
+    ).not.toBeInTheDocument()
+    expect(createCoach).not.toHaveBeenCalled()
+    expect(deactivateCoach).not.toHaveBeenCalled()
+    expect(reactivateCoach).not.toHaveBeenCalled()
+  })
+
+  it('adds a created coach to the directory without retaining the password', async () => {
+    vi.mocked(fetchCoaches).mockResolvedValue({
+      coaches: [],
+      page: 1,
+      page_size: 12,
+      total_coaches: 0,
+      total_pages: 0,
+      has_previous: false,
+      has_next: false,
+    })
+    vi.mocked(fetchTeams).mockResolvedValue({
+      teams: [],
+      page: 1,
+      page_size: 100,
+      total_teams: 0,
+      total_pages: 0,
+    })
+    vi.mocked(createCoach).mockResolvedValue({
+      id: 'coach-2',
+      first_name: 'Asha',
+      last_name: 'Patel',
+      email: 'asha@vkca.test',
+      role: 'assistant coach',
+      is_active: true,
+      version_number: 1,
+      created_at: '',
+      updated_at: '',
+      teams: [],
+      temporary_password: 'Aa1!temporary-token',
+    })
+    render(
+      <AuthContext.Provider value={auth}>
+        <CoachesPage />
+      </AuthContext.Provider>,
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Add Coach' }),
+    )
+    fireEvent.change(screen.getByLabelText('First name'), {
+      target: { value: 'Asha' },
+    })
+    fireEvent.change(screen.getByLabelText('Last name'), {
+      target: { value: 'Patel' },
+    })
+    fireEvent.change(screen.getByLabelText('Email address'), {
+      target: { value: 'asha@vkca.test' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create coach' }))
+
+    expect(
+      await screen.findByRole('button', { name: /view asha patel details/i }),
+    ).toBeVisible()
+    expect(
+      screen.getByText('Asha Patel was added successfully.'),
+    ).toBeVisible()
+    expect(screen.getByDisplayValue('Aa1!temporary-token')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    expect(
+      screen.queryByDisplayValue('Aa1!temporary-token'),
+    ).not.toBeInTheDocument()
   })
 })

@@ -65,3 +65,30 @@ def test_coach_create_normalizes_email_and_rejects_duplicate_team_ids() -> None:
             email="asha@vkca.test",
             team_ids=[team_id, team_id],
         )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("first_name", ""),
+        ("first_name", "   "),
+        ("last_name", ""),
+        ("email", ""),
+        ("first_name", "A" * 101),
+        ("last_name", "P" * 101),
+        ("email", f"{'a' * 246}@vkca.test"),
+    ],
+)
+def test_coach_create_validates_required_field_lengths(
+    field: str,
+    value: str,
+) -> None:
+    payload = {
+        "first_name": "Asha",
+        "last_name": "Patel",
+        "email": "asha@vkca.test",
+        field: value,
+    }
+
+    with pytest.raises(ValidationError):
+        CoachCreate.model_validate(payload)

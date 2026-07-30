@@ -1,24 +1,41 @@
 import type { UserRole } from '@features/auth/types/auth'
 import ModalDialog from '@shared/components/overlays/ModalDialog'
+import useCoachStatus from '../../hooks/useCoachStatus'
 import type { CoachResponse } from '../../types/coach'
 import CoachIdentity from './CoachIdentity'
 import CoachRoleBadge from './CoachRoleBadge'
+import CoachStatusToggle from './CoachStatusToggle'
 
 const AVAILABILITY = 'Not available'
 const NOTES_MADE = '0'
 
 interface CoachDetailsModalProps {
   coach: CoachResponse
+  currentUserId: string
   currentUserRole: UserRole
   onClose: () => void
+  onCoachUpdated?: (coach: CoachResponse) => void
+  onCoachReloaded?: (coach: CoachResponse) => void
 }
 
 export default function CoachDetailsModal({
   coach,
+  currentUserId,
   currentUserRole,
   onClose,
+  onCoachUpdated,
+  onCoachReloaded,
 }: CoachDetailsModalProps) {
-  const status = coach.is_active ? 'Active' : 'Inactive'
+  const {
+    currentCoach,
+    handleStatusChange,
+    hasConflict,
+    isReloading,
+    isUpdatingStatus,
+    reloadCoach,
+    statusError,
+  } = useCoachStatus({ coach, onCoachReloaded, onCoachUpdated })
+  const status = currentCoach.is_active ? 'Active' : 'Inactive'
   const canManage = currentUserRole === 'head coach'
 
   return (
@@ -29,15 +46,17 @@ export default function CoachDetailsModal({
     >
       <div className="relative bg-white text-slate-900">
         <header className="border-b border-slate-200 px-5 py-4 pr-16 sm:px-6 sm:pr-16">
-          <CoachIdentity coach={coach} />
+          <CoachIdentity coach={currentCoach} />
           <h2 id="coach-details-title" className="sr-only">
-            {coach.first_name} {coach.last_name}
+            {currentCoach.first_name} {currentCoach.last_name}
           </h2>
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <CoachRoleBadge role={coach.role} />
+            <CoachRoleBadge role={currentCoach.role} />
             <span
               className={`text-sm font-semibold ${
-                coach.is_active ? 'text-emerald-800' : 'text-slate-600'
+                currentCoach.is_active
+                  ? 'text-emerald-800'
+                  : 'text-slate-600'
               }`}
             >
               {status}
@@ -50,11 +69,11 @@ export default function CoachDetailsModal({
             <h3 id="coach-teams-title" className="text-base font-bold text-slate-900">
               Assigned teams
             </h3>
-            {coach.teams.length === 0 ? (
+            {currentCoach.teams.length === 0 ? (
               <p className="mt-2 text-base text-slate-600">No teams assigned</p>
             ) : (
               <ul className="mt-2 space-y-2">
-                {coach.teams.map((team) => (
+                {currentCoach.teams.map((team) => (
                   <li key={team.id} className="text-base text-slate-700">
                     {team.name}
                   </li>
@@ -89,9 +108,33 @@ export default function CoachDetailsModal({
           </section>
 
           {canManage ? (
-            <p className="mt-5 border-t border-slate-200 pt-4 text-sm text-slate-600">
-              Head Coach controls will appear here when account management is enabled.
-            </p>
+            <div className="mt-5 border-t border-slate-200 pt-5">
+              {statusError !== null ? (
+                <div
+                  role="alert"
+                  className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-950"
+                >
+                  <p className="font-semibold">{statusError}</p>
+                  {hasConflict ? (
+                    <button
+                      type="button"
+                      disabled={isReloading}
+                      className="mt-3 min-h-11 rounded-lg border border-red-800 bg-white px-4 font-semibold hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-800 focus:ring-offset-2 disabled:cursor-not-allowed disabled:text-red-400"
+                      onClick={() => void reloadCoach()}
+                    >
+                      {isReloading ? 'Reloading…' : 'Reload'}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+              <CoachStatusToggle
+                coach={currentCoach}
+                currentUserId={currentUserId}
+                currentUserRole={currentUserRole}
+                isUpdating={isUpdatingStatus || isReloading}
+                onStatusChange={handleStatusChange}
+              />
+            </div>
           ) : null}
         </div>
 

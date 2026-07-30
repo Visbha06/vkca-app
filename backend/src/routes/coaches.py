@@ -9,10 +9,55 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.database import get_db
 from src.enums import UserRole
 from src.middleware.auth import AuthenticatedUser, get_current_user, require_role
-from src.schemas.coach import CoachResponse, PaginatedCoachResponse
-from src.services.coach_service import CoachNotFoundError, CoachService
+from src.schemas.coach import (
+    CoachCreate,
+    CoachCreateResponse,
+    CoachResponse,
+    PaginatedCoachResponse,
+)
+from src.services.coach_service import (
+    CoachAlreadyExistsError,
+    CoachNotFoundError,
+    CoachService,
+    CoachTeamValidationError,
+)
 
 router = APIRouter(prefix="/coaches", tags=["coaches"])
+
+
+@router.post(
+    "",
+    response_model=CoachCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_coach(
+    payload: CoachCreate,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _head_coach_access: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH)),
+    ],
+) -> CoachCreateResponse:
+    """Create an Assistant Coach and return its password exactly once."""
+
+    try:
+        coach, temporary_password = await CoachService(session).create_coach(
+            payload
+        )
+    except CoachTeamValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except CoachAlreadyExistsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    return CoachCreateResponse(
+        **coach.model_dump(),
+        temporary_password=temporary_password,
+    )
 
 
 @router.get("", response_model=PaginatedCoachResponse)

@@ -1,6 +1,9 @@
 import { apiClient } from '@shared/api/client'
 import type {
+  CoachCreatePayload,
+  CoachCreateResponse,
   CoachResponse,
+  CoachStatusResponse,
   CoachStatusFilterValue,
   PaginatedCoachResponse,
 } from '../types/coach'
@@ -37,4 +40,33 @@ export function fetchCoaches(
     path,
     signal === undefined ? undefined : { signal },
   )
+}
+
+export function createCoach(payload: CoachCreatePayload) {
+  return apiClient.request<CoachCreateResponse>(COACHES_PATH, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+function updateCoachStatus(
+  coachId: string,
+  action: 'disable' | 'reactivate',
+  versionNumber: number,
+) {
+  return apiClient.request<CoachStatusResponse>(
+    `/api/v1/users/${encodeURIComponent(coachId)}/${action}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ version_number: versionNumber }),
+    },
+  )
+}
+
+export function deactivateCoach(coachId: string, versionNumber: number) {
+  return updateCoachStatus(coachId, 'disable', versionNumber)
+}
+
+export function reactivateCoach(coachId: string, versionNumber: number) {
+  return updateCoachStatus(coachId, 'reactivate', versionNumber)
 }

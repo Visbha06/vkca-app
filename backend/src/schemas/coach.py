@@ -36,6 +36,12 @@ class CoachResponse(BaseModel):
     teams: list[CoachTeamResponse] = Field(default_factory=list)
 
 
+class CoachCreateResponse(CoachResponse):
+    """Creation response containing the one-time plaintext password."""
+
+    temporary_password: str
+
+
 class PaginatedCoachResponse(BaseModel):
     """Server-paginated coach collection metadata."""
 
@@ -55,6 +61,16 @@ class CoachCreate(BaseRequestSchema):
     last_name: str = Field(min_length=1, max_length=100)
     email: str = Field(min_length=1, max_length=255)
     team_ids: list[UUID] = Field(default_factory=list)
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        """Trim names and reject whitespace-only values."""
+
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("must not be blank")
+        return normalized
 
     @field_validator("email")
     @classmethod
@@ -88,3 +104,9 @@ class CoachTeamUpdate(BaseRequestSchema):
         if len(set(self.team_ids)) != len(self.team_ids):
             raise ValueError("team_ids must not contain duplicates")
         return self
+
+
+class CoachStatusUpdate(BaseRequestSchema):
+    """OCC version supplied for a coach account status mutation."""
+
+    version_number: int = Field(ge=1)
