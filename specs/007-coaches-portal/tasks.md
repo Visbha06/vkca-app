@@ -237,12 +237,12 @@
 
 **Purpose**: E2E test, documentation, quickstart validation, integration testing
 
-- [ ] T079 [P] Write `docs/coaches-portal.md` — concise version of spec capturing feature purpose, key user flows, API surface, and configuration changes (MANDATORY per Constitution XII)
-- [ ] T080 Implement Playwright E2E test covering full Head Coach journey: login, open Coaches Portal, create Assistant Coach, view temp password, assign to team, open details, deactivate (confirm card mutes), reactivate, edit team assignments in `frontend/e2e/coaches-flow.spec.ts` (MANDATORY per Constitution V)
-- [ ] T081 [P] Create quickstart integration test at `backend/tests/integration/quickstart/test_007_quickstart_flow.py` validating all 14 backend scenarios from quickstart.md (MANDATORY per Constitution V)
-- [ ] T082 Verify all frontend unit tests pass with `cd frontend && npm run test`
-- [ ] T083 Verify all backend unit tests pass with `cd backend && uv run pytest tests/unit/ -v`
-- [ ] T084 Run quickstart validation: `cd backend && uv run pytest tests/integration/quickstart/test_007_quickstart_flow.py -v`
+- [X] T079 [P] Write `docs/coaches-portal.md` — concise version of spec capturing feature purpose, key user flows, API surface, and configuration changes (MANDATORY per Constitution XII)
+- [X] T080 Implement Playwright E2E test covering full Head Coach journey: login, open Coaches Portal, create Assistant Coach, view temp password, assign to team, open details, deactivate (confirm card mutes), reactivate, edit team assignments in `frontend/e2e/coaches-flow.spec.ts` (MANDATORY per Constitution V)
+- [X] T081 [P] Create quickstart integration test at `backend/tests/integration/quickstart/test_007_quickstart_flow.py` validating all 14 backend scenarios from quickstart.md (MANDATORY per Constitution V)
+- [X] T082 Verify all frontend unit tests pass with `cd frontend && npm run test`
+- [X] T083 Verify all backend unit tests pass with `cd backend && uv run pytest tests/unit/ -v`
+- [X] T084 Run quickstart validation: `cd backend && uv run pytest tests/integration/quickstart/test_007_quickstart_flow.py -v`
 
 ---
 
