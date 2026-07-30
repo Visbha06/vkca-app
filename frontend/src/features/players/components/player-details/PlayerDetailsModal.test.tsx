@@ -93,7 +93,9 @@ describe('PlayerDetailsModal', () => {
 
     fireEvent.keyDown(document, { key: 'Escape' })
     fireEvent.click(screen.getByRole('button', { name: 'Close player details' }))
-    fireEvent.click(screen.getByTestId('player-details-backdrop'))
+    const backdrop = screen.getByTestId('player-details-backdrop')
+    fireEvent.pointerDown(backdrop, { pointerId: 1 })
+    fireEvent.pointerUp(backdrop, { pointerId: 1 })
     expect(onClose).toHaveBeenCalledTimes(3)
   })
 

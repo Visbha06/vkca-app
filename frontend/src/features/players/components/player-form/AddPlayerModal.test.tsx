@@ -172,7 +172,9 @@ describe('AddPlayerModal', () => {
     })
 
     fireEvent.keyDown(document, { key: 'Escape' })
-    fireEvent.click(screen.getByTestId('add-player-backdrop'))
+    const backdrop = screen.getByTestId('add-player-backdrop')
+    fireEvent.pointerDown(backdrop, { pointerId: 1 })
+    fireEvent.pointerUp(backdrop, { pointerId: 1 })
 
     expect(confirm).toHaveBeenCalledTimes(2)
     expect(onClose).not.toHaveBeenCalled()

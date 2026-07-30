@@ -14,7 +14,7 @@ import type { CoachResponse } from '../types/coach'
 export default function CoachesPage() {
   const { user } = useAuth()
   const {
-    dismissSuccessMessage,
+    dismissSuccessToast,
     errorMessage,
     handleCoachAssignmentsChanged,
     handleCoachCreated,
@@ -27,7 +27,7 @@ export default function CoachesPage() {
     listRegionRef,
     result,
     status,
-    successMessage,
+    successToast,
   } = useCoachDirectory()
   const canAddCoach = user?.role === 'head coach'
   const [selectedCoach, setSelectedCoach] = useState<CoachResponse | null>(null)
@@ -78,10 +78,11 @@ export default function CoachesPage() {
         onAdd={() => setIsAddCoachOpen(true)}
         onFilterChange={handleFilterChange}
       />
-      {successMessage ? (
+      {successToast ? (
         <SuccessToast
-          message={successMessage}
-          onDismiss={dismissSuccessMessage}
+          key={successToast.id}
+          message={successToast.message}
+          onDismiss={dismissSuccessToast}
         />
       ) : null}
       <div

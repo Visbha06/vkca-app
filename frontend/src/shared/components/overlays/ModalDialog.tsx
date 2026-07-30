@@ -1,10 +1,10 @@
 import {
   useEffect,
   useRef,
-  type MouseEvent,
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { useBackdropDismiss } from './useModalDialog'
 
 const focusableSelector = [
   'a[href]',
@@ -30,6 +30,7 @@ export default function ModalDialog({
 }: ModalDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const onCloseRef = useRef(onClose)
+  const backdropDismissHandlers = useBackdropDismiss(onClose)
 
   useEffect(() => {
     onCloseRef.current = onClose
@@ -108,10 +109,6 @@ export default function ModalDialog({
     }
   }, [])
 
-  function handleBackdropClick(event: MouseEvent<HTMLDialogElement>) {
-    if (event.target === event.currentTarget) onClose()
-  }
-
   if (typeof document === 'undefined') return null
 
   return createPortal(
@@ -121,7 +118,7 @@ export default function ModalDialog({
       aria-modal="true"
       className="modal-dialog"
       data-testid={testId}
-      onClick={handleBackdropClick}
+      {...backdropDismissHandlers}
     >
       {children}
     </dialog>,

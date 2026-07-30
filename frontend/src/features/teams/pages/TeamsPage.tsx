@@ -6,7 +6,8 @@ import {
   type PlayerResponse,
 } from '@features/players'
 import EmptyState from '@shared/components/feedback/EmptyState'
-import SuccessMessage from '@shared/components/feedback/SuccessMessage'
+import SuccessToast from '@shared/components/feedback/SuccessToast'
+import useSuccessToast from '@shared/hooks/useSuccessToast'
 import TeamCollection from '../components/team-directory/TeamCollection'
 import TeamDirectoryHeader from '../components/team-directory/TeamDirectoryHeader'
 import TeamDetailsModal from '../components/team-details/TeamDetailsModal'
@@ -45,7 +46,11 @@ export default function TeamsPage() {
     team: TeamResponse
     roster: TeamRosterResponse
   } | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const {
+    dismissSuccessToast,
+    showSuccessToast,
+    successToast,
+  } = useSuccessToast()
 
   function handlePlayerInfo(player: TeamRosterSelection) {
     setSelectedTeam(null)
@@ -65,7 +70,7 @@ export default function TeamsPage() {
   }
 
   function handleTeamSaved(team: TeamResponse, action: 'created' | 'updated') {
-    setSuccessMessage(`${team.name} was ${action} successfully.`)
+    showSuccessToast(`${team.name} was ${action} successfully.`)
     setIsCreateTeamOpen(false)
     setEditingTeam(null)
     retry()
@@ -88,8 +93,12 @@ export default function TeamsPage() {
         onSearchChange={setSearchQuery}
       />
 
-      {successMessage !== null ? (
-        <SuccessMessage>{successMessage}</SuccessMessage>
+      {successToast !== null ? (
+        <SuccessToast
+          key={successToast.id}
+          message={successToast.message}
+          onDismiss={dismissSuccessToast}
+        />
       ) : null}
 
       {initialError ? (

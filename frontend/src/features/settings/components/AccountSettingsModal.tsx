@@ -1,7 +1,10 @@
-import { useRef, type MouseEvent } from 'react'
+import { useRef } from 'react'
 import AccountPasswordForm from './AccountPasswordForm'
 import AccountProfileForm from './AccountProfileForm'
-import { useModalDialog } from '@shared/components/overlays/useModalDialog'
+import {
+  useBackdropDismiss,
+  useModalDialog,
+} from '@shared/components/overlays/useModalDialog'
 
 interface AccountSettingsModalProps {
   onClose: () => void
@@ -10,16 +13,13 @@ interface AccountSettingsModalProps {
 export default function AccountSettingsModal({ onClose }: AccountSettingsModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   useModalDialog(dialogRef, onClose)
-
-  function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
-    if (event.target === event.currentTarget) onClose()
-  }
+  const backdropDismissHandlers = useBackdropDismiss(onClose)
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-slate-900/60 p-3 sm:p-6"
       data-testid="account-settings-backdrop"
-      onClick={handleBackdropClick}
+      {...backdropDismissHandlers}
     >
       <div
         ref={dialogRef}

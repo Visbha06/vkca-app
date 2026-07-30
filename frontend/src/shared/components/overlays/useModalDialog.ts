@@ -1,4 +1,10 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type PointerEvent,
+  type RefObject,
+} from 'react'
 
 const focusableSelector = [
   'a[href]',
@@ -11,6 +17,52 @@ const focusableSelector = [
 
 function getFocusableElements(dialog: HTMLElement) {
   return Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector))
+}
+
+export function useBackdropDismiss(onDismiss: () => void) {
+  const onDismissRef = useRef(onDismiss)
+  const pointerDownRef = useRef<{
+    backdrop: EventTarget
+    pointerId: number
+  } | null>(null)
+
+  useEffect(() => {
+    onDismissRef.current = onDismiss
+  }, [onDismiss])
+
+  const resetPointer = useCallback(() => {
+    pointerDownRef.current = null
+  }, [])
+
+  const onPointerDown = useCallback((event: PointerEvent<HTMLElement>) => {
+    pointerDownRef.current =
+      event.target === event.currentTarget
+        ? {
+            backdrop: event.currentTarget,
+            pointerId: event.pointerId,
+          }
+        : null
+  }, [])
+
+  const onPointerUp = useCallback((event: PointerEvent<HTMLElement>) => {
+    const pointerDown = pointerDownRef.current
+    pointerDownRef.current = null
+    if (
+      pointerDown?.backdrop === event.currentTarget &&
+      pointerDown.pointerId === event.pointerId &&
+      event.target === event.currentTarget
+    ) {
+      onDismissRef.current()
+    }
+  }, [])
+
+  useEffect(() => resetPointer, [resetPointer])
+
+  return {
+    onPointerCancel: resetPointer,
+    onPointerDown,
+    onPointerUp,
+  }
 }
 
 export function useModalDialog(

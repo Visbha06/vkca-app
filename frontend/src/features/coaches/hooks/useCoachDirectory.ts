@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import useSuccessToast from '@shared/hooks/useSuccessToast'
 import { fetchCoaches } from '../api/coachApi'
 import type {
   CoachResponse,
@@ -40,12 +41,13 @@ export default function useCoachDirectory() {
   const [isFetching, setIsFetching] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [retryKey, setRetryKey] = useState(0)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const listRegionRef = useRef<HTMLDivElement>(null)
   const focusListAfterLoadRef = useRef(false)
-  const dismissSuccessMessage = useCallback(() => {
-    setSuccessMessage(null)
-  }, [])
+  const {
+    dismissSuccessToast,
+    showSuccessToast,
+    successToast,
+  } = useSuccessToast()
 
   useEffect(() => {
     const controller = new AbortController()
@@ -114,7 +116,7 @@ export default function useCoachDirectory() {
         has_next: current.page < totalPages,
       }
     })
-    setSuccessMessage(
+    showSuccessToast(
       `${coach.first_name} ${coach.last_name} was added successfully.`,
     )
   }
@@ -150,7 +152,7 @@ export default function useCoachDirectory() {
       }
     })
     if (announceStatus) {
-      setSuccessMessage(
+      showSuccessToast(
         `${coach.first_name} ${coach.last_name} is now ${
           coach.is_active ? 'active' : 'inactive'
         }.`,
@@ -160,14 +162,14 @@ export default function useCoachDirectory() {
 
   function handleCoachAssignmentsChanged(coach: CoachResponse) {
     updateCoachInDirectory(coach, false)
-    setSuccessMessage(
+    showSuccessToast(
       `Team assignments for ${coach.first_name} ${coach.last_name} were updated.`,
     )
   }
 
   return {
     errorMessage,
-    dismissSuccessMessage,
+    dismissSuccessToast,
     handleCoachAssignmentsChanged,
     handleCoachCreated,
     handleCoachReloaded: (coach: CoachResponse) =>
@@ -181,6 +183,6 @@ export default function useCoachDirectory() {
     listRegionRef,
     result,
     status,
-    successMessage,
+    successToast,
   }
 }

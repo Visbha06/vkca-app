@@ -1,9 +1,12 @@
-import { useCallback, useRef, useState, type MouseEvent } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { ApiClientError } from '@shared/api/client'
 import { createPlayer } from '../../api/playerApi'
 import type { PlayerCreatePayload, PlayerResponse } from '../../types/player'
 import PlayerForm, { type PlayerFormHandle } from './PlayerForm'
-import { useModalDialog } from '@shared/components/overlays/useModalDialog'
+import {
+  useBackdropDismiss,
+  useModalDialog,
+} from '@shared/components/overlays/useModalDialog'
 
 interface AddPlayerModalProps {
   onClose: () => void
@@ -24,10 +27,7 @@ export default function AddPlayerModal({
     return true
   }, [onClose])
   useModalDialog(dialogRef, requestClose)
-
-  function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
-    if (event.target === event.currentTarget) requestClose()
-  }
+  const backdropDismissHandlers = useBackdropDismiss(requestClose)
 
   async function handleSubmit(payload: PlayerCreatePayload) {
     if (isSubmitting) return
@@ -52,7 +52,7 @@ export default function AddPlayerModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-slate-900/60 p-3 sm:p-6"
       data-testid="add-player-backdrop"
-      onClick={handleBackdropClick}
+      {...backdropDismissHandlers}
     >
       <div
         ref={dialogRef}

@@ -258,7 +258,9 @@ describe('AccountSettingsModal', () => {
     expect(firstField).toHaveFocus()
 
     fireEvent.keyDown(document, { key: 'Escape' })
-    fireEvent.click(screen.getByTestId('account-settings-backdrop'))
+    const backdrop = screen.getByTestId('account-settings-backdrop')
+    fireEvent.pointerDown(backdrop, { pointerId: 1 })
+    fireEvent.pointerUp(backdrop, { pointerId: 1 })
     fireEvent.click(
       screen.getByRole('button', { name: 'Close account settings' }),
     )

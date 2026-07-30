@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AuthContext, type AuthContextValue, type AuthUser } from '@features/auth'
 import { TeamsPage } from '@features/teams'
 import { fetchPlayer } from '@features/players'
-import { fetchTeamRoster, fetchTeams } from '@features/teams/api/teamApi'
+import {
+  fetchTeamRoster,
+  fetchTeams,
+  updateTeam,
+} from '@features/teams/api/teamApi'
 import type { PlayerResponse } from '@features/players'
 import type { TeamResponse } from '@features/teams/types/team'
 
@@ -33,7 +37,32 @@ function renderPage(value = authValue()) {
   return render(<AuthContext.Provider value={value}><TeamsPage /></AuthContext.Provider>)
 }
 
-afterEach(() => { cleanup(); vi.clearAllMocks() })
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+  vi.useRealTimers()
+})
+
+const fullRoster = {
+  team_id: 'team-1',
+  players: Array.from({ length: 7 }, (_, index) => ({
+    player_id: `player-${index + 1}`,
+    first_name: `Player${index + 1}`,
+    last_name: 'VKCA',
+    is_active: true,
+    roster_order: index + 1,
+  })),
+}
+
+async function saveRenamedTeam(nextName: string) {
+  fireEvent.click(await screen.findByRole('button', { name: 'View Falcons' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Edit Team' }))
+  fireEvent.change(screen.getByLabelText('Team name'), {
+    target: { value: nextName },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+  await waitFor(() => expect(updateTeam).toHaveBeenCalledTimes(1))
+}
 
 describe('TeamsPage', () => {
   it('shows loading then team rows, count status, pagination, and role-gated create action', async () => {
@@ -131,5 +160,68 @@ describe('TeamsPage', () => {
     expect(screen.queryByRole('dialog', { name: 'Falcons' })).not.toBeInTheDocument()
     expect(screen.getByRole('dialog', { name: 'Edit Falcons' })).toBeVisible()
     expect(screen.getByLabelText('Team name')).toHaveValue('Falcons')
+  })
+
+  it('renders team success through the shared toast and clears it manually', async () => {
+    vi.mocked(fetchTeams).mockResolvedValue({
+      teams: [team],
+      page: 1,
+      page_size: 12,
+      total_teams: 1,
+      total_pages: 1,
+    })
+    vi.mocked(fetchTeamRoster).mockResolvedValue(fullRoster)
+    vi.mocked(updateTeam).mockResolvedValue({ ...team, name: 'Vulcans I' })
+    const view = renderPage()
+
+    await saveRenamedTeam('Vulcans I')
+
+    const successMessage = await screen.findByText(
+      'Vulcans I was updated successfully.',
+    )
+    expect(successMessage.closest('[role="status"]')?.parentElement).toHaveClass(
+      'fixed',
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(
+      screen.queryByText('Vulcans I was updated successfully.'),
+    ).not.toBeInTheDocument()
+    view.rerender(
+      <AuthContext.Provider value={authValue()}>
+        <TeamsPage />
+      </AuthContext.Provider>,
+    )
+    expect(
+      screen.queryByText('Vulcans I was updated successfully.'),
+    ).not.toBeInTheDocument()
+    view.unmount()
+    renderPage()
+    expect(
+      screen.queryByText('Vulcans I was updated successfully.'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('clears team success automatically after the shared timeout', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.mocked(fetchTeams).mockResolvedValue({
+      teams: [team],
+      page: 1,
+      page_size: 12,
+      total_teams: 1,
+      total_pages: 1,
+    })
+    vi.mocked(fetchTeamRoster).mockResolvedValue(fullRoster)
+    vi.mocked(updateTeam).mockResolvedValue({ ...team, name: 'Vulcans I' })
+    renderPage()
+
+    await saveRenamedTeam('Vulcans I')
+    expect(
+      await screen.findByText('Vulcans I was updated successfully.'),
+    ).toBeVisible()
+
+    act(() => vi.advanceTimersByTime(4500))
+    expect(
+      screen.queryByText('Vulcans I was updated successfully.'),
+    ).not.toBeInTheDocument()
   })
 })

@@ -2,7 +2,6 @@ import {
   useCallback,
   useRef,
   useState,
-  type MouseEvent,
 } from 'react'
 import { ApiClientError } from '@shared/api/client'
 import { fetchPlayer, updatePlayer } from '../../api/playerApi'
@@ -12,7 +11,10 @@ import type {
   PlayerUpdatePayload,
 } from '../../types/player'
 import PlayerForm, { type PlayerFormHandle } from './PlayerForm'
-import { useModalDialog } from '@shared/components/overlays/useModalDialog'
+import {
+  useBackdropDismiss,
+  useModalDialog,
+} from '@shared/components/overlays/useModalDialog'
 
 interface EditPlayerModalProps {
   player: PlayerResponse
@@ -42,12 +44,9 @@ export default function EditPlayerModal({
     return true
   }, [onClose])
   useModalDialog(dialogRef, requestClose)
+  const backdropDismissHandlers = useBackdropDismiss(requestClose)
 
   const fullName = `${currentPlayer.first_name} ${currentPlayer.last_name}`
-
-  function handleBackdropClick(event: MouseEvent<HTMLDivElement>) {
-    if (event.target === event.currentTarget) requestClose()
-  }
 
   async function handleSubmit(payload: PlayerCreatePayload) {
     if (isSubmitting || isReloading) return
@@ -113,7 +112,7 @@ export default function EditPlayerModal({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-slate-900/60 p-3 sm:p-6"
       data-testid="edit-player-backdrop"
-      onClick={handleBackdropClick}
+      {...backdropDismissHandlers}
     >
       <div
         ref={dialogRef}

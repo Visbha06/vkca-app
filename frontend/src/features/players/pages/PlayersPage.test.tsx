@@ -2,6 +2,7 @@
 
 import '@testing-library/jest-dom/vitest'
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -139,6 +140,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  vi.useRealTimers()
 })
 
 describe('PlayersPage', () => {
@@ -384,7 +386,7 @@ describe('PlayersPage', () => {
   })
 
   it('creates a player from the coach action and refreshes the list', async () => {
-    renderPage()
+    const view = renderPage()
     await screen.findByText('Asha Singh')
     fireEvent.click(screen.getByRole('button', { name: 'Add Player' }))
 
@@ -419,10 +421,28 @@ describe('PlayersPage', () => {
 
     await waitFor(() => expect(createPlayer).toHaveBeenCalledTimes(1))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(await screen.findByRole('status')).toHaveTextContent(
+    const successMessage = await screen.findByText(
       'Maya Patel was added successfully.',
     )
+    expect(successMessage.closest('[role="status"]')?.parentElement).toHaveClass(
+      'fixed',
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(
+      screen.queryByText('Maya Patel was added successfully.'),
+    ).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search players' }), {
+      target: { value: 'Maya' },
+    })
+    expect(
+      screen.queryByText('Maya Patel was added successfully.'),
+    ).not.toBeInTheDocument()
     await waitFor(() => expect(fetchPlayers).toHaveBeenCalledTimes(2))
+    view.unmount()
+    renderPage()
+    expect(
+      screen.queryByText('Maya Patel was added successfully.'),
+    ).not.toBeInTheDocument()
   })
 
   it('opens the Add Player modal from the dashboard action query and clears it', async () => {
@@ -436,6 +456,7 @@ describe('PlayersPage', () => {
   })
 
   it('closes details, edits the player, refreshes the list, and reopens fresh details', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     renderPage()
     fireEvent.click(
       await screen.findByRole('button', { name: /view asha singh/i }),
@@ -470,5 +491,9 @@ describe('PlayersPage', () => {
       'Asha-Rae Singh was updated successfully.',
     )
     await waitFor(() => expect(fetchPlayers).toHaveBeenCalledTimes(2))
+    act(() => vi.advanceTimersByTime(4500))
+    expect(
+      screen.queryByText('Asha-Rae Singh was updated successfully.'),
+    ).not.toBeInTheDocument()
   })
 })

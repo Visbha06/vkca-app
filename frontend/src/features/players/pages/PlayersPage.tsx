@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '@features/auth'
-import SuccessMessage from '@shared/components/feedback/SuccessMessage'
+import SuccessToast from '@shared/components/feedback/SuccessToast'
 import PlayerDirectoryResults from '../components/player-directory/PlayerDirectoryResults'
 import PlayersPageHeader from '../components/player-directory/PlayersPageHeader'
 import PlayersPageModals from '../components/PlayersPageModals'
@@ -15,6 +15,7 @@ export default function PlayersPage() {
   const shouldOpenAddPlayer = useInitialAddPlayerAction(canManagePlayers)
   const {
     committedSearch,
+    dismissSuccessToast,
     errorMessage,
     handleClearSearch,
     handleFilterChange,
@@ -27,7 +28,7 @@ export default function PlayersPage() {
     searchInputRef,
     searchQuery,
     setSearchQuery,
-    successMessage,
+    successToast,
     teamFilter,
     teams,
   } = usePlayerDirectory()
@@ -56,8 +57,12 @@ export default function PlayersPage() {
         onSearchChange={setSearchQuery}
       />
 
-      {successMessage ? (
-        <SuccessMessage>{successMessage}</SuccessMessage>
+      {successToast ? (
+        <SuccessToast
+          key={successToast.id}
+          message={successToast.message}
+          onDismiss={dismissSuccessToast}
+        />
       ) : null}
 
       <PlayerDirectoryResults

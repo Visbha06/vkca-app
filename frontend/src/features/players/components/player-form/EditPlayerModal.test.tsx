@@ -223,7 +223,9 @@ describe('EditPlayerModal', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     fireEvent.keyDown(document, { key: 'Escape' })
-    fireEvent.click(screen.getByTestId('edit-player-backdrop'))
+    const backdrop = screen.getByTestId('edit-player-backdrop')
+    fireEvent.pointerDown(backdrop, { pointerId: 1 })
+    fireEvent.pointerUp(backdrop, { pointerId: 1 })
 
     expect(confirm).toHaveBeenCalledTimes(3)
     expect(onClose).not.toHaveBeenCalled()

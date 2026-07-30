@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import useSuccessToast from '@shared/hooks/useSuccessToast'
 import { fetchPlayers, fetchTeamsForFilter } from '../api/playerApi'
 import { UNASSIGNED_FILTER } from '../components/player-directory/TeamFilter'
 import type {
@@ -20,7 +21,6 @@ export default function usePlayerDirectory() {
   const [teamFilter, setTeamFilter] = useState<string | null>(null)
   const [teams, setTeams] = useState<TeamSummary[]>([])
   const [result, setResult] = useState<PaginatedPlayerResponse | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isFetching, setIsFetching] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [retryKey, setRetryKey] = useState(0)
@@ -28,6 +28,11 @@ export default function usePlayerDirectory() {
   const searchInputRef = useRef<HTMLInputElement>(null)
   const listRegionRef = useRef<HTMLDivElement>(null)
   const focusListAfterLoadRef = useRef(false)
+  const {
+    dismissSuccessToast,
+    showSuccessToast,
+    successToast,
+  } = useSuccessToast()
 
   useEffect(() => {
     const controller = new AbortController()
@@ -126,7 +131,7 @@ export default function usePlayerDirectory() {
     player: PlayerResponse,
     action: 'added' | 'updated',
   ) {
-    setSuccessMessage(
+    showSuccessToast(
       `${player.first_name} ${player.last_name} was ${action} successfully.`,
     )
     setIsFetching(true)
@@ -136,6 +141,7 @@ export default function usePlayerDirectory() {
 
   return {
     committedSearch,
+    dismissSuccessToast,
     errorMessage,
     handleClearSearch,
     handleFilterChange,
@@ -148,7 +154,7 @@ export default function usePlayerDirectory() {
     searchInputRef,
     searchQuery,
     setSearchQuery,
-    successMessage,
+    successToast,
     teamFilter,
     teams,
   }
