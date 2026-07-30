@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { ApiClientError } from '@shared/api/client'
 import {
   deactivateCoach,
-  fetchCoachDetails,
   reactivateCoach,
 } from '../api/coachApi'
 import type { CoachResponse } from '../types/coach'
+import useConflictHandler from './useConflictHandler'
 
 interface UseCoachStatusOptions {
   coach: CoachResponse
@@ -20,9 +20,7 @@ export default function useCoachStatus({
 }: UseCoachStatusOptions) {
   const [localCoach, setLocalCoach] = useState<CoachResponse | null>(null)
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
-  const [isReloading, setIsReloading] = useState(false)
   const [statusError, setStatusError] = useState<string | null>(null)
-  const [hasConflict, setHasConflict] = useState(false)
 
   const currentCoach =
     localCoach !== null &&
@@ -30,12 +28,25 @@ export default function useCoachStatus({
     localCoach.version_number >= coach.version_number
       ? localCoach
       : coach
+  const {
+    conflictMessage,
+    handleConflict,
+    hasConflict,
+    isReloading,
+    reloadCoach,
+  } = useConflictHandler({
+    coach: currentCoach,
+    onCoachReloaded: (latestCoach) => {
+      setLocalCoach(latestCoach)
+      setStatusError(null)
+      onCoachReloaded?.(latestCoach)
+    },
+  })
 
   async function handleStatusChange(isActive: boolean) {
     if (isUpdatingStatus) return
     setIsUpdatingStatus(true)
     setStatusError(null)
-    setHasConflict(false)
     try {
       const account = isActive
         ? await reactivateCoach(currentCoach.id, currentCoach.version_number)
@@ -48,11 +59,8 @@ export default function useCoachStatus({
       setLocalCoach(updatedCoach)
       onCoachUpdated?.(updatedCoach)
     } catch (error) {
-      if (error instanceof ApiClientError && error.status === 409) {
-        setHasConflict(true)
-        setStatusError(
-          'This coach was updated by another user. Reload the latest account before trying again.',
-        )
+      if (handleConflict(error)) {
+        setStatusError(null)
       } else if (error instanceof ApiClientError && error.status === 403) {
         setStatusError('You do not have permission to change this account.')
       } else {
@@ -63,23 +71,8 @@ export default function useCoachStatus({
     }
   }
 
-  async function reloadCoach() {
-    if (isReloading) return
-    setIsReloading(true)
-    try {
-      const latestCoach = await fetchCoachDetails(currentCoach.id)
-      setLocalCoach(latestCoach)
-      setStatusError(null)
-      setHasConflict(false)
-      onCoachReloaded?.(latestCoach)
-    } catch {
-      setStatusError('Unable to reload the latest coach. Please try again.')
-    } finally {
-      setIsReloading(false)
-    }
-  }
-
   return {
+    conflictMessage,
     currentCoach,
     handleStatusChange,
     hasConflict,

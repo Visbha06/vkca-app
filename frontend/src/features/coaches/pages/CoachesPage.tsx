@@ -6,6 +6,7 @@ import CoachCardGrid from '../components/coach-directory/CoachCardGrid'
 import CoachesPageHeader from '../components/coach-directory/CoachesPageHeader'
 import CoachDetailsModal from '../components/coach-details/CoachDetailsModal'
 import AddCoachModal from '../components/coach-form/AddCoachModal'
+import TeamAssignmentsModal from '../components/coach-assignments/TeamAssignmentsModal'
 import useCoachDirectory from '../hooks/useCoachDirectory'
 import { fetchCoachDetails } from '../api/coachApi'
 import type { CoachResponse } from '../types/coach'
@@ -14,6 +15,7 @@ export default function CoachesPage() {
   const { user } = useAuth()
   const {
     errorMessage,
+    handleCoachAssignmentsChanged,
     handleCoachCreated,
     handleCoachReloaded,
     handleCoachStatusChanged,
@@ -28,6 +30,8 @@ export default function CoachesPage() {
   } = useCoachDirectory()
   const canAddCoach = user?.role === 'head coach'
   const [selectedCoach, setSelectedCoach] = useState<CoachResponse | null>(null)
+  const [assignmentCoach, setAssignmentCoach] =
+    useState<CoachResponse | null>(null)
   const [isAddCoachOpen, setIsAddCoachOpen] = useState(false)
   const showInitialLoading = isFetching && result === null
   const coaches = result?.coaches ?? []
@@ -51,6 +55,16 @@ export default function CoachesPage() {
     setSelectedCoach(coach)
     if (announceStatus) handleCoachStatusChanged(coach)
     else handleCoachReloaded(coach)
+  }
+
+  function handleEditAssignments(coach: CoachResponse) {
+    setSelectedCoach(null)
+    setAssignmentCoach(coach)
+  }
+
+  function handleAssignmentsSaved(coach: CoachResponse) {
+    handleCoachAssignmentsChanged(coach)
+    setAssignmentCoach(null)
   }
 
   return (
@@ -117,6 +131,16 @@ export default function CoachesPage() {
           onClose={() => setSelectedCoach(null)}
           onCoachUpdated={(coach) => handleStatusUpdate(coach, true)}
           onCoachReloaded={(coach) => handleStatusUpdate(coach, false)}
+          onEditAssignments={handleEditAssignments}
+        />
+      ) : null}
+      {assignmentCoach !== null && user?.role === 'head coach' ? (
+        <TeamAssignmentsModal
+          coach={assignmentCoach}
+          currentUserRole={user.role}
+          onClose={() => setAssignmentCoach(null)}
+          onCoachReloaded={handleCoachReloaded}
+          onSaved={handleAssignmentsSaved}
         />
       ) : null}
       {isAddCoachOpen && canAddCoach ? (

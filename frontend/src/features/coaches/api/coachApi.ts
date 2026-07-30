@@ -5,6 +5,7 @@ import type {
   CoachResponse,
   CoachStatusResponse,
   CoachStatusFilterValue,
+  CoachTeamUpdatePayload,
   PaginatedCoachResponse,
 } from '../types/coach'
 
@@ -69,4 +70,17 @@ export function deactivateCoach(coachId: string, versionNumber: number) {
 
 export function reactivateCoach(coachId: string, versionNumber: number) {
   return updateCoachStatus(coachId, 'reactivate', versionNumber)
+}
+
+export function updateTeamAssignments(
+  coachId: string,
+  payload: CoachTeamUpdatePayload,
+) {
+  return apiClient.request<CoachResponse>(
+    `${COACHES_PATH}/${encodeURIComponent(coachId)}/teams`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
+  )
 }

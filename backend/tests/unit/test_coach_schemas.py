@@ -7,7 +7,12 @@ import pytest
 from pydantic import ValidationError
 
 from src.enums import UserRole
-from src.schemas.coach import CoachCreate, CoachResponse, PaginatedCoachResponse
+from src.schemas.coach import (
+    CoachCreate,
+    CoachResponse,
+    CoachTeamUpdate,
+    PaginatedCoachResponse,
+)
 
 
 def make_coach() -> CoachResponse:
@@ -92,3 +97,31 @@ def test_coach_create_validates_required_field_lengths(
 
     with pytest.raises(ValidationError):
         CoachCreate.model_validate(payload)
+
+
+def test_coach_team_update_accepts_complete_unique_assignment_set() -> None:
+    team_ids = [uuid4(), uuid4()]
+
+    payload = CoachTeamUpdate(team_ids=team_ids, version_number=3)
+
+    assert payload.team_ids == team_ids
+    assert payload.version_number == 3
+
+
+def test_coach_team_update_allows_clearing_assignments() -> None:
+    payload = CoachTeamUpdate(team_ids=[], version_number=1)
+
+    assert payload.team_ids == []
+
+
+def test_coach_team_update_rejects_duplicates_and_invalid_versions() -> None:
+    team_id = uuid4()
+
+    with pytest.raises(ValidationError, match="duplicates"):
+        CoachTeamUpdate(
+            team_ids=[team_id, team_id],
+            version_number=1,
+        )
+
+    with pytest.raises(ValidationError, match="greater than or equal to 1"):
+        CoachTeamUpdate(team_ids=[], version_number=0)

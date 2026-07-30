@@ -11,6 +11,7 @@ import {
   fetchCoachDetails,
   fetchCoaches,
   reactivateCoach,
+  updateTeamAssignments,
 } from '../api/coachApi'
 import { fetchTeams } from '@features/teams/api/teamApi'
 
@@ -20,6 +21,7 @@ vi.mock('../api/coachApi', () => ({
   fetchCoachDetails: vi.fn(),
   fetchCoaches: vi.fn(),
   reactivateCoach: vi.fn(),
+  updateTeamAssignments: vi.fn(),
 }))
 
 vi.mock('@features/teams/api/teamApi', () => ({
@@ -182,5 +184,96 @@ describe('CoachesPage', () => {
     expect(
       screen.queryByDisplayValue('Aa1!temporary-token'),
     ).not.toBeInTheDocument()
+  })
+
+  it('hands off from details to assignment editing without stacking modals', async () => {
+    const activeCoach = {
+      id: 'coach-1',
+      first_name: 'Asha',
+      last_name: 'Patel',
+      email: 'asha@vkca.test',
+      role: 'assistant coach' as const,
+      is_active: true,
+      version_number: 3,
+      created_at: '',
+      updated_at: '',
+      teams: [{ id: 'team-1', name: 'U11 Falcons' }],
+    }
+    vi.mocked(fetchCoaches).mockResolvedValue({
+      coaches: [activeCoach],
+      page: 1,
+      page_size: 12,
+      total_coaches: 1,
+      total_pages: 1,
+      has_previous: false,
+      has_next: false,
+    })
+    vi.mocked(fetchCoachDetails).mockResolvedValue(activeCoach)
+    vi.mocked(fetchTeams).mockResolvedValue({
+      teams: [
+        {
+          id: 'team-1',
+          name: 'U11 Falcons',
+          age_group: 'U11',
+          player_count: 8,
+          created_at: '',
+          updated_at: '',
+          version_number: 1,
+        },
+        {
+          id: 'team-2',
+          name: 'U13 Lions',
+          age_group: 'U13',
+          player_count: 11,
+          created_at: '',
+          updated_at: '',
+          version_number: 1,
+        },
+      ],
+      page: 1,
+      page_size: 100,
+      total_teams: 2,
+      total_pages: 1,
+    })
+    vi.mocked(updateTeamAssignments).mockResolvedValue({
+      ...activeCoach,
+      version_number: 4,
+      teams: [{ id: 'team-2', name: 'U13 Lions' }],
+    })
+    render(
+      <AuthContext.Provider value={auth}>
+        <CoachesPage />
+      </AuthContext.Provider>,
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /view asha patel/i }),
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Edit assignments' }),
+    )
+
+    expect(
+      screen.queryByRole('dialog', { name: 'Asha Patel' }),
+    ).not.toBeInTheDocument()
+    expect(
+      await screen.findByRole('dialog', { name: 'Edit team assignments' }),
+    ).toBeVisible()
+    fireEvent.click(screen.getByRole('checkbox', { name: /U11 Falcons/i }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /U13 Lions/i }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save assignments' }),
+    )
+
+    expect(
+      await screen.findByText(
+        'Team assignments for Asha Patel were updated.',
+      ),
+    ).toBeVisible()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(updateTeamAssignments).toHaveBeenCalledWith(activeCoach.id, {
+      team_ids: ['team-2'],
+      version_number: 3,
+    })
   })
 })

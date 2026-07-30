@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from typing import Literal
 from uuid import UUID
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.engine import Row
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,7 @@ from src.schemas.coach import (
     CoachCreate,
     CoachResponse,
     CoachTeamResponse,
+    CoachTeamUpdate,
     PaginatedCoachResponse,
 )
 from src.services.auth_service import AuthService
@@ -44,10 +45,20 @@ class CoachAlreadyExistsError(Exception):
 
 
 class CoachTeamValidationError(Exception):
-    """Raised when initial assignments reference unknown teams."""
+    """Raised when an assignment set is invalid."""
+
+    def __init__(
+        self,
+        message: str = "team_ids: one or more teams do not exist",
+    ) -> None:
+        super().__init__(message)
+
+
+class CoachInactiveError(Exception):
+    """Raised when assignments are edited for an inactive coach."""
 
     def __init__(self) -> None:
-        super().__init__("team_ids: one or more teams do not exist")
+        super().__init__("Not authorized")
 
 
 class CoachService:
@@ -68,9 +79,7 @@ class CoachService:
             for _, team_id, team_name in rows
             if team_id is not None and team_name is not None
         ]
-        return CoachResponse.model_validate(coach).model_copy(
-            update={"teams": teams}
-        )
+        return CoachResponse.model_validate(coach).model_copy(update={"teams": teams})
 
     @staticmethod
     def generate_temporary_password() -> str:
@@ -117,10 +126,7 @@ class CoachService:
         try:
             await self.session.flush()
             self.session.add_all(
-                [
-                    TeamCoach(team_id=team.id, user_id=coach.id)
-                    for team in teams
-                ]
+                [TeamCoach(team_id=team.id, user_id=coach.id) for team in teams]
             )
             await self.session.commit()
         except IntegrityError as exc:
@@ -134,8 +140,7 @@ class CoachService:
         response = CoachResponse.model_validate(coach).model_copy(
             update={
                 "teams": [
-                    CoachTeamResponse(id=team.id, name=team.name)
-                    for team in teams
+                    CoachTeamResponse(id=team.id, name=team.name) for team in teams
                 ]
             }
         )
@@ -166,10 +171,7 @@ class CoachService:
             criteria.append(User.is_active.is_(False))
 
         total_coaches = int(
-            await self.session.scalar(
-                select(func.count(User.id)).where(*criteria)
-            )
-            or 0
+            await self.session.scalar(select(func.count(User.id)).where(*criteria)) or 0
         )
         order = (
             case((User.role == UserRole.HEAD_COACH, 0), else_=1),
@@ -267,6 +269,59 @@ class CoachService:
                     reason="user_disabled",
                     target_resource=f"/api/v1/users/{coach.id}/disable",
                 )
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
+
+        return await self.get_coach(coach_id)
+
+    async def update_team_assignments(
+        self,
+        coach_id: UUID,
+        payload: CoachTeamUpdate,
+    ) -> CoachResponse:
+        """Atomically replace an active coach's complete assignment set."""
+
+        coach = await self.session.get(User, coach_id)
+        if coach is None or coach.role not in {
+            UserRole.HEAD_COACH,
+            UserRole.ASSISTANT_COACH,
+        }:
+            raise CoachNotFoundError
+        if not coach.is_active:
+            raise CoachInactiveError
+        if len(set(payload.team_ids)) != len(payload.team_ids):
+            raise CoachTeamValidationError(
+                "team_ids: assignments must not contain duplicates"
+            )
+
+        if payload.team_ids:
+            team_result = await self.session.scalars(
+                select(Team)
+                .where(Team.id.in_(payload.team_ids))
+                .order_by(Team.name, Team.id)
+            )
+            teams = list(team_result.all())
+            if {team.id for team in teams} != set(payload.team_ids):
+                raise CoachTeamValidationError
+
+        try:
+            coach.version_number = await check_and_increment_version(
+                self.session,
+                User,
+                coach_id,
+                payload.version_number,
+            )
+            await self.session.execute(
+                delete(TeamCoach).where(TeamCoach.user_id == coach_id)
+            )
+            self.session.add_all(
+                [
+                    TeamCoach(team_id=team_id, user_id=coach_id)
+                    for team_id in payload.team_ids
+                ]
+            )
             await self.session.commit()
         except Exception:
             await self.session.rollback()

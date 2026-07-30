@@ -77,6 +77,40 @@ describe('CoachDetailsModal', () => {
 
     expect(screen.getByText('No teams assigned')).toBeVisible()
     expect(screen.queryByText('Head Coach controls')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Edit assignments' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('allows a Head Coach to edit any active coach assignments, including self', () => {
+    const onEditAssignments = vi.fn()
+    const { rerender } = render(
+      <CoachDetailsModal
+        coach={coach}
+        currentUserId={coach.id}
+        currentUserRole="head coach"
+        onClose={vi.fn()}
+        onEditAssignments={onEditAssignments}
+      />,
+    )
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Edit assignments' }),
+    )
+    expect(onEditAssignments).toHaveBeenCalledWith(coach)
+
+    rerender(
+      <CoachDetailsModal
+        coach={{ ...coach, is_active: false }}
+        currentUserId="head-2"
+        currentUserRole="head coach"
+        onClose={vi.fn()}
+        onEditAssignments={onEditAssignments}
+      />,
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Edit assignments' }),
+    ).not.toBeInTheDocument()
   })
 
   it('closes with Escape and the close control while trapping focus', () => {
@@ -95,7 +129,7 @@ describe('CoachDetailsModal', () => {
     expect(close).toHaveFocus()
     fireEvent.keyDown(document, { key: 'Tab' })
     expect(
-      screen.getByRole('button', { name: 'Deactivate coach' }),
+      screen.getByRole('button', { name: 'Edit assignments' }),
     ).toHaveFocus()
     fireEvent.keyDown(document, { key: 'Escape' })
     fireEvent.click(close)

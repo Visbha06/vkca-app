@@ -12,11 +12,15 @@ from src.database import get_db
 from src.enums import UserRole
 from src.main import app
 from src.middleware.auth import get_current_user
+from src.models.user import User
 from src.schemas.coach import CoachResponse, PaginatedCoachResponse
 from src.services.coach_service import (
     CoachAlreadyExistsError,
+    CoachInactiveError,
     CoachNotFoundError,
+    CoachTeamValidationError,
 )
+from src.services.occ import StaleVersionError
 from src.services.user_service import UserNotFoundError
 
 
@@ -42,6 +46,7 @@ def service_mock(mocker):
     service.create_coach = AsyncMock()
     service.get_coach = AsyncMock()
     service.list_coaches = AsyncMock()
+    service.update_team_assignments = AsyncMock()
     mocker.patch("src.routes.coaches.CoachService", return_value=service)
     return service
 
@@ -169,9 +174,7 @@ async def test_create_coach_returns_one_time_password(
     client,
     service_mock,
 ) -> None:
-    coach = make_coach().model_copy(
-        update={"role": UserRole.ASSISTANT_COACH}
-    )
+    coach = make_coach().model_copy(update={"role": UserRole.ASSISTANT_COACH})
     service_mock.create_coach.return_value = (coach, "Aa1!temporary-token")
 
     result = await client.post(
@@ -195,9 +198,7 @@ async def test_create_coach_rejects_duplicate_and_missing_fields(
     client,
     service_mock,
 ) -> None:
-    service_mock.create_coach.side_effect = CoachAlreadyExistsError(
-        "asha@vkca.test"
-    )
+    service_mock.create_coach.side_effect = CoachAlreadyExistsError("asha@vkca.test")
     duplicate = await client.post(
         "/api/v1/coaches",
         json={
@@ -354,3 +355,112 @@ async def test_reactivate_user_handles_permissions_and_missing_user(
         json={"version_number": 1},
     )
     assert forbidden.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_update_coach_teams_returns_atomic_replacement(
+    client,
+    service_mock,
+) -> None:
+    coach = make_coach().model_copy(update={"version_number": 4})
+    team_ids = [uuid4(), uuid4()]
+    service_mock.update_team_assignments.return_value = coach
+
+    result = await client.put(
+        f"/api/v1/coaches/{coach.id}/teams",
+        json={
+            "team_ids": [str(team_id) for team_id in team_ids],
+            "version_number": 3,
+        },
+    )
+
+    assert result.status_code == 200
+    assert result.json() == coach.model_dump(mode="json")
+    payload = service_mock.update_team_assignments.await_args.args[1]
+    assert payload.team_ids == team_ids
+    assert payload.version_number == 3
+
+
+@pytest.mark.asyncio
+async def test_update_coach_teams_rejects_duplicate_team_ids(
+    client,
+    service_mock,
+) -> None:
+    coach_id = uuid4()
+    team_id = uuid4()
+
+    result = await client.put(
+        f"/api/v1/coaches/{coach_id}/teams",
+        json={
+            "team_ids": [str(team_id), str(team_id)],
+            "version_number": 1,
+        },
+    )
+
+    assert result.status_code == 400
+    assert "duplicates" in result.json()["detail"]
+    service_mock.update_team_assignments.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("exception", "expected_status"),
+    [
+        (CoachInactiveError(), 403),
+        (CoachTeamValidationError(), 400),
+    ],
+)
+async def test_update_coach_teams_maps_domain_errors(
+    client,
+    service_mock,
+    exception: Exception,
+    expected_status: int,
+) -> None:
+    coach_id = uuid4()
+    service_mock.update_team_assignments.side_effect = exception
+
+    result = await client.put(
+        f"/api/v1/coaches/{coach_id}/teams",
+        json={"team_ids": [str(uuid4())], "version_number": 1},
+    )
+
+    assert result.status_code == expected_status
+
+
+@pytest.mark.asyncio
+async def test_update_coach_teams_returns_conflict_for_stale_version(
+    client,
+    service_mock,
+) -> None:
+    coach_id = uuid4()
+    service_mock.update_team_assignments.side_effect = StaleVersionError(
+        User,
+        coach_id,
+        1,
+    )
+
+    result = await client.put(
+        f"/api/v1/coaches/{coach_id}/teams",
+        json={"team_ids": [], "version_number": 1},
+    )
+
+    assert result.status_code == 409
+    assert "Stale version" in result.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_update_coach_teams_requires_head_coach(
+    client,
+    service_mock,
+) -> None:
+    async def assistant_coach_user():
+        return Mock(id=uuid4(), role=UserRole.ASSISTANT_COACH), Mock()
+
+    app.dependency_overrides[get_current_user] = assistant_coach_user
+    result = await client.put(
+        f"/api/v1/coaches/{uuid4()}/teams",
+        json={"team_ids": [], "version_number": 1},
+    )
+
+    assert result.status_code == 403
+    service_mock.update_team_assignments.assert_not_awaited()

@@ -195,21 +195,21 @@
 
 ### Tests for User Story 5 (MANDATORY) ⚠️
 
-- [ ] T067 [P] [US5] Unit tests for `PUT /coaches/{id}/teams` route: successful replacement, duplicate team rejection, inactive-coach 403, stale version 409, invalid team_id 400 in `backend/tests/unit/test_coach_routes.py`
-- [ ] T068 [P] [US5] Unit tests for `CoachTeamUpdate` schema validation in `backend/tests/unit/test_coach_schemas.py`
-- [ ] T069 [P] [US5] Unit tests for `CoachService.update_team_assignments`: atomic delete-all+insert-all, duplicate prevention, version_number increment on success, team validation in `backend/tests/unit/test_coach_service.py`
-- [ ] T070 [P] [US5] Unit tests for `TeamAssignmentsModal` component: renders all teams, shows current assignments, add/remove behavior, submission, unsaved-changes confirmation, visibility gated by role and active status in `frontend/src/features/coaches/components/coach-assignments/TeamAssignmentsModal.test.tsx`
+- [X] T067 [P] [US5] Unit tests for `PUT /coaches/{id}/teams` route: successful replacement, duplicate team rejection, inactive-coach 403, stale version 409, invalid team_id 400 in `backend/tests/unit/test_coach_routes.py`
+- [X] T068 [P] [US5] Unit tests for `CoachTeamUpdate` schema validation in `backend/tests/unit/test_coach_schemas.py`
+- [X] T069 [P] [US5] Unit tests for `CoachService.update_team_assignments`: atomic delete-all+insert-all, duplicate prevention, version_number increment on success, team validation in `backend/tests/unit/test_coach_service.py`
+- [X] T070 [P] [US5] Unit tests for `TeamAssignmentsModal` component: renders all teams, shows current assignments, add/remove behavior, submission, unsaved-changes confirmation, visibility gated by role and active status in `frontend/src/features/coaches/components/coach-assignments/TeamAssignmentsModal.test.tsx`
 
 ### Backend Implementation for User Story 5
 
-- [ ] T071 [US5] Implement `CoachService.update_team_assignments`: accept user_id, team_ids list, version_number; validate all team_ids exist; delete all existing TeamCoach rows for user_id; insert new TeamCoach rows; increment coach user's version_number via `check_and_increment_version`; commit atomically in `backend/src/services/coach_service.py`
-- [ ] T072 [US5] Implement `PUT /coaches/{coach_id}/teams` route: require Head Coach role, check coach is active (403 if inactive), accept `CoachTeamUpdate` payload, return updated `CoachResponse` in `backend/src/routes/coaches.py`
+- [X] T071 [US5] Implement `CoachService.update_team_assignments`: accept user_id, team_ids list, version_number; validate all team_ids exist; delete all existing TeamCoach rows for user_id; insert new TeamCoach rows; increment coach user's version_number via `check_and_increment_version`; commit atomically in `backend/src/services/coach_service.py`
+- [X] T072 [US5] Implement `PUT /coaches/{coach_id}/teams` route: require Head Coach role, check coach is active (403 if inactive), accept `CoachTeamUpdate` payload, return updated `CoachResponse` in `backend/src/routes/coaches.py`
 
 ### Frontend Implementation for User Story 5
 
-- [ ] T073 [US5] Implement `coachApi.updateTeamAssignments` function sending team_ids and version_number, handling 400/403/409 responses in `frontend/src/features/coaches/api/coachApi.ts`
-- [ ] T074 [US5] Implement `TeamAssignmentsModal` component using `ModalDialog`: display all available teams (fetched via existing teams API), show currently assigned teams as selected, allow add/remove with duplicate prevention, submit sends complete team_ids set + version_number, loading/submission/success/error/validation states, unsaved-changes confirmation on close in `frontend/src/features/coaches/components/coach-assignments/TeamAssignmentsModal.tsx`
-- [ ] T075 [US5] Wire "Edit Assignments" button into `CoachDetailsModal`: visible only to Head Coach for active coaches (including self), closes details modal then opens `TeamAssignmentsModal` (no stacked modals). On success, refresh coach card and details data in `frontend/src/features/coaches/components/coach-details/CoachDetailsModal.tsx` and `frontend/src/features/coaches/pages/CoachesPage.tsx`
+- [X] T073 [US5] Implement `coachApi.updateTeamAssignments` function sending team_ids and version_number, handling 400/403/409 responses in `frontend/src/features/coaches/api/coachApi.ts`
+- [X] T074 [US5] Implement `TeamAssignmentsModal` component using `ModalDialog`: display all available teams (fetched via existing teams API), show currently assigned teams as selected, allow add/remove with duplicate prevention, submit sends complete team_ids set + version_number, loading/submission/success/error/validation states, unsaved-changes confirmation on close in `frontend/src/features/coaches/components/coach-assignments/TeamAssignmentsModal.tsx`
+- [X] T075 [US5] Wire "Edit Assignments" button into `CoachDetailsModal`: visible only to Head Coach for active coaches (including self), closes details modal then opens `TeamAssignmentsModal` (no stacked modals). On success, refresh coach card and details data in `frontend/src/features/coaches/components/coach-details/CoachDetailsModal.tsx` and `frontend/src/features/coaches/pages/CoachesPage.tsx`
 
 **Checkpoint**: Team assignments fully editable for active coaches by Head Coach.
 
@@ -225,9 +225,9 @@
 
 *Note: OCC backend enforcement (HTTP 409 on stale version) was already built into US4 (T063) and US5 (T071). This phase adds consistent frontend conflict handling and the reload flow.*
 
-- [ ] T076 [US6] Create shared `useConflictHandler` hook: detect 409 responses, manage conflict state (stale data, conflict message, reload action), return handler for wrapping API calls in `frontend/src/features/coaches/hooks/useConflictHandler.ts`
-- [ ] T077 [US6] Integrate `useConflictHandler` into `CoachDetailsModal` for status toggle and assignment edit flows: on 409, show conflict message inline with "Reload" button; on reload, fetch fresh coach data, update version_number, clear conflict state in `frontend/src/features/coaches/components/coach-details/CoachDetailsModal.tsx`
-- [ ] T078 [P] [US6] Unit tests for conflict handler hook: 409 detection, stale state management, reload flow in `frontend/src/features/coaches/hooks/useConflictHandler.test.ts`
+- [X] T076 [US6] Create shared `useConflictHandler` hook: detect 409 responses, manage conflict state (stale data, conflict message, reload action), return handler for wrapping API calls in `frontend/src/features/coaches/hooks/useConflictHandler.ts`
+- [X] T077 [US6] Integrate `useConflictHandler` into `CoachDetailsModal` for status toggle and assignment edit flows: on 409, show conflict message inline with "Reload" button; on reload, fetch fresh coach data, update version_number, clear conflict state in `frontend/src/features/coaches/components/coach-details/CoachDetailsModal.tsx`
+- [X] T078 [P] [US6] Unit tests for conflict handler hook: 409 detection, stale state management, reload flow in `frontend/src/features/coaches/hooks/useConflictHandler.test.ts`
 
 **Checkpoint**: Concurrent edit conflicts handled gracefully with reload flow across both status and assignment operations.
 

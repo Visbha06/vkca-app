@@ -10,9 +10,10 @@ import pytest
 from src.enums import UserRole
 from src.models.team_coach import TeamCoach
 from src.models.user import User
-from src.schemas.coach import CoachCreate
+from src.schemas.coach import CoachCreate, CoachTeamUpdate
 from src.services.coach_service import (
     CoachAlreadyExistsError,
+    CoachInactiveError,
     CoachService,
     CoachTeamValidationError,
 )
@@ -246,3 +247,131 @@ async def test_toggle_coach_status_uses_occ_and_only_revokes_on_deactivate(
             reason="user_disabled",
             target_resource=f"/api/v1/users/{coach.id}/disable",
         )
+
+
+@pytest.mark.asyncio
+async def test_update_team_assignments_atomically_replaces_all_and_increments_version(
+    mocker,
+) -> None:
+    coach = CoachEntity(role=UserRole.ASSISTANT_COACH)
+    team_ids = [uuid4(), uuid4()]
+    teams = [
+        SimpleNamespace(id=team_ids[0], name="U11 Falcons"),
+        SimpleNamespace(id=team_ids[1], name="U13 Lions"),
+    ]
+    session = Mock()
+    session.get = AsyncMock(return_value=coach)
+    team_result = Mock()
+    team_result.all.return_value = teams
+    session.scalars = AsyncMock(return_value=team_result)
+    session.execute = AsyncMock()
+    session.add_all = Mock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    service = CoachService(session)
+    updated_response = Mock()
+    service.get_coach = AsyncMock(return_value=updated_response)
+    increment = mocker.patch(
+        "src.services.coach_service.check_and_increment_version",
+        new=AsyncMock(return_value=2),
+    )
+
+    result = await service.update_team_assignments(
+        coach.id,
+        CoachTeamUpdate(team_ids=team_ids, version_number=1),
+    )
+
+    assert result is updated_response
+    increment.assert_awaited_once_with(session, User, coach.id, 1)
+    delete_statement = session.execute.await_args.args[0]
+    assert "DELETE FROM team_coaches" in str(delete_statement)
+    memberships = session.add_all.call_args.args[0]
+    assert {membership.team_id for membership in memberships} == set(team_ids)
+    assert all(membership.user_id == coach.id for membership in memberships)
+    assert coach.version_number == 2
+    session.commit.assert_awaited_once()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_team_assignments_rejects_duplicate_ids_before_writes() -> None:
+    coach = CoachEntity(role=UserRole.ASSISTANT_COACH)
+    team_id = uuid4()
+    session = Mock()
+    session.get = AsyncMock(return_value=coach)
+    session.scalars = AsyncMock()
+    session.execute = AsyncMock()
+    session.commit = AsyncMock()
+    payload = CoachTeamUpdate.model_construct(
+        team_ids=[team_id, team_id],
+        version_number=1,
+    )
+
+    with pytest.raises(CoachTeamValidationError, match="duplicates"):
+        await CoachService(session).update_team_assignments(coach.id, payload)
+
+    session.scalars.assert_not_awaited()
+    session.execute.assert_not_awaited()
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_team_assignments_validates_teams_and_active_status() -> None:
+    coach = CoachEntity(role=UserRole.ASSISTANT_COACH)
+    missing_team_id = uuid4()
+    session = Mock()
+    session.get = AsyncMock(return_value=coach)
+    team_result = Mock()
+    team_result.all.return_value = []
+    session.scalars = AsyncMock(return_value=team_result)
+    session.execute = AsyncMock()
+    session.commit = AsyncMock()
+
+    with pytest.raises(CoachTeamValidationError, match="do not exist"):
+        await CoachService(session).update_team_assignments(
+            coach.id,
+            CoachTeamUpdate(team_ids=[missing_team_id], version_number=1),
+        )
+
+    session.execute.assert_not_awaited()
+    session.commit.assert_not_awaited()
+
+    coach.is_active = False
+    session.scalars.reset_mock()
+    with pytest.raises(CoachInactiveError):
+        await CoachService(session).update_team_assignments(
+            coach.id,
+            CoachTeamUpdate(team_ids=[], version_number=1),
+        )
+    session.scalars.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_team_assignments_rolls_back_failed_replacement(
+    mocker,
+) -> None:
+    coach = CoachEntity(role=UserRole.ASSISTANT_COACH)
+    team_id = uuid4()
+    team = SimpleNamespace(id=team_id, name="U13 Lions")
+    session = Mock()
+    session.get = AsyncMock(return_value=coach)
+    team_result = Mock()
+    team_result.all.return_value = [team]
+    session.scalars = AsyncMock(return_value=team_result)
+    session.execute = AsyncMock()
+    session.add_all = Mock(side_effect=RuntimeError("insert failed"))
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    mocker.patch(
+        "src.services.coach_service.check_and_increment_version",
+        new=AsyncMock(return_value=2),
+    )
+
+    with pytest.raises(RuntimeError, match="insert failed"):
+        await CoachService(session).update_team_assignments(
+            coach.id,
+            CoachTeamUpdate(team_ids=[team_id], version_number=1),
+        )
+
+    session.rollback.assert_awaited_once()
+    session.commit.assert_not_awaited()

@@ -13,10 +13,12 @@ from src.schemas.coach import (
     CoachCreate,
     CoachCreateResponse,
     CoachResponse,
+    CoachTeamUpdate,
     PaginatedCoachResponse,
 )
 from src.services.coach_service import (
     CoachAlreadyExistsError,
+    CoachInactiveError,
     CoachNotFoundError,
     CoachService,
     CoachTeamValidationError,
@@ -41,9 +43,7 @@ async def create_coach(
     """Create an Assistant Coach and return its password exactly once."""
 
     try:
-        coach, temporary_password = await CoachService(session).create_coach(
-            payload
-        )
+        coach, temporary_password = await CoachService(session).create_coach(payload)
     except CoachTeamValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -109,3 +109,37 @@ async def get_coach(
             detail="Not authorized",
         )
     return coach
+
+
+@router.put("/{coach_id}/teams", response_model=CoachResponse)
+async def update_coach_team_assignments(
+    coach_id: UUID,
+    payload: CoachTeamUpdate,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _head_coach_access: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH)),
+    ],
+) -> CoachResponse:
+    """Replace an active coach's complete team assignment set."""
+
+    try:
+        return await CoachService(session).update_team_assignments(
+            coach_id,
+            payload,
+        )
+    except CoachInactiveError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized",
+        ) from exc
+    except CoachTeamValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except CoachNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Coach not found",
+        ) from exc

@@ -16,6 +16,7 @@ interface CoachDetailsModalProps {
   onClose: () => void
   onCoachUpdated?: (coach: CoachResponse) => void
   onCoachReloaded?: (coach: CoachResponse) => void
+  onEditAssignments?: (coach: CoachResponse) => void
 }
 
 export default function CoachDetailsModal({
@@ -25,9 +26,11 @@ export default function CoachDetailsModal({
   onClose,
   onCoachUpdated,
   onCoachReloaded,
+  onEditAssignments,
 }: CoachDetailsModalProps) {
   const {
     currentCoach,
+    conflictMessage,
     handleStatusChange,
     hasConflict,
     isReloading,
@@ -37,6 +40,7 @@ export default function CoachDetailsModal({
   } = useCoachStatus({ coach, onCoachReloaded, onCoachUpdated })
   const status = currentCoach.is_active ? 'Active' : 'Inactive'
   const canManage = currentUserRole === 'head coach'
+  const canEditAssignments = canManage && currentCoach.is_active
 
   return (
     <ModalDialog
@@ -80,6 +84,15 @@ export default function CoachDetailsModal({
                 ))}
               </ul>
             )}
+            {canEditAssignments ? (
+              <button
+                type="button"
+                className="mt-4 min-h-11 rounded-lg border border-academy bg-white px-4 text-sm font-semibold text-slate-900 transition-colors hover:bg-academy/10 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2"
+                onClick={() => onEditAssignments?.(currentCoach)}
+              >
+                Edit assignments
+              </button>
+            ) : null}
           </section>
 
           <section
@@ -109,12 +122,14 @@ export default function CoachDetailsModal({
 
           {canManage ? (
             <div className="mt-5 border-t border-slate-200 pt-5">
-              {statusError !== null ? (
+              {statusError !== null || conflictMessage !== null ? (
                 <div
                   role="alert"
                   className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-950"
                 >
-                  <p className="font-semibold">{statusError}</p>
+                  <p className="font-semibold">
+                    {conflictMessage ?? statusError}
+                  </p>
                   {hasConflict ? (
                     <button
                       type="button"
@@ -131,7 +146,7 @@ export default function CoachDetailsModal({
                 coach={currentCoach}
                 currentUserId={currentUserId}
                 currentUserRole={currentUserRole}
-                isUpdating={isUpdatingStatus || isReloading}
+                isUpdating={isUpdatingStatus || isReloading || hasConflict}
                 onStatusChange={handleStatusChange}
               />
             </div>

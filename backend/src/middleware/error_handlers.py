@@ -17,18 +17,21 @@ async def validation_error_handler(
     request: Request,
     exc: Exception,
 ) -> Response:
-    """Use the coaches creation contract's field-oriented HTTP 400 response."""
+    """Use coach mutation contracts' field-oriented HTTP 400 response."""
 
     if not isinstance(exc, RequestValidationError):
         raise exc
-    if (
-        request.method == "POST"
-        and request.url.path == "/api/v1/coaches"
-    ):
+    is_coach_creation = (
+        request.method == "POST" and request.url.path == "/api/v1/coaches"
+    )
+    is_assignment_update = (
+        request.method == "PUT"
+        and request.url.path.startswith("/api/v1/coaches/")
+        and request.url.path.endswith("/teams")
+    )
+    if is_coach_creation or is_assignment_update:
         error = exc.errors()[0]
-        field_path = ".".join(
-            str(part) for part in error["loc"] if part != "body"
-        )
+        field_path = ".".join(str(part) for part in error["loc"] if part != "body")
         detail = f"{field_path}: {error['msg']}" if field_path else error["msg"]
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,

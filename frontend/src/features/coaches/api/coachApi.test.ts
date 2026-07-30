@@ -6,6 +6,7 @@ import {
   fetchCoachDetails,
   fetchCoaches,
   reactivateCoach,
+  updateTeamAssignments,
 } from './coachApi'
 import type { CoachCreatePayload } from '../types/coach'
 
@@ -73,6 +74,24 @@ describe('coach API client', () => {
       {
         method: 'POST',
         body: JSON.stringify({ version_number: 4 }),
+      },
+    )
+  })
+
+  it('replaces team assignments with the complete typed set and OCC version', async () => {
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({})
+    const payload = {
+      team_ids: ['team-1', 'team-2'],
+      version_number: 5,
+    }
+
+    await updateTeamAssignments('coach/one', payload)
+
+    expect(request).toHaveBeenCalledWith(
+      '/api/v1/coaches/coach%2Fone/teams',
+      {
+        method: 'PUT',
+        body: JSON.stringify(payload),
       },
     )
   })

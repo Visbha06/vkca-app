@@ -155,8 +155,16 @@ export default function useCoachDirectory() {
     }
   }
 
+  function handleCoachAssignmentsChanged(coach: CoachResponse) {
+    updateCoachInDirectory(coach, false)
+    setSuccessMessage(
+      `Team assignments for ${coach.first_name} ${coach.last_name} were updated.`,
+    )
+  }
+
   return {
     errorMessage,
+    handleCoachAssignmentsChanged,
     handleCoachCreated,
     handleCoachReloaded: (coach: CoachResponse) =>
       updateCoachInDirectory(coach, false),
