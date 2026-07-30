@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { apiClient } from '@shared/api/client'
 import PasswordInput from '@shared/components/forms/PasswordInput'
 import { useAuth, type PasswordChangeRequest } from '@features/auth'

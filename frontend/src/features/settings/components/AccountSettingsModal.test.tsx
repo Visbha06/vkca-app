@@ -14,7 +14,7 @@ import {
   Route,
   Routes,
   useLocation,
-} from 'react-router-dom'
+} from 'react-router'
 import { apiClient } from '@shared/api/client'
 import { AuthContext, type AuthContextValue, type AuthUser } from '@features/auth'
 import AccountSettingsModal from '@features/settings/components/AccountSettingsModal'

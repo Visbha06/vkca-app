@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router'
 import PasswordVisibilityIcon from '@shared/components/forms/PasswordVisibilityIcon'
 import { useAuth } from '../context/AuthContext'
 import { DesktopLoginBrand, MobileLoginBrand } from '../components/LoginBrand'

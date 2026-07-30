@@ -10,7 +10,7 @@ import {
   waitFor,
 } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { MemoryRouter, useLocation } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router'
 import { AuthContext, type AuthContextValue, type AuthUser } from '@features/auth'
 import { PlayersPage } from '@features/players'
 import type {

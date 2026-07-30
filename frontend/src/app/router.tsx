@@ -2,7 +2,7 @@ import {
   createBrowserRouter,
   createMemoryRouter,
   type RouteObject,
-} from 'react-router-dom'
+} from 'react-router'
 import { GuestRoute, LoginPage, ProtectedRoute } from '@features/auth'
 import AppLayout from '@/layouts/AppLayout'
 import CalendarPage from '@/pages/CalendarPage'

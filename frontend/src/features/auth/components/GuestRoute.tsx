@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react'
-import { Navigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router'
 import { useAuth } from '../context/AuthContext'
 
 function getRedirectTarget(redirect: string | null) {

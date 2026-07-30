@@ -7,9 +7,9 @@ import {
   createMemoryRouter,
   MemoryRouter,
   Route,
-  RouterProvider,
   Routes,
-} from 'react-router-dom'
+} from 'react-router'
+import { RouterProvider } from 'react-router/dom'
 import { appRoutes } from '@app/router'
 import { AuthContext, type AuthContextValue } from '@features/auth'
 import AppLayout from './AppLayout'

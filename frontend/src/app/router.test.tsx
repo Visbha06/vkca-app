@@ -1,7 +1,8 @@
 // @vitest-environment node
 
 import { renderToStaticMarkup } from 'react-dom/server'
-import { createMemoryRouter, RouterProvider } from 'react-router-dom'
+import { createMemoryRouter } from 'react-router'
+import { RouterProvider } from 'react-router/dom'
 import { describe, expect, it } from 'vitest'
 import { appRoutes } from '@app/router'
 import { AuthContext, type AuthContextValue } from '@features/auth'

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import { CalendarIcon, PerformanceIcon, PlayersIcon } from '@shared/components/icons/NavIcons'
 
 const upcomingEvents = [
