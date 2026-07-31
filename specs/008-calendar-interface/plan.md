@@ -8,7 +8,7 @@
 
 Build the authenticated VKCA Calendar page as a custom, accessible monthly grid with a Today briefing and coach-only event management. Add a PostgreSQL-backed event definition model with optional weekly/yearly recurrence and persisted occurrence exceptions; calculate only bounded academy-local ranges in `America/Los_Angeles`; expose typed calendar contracts; and reuse the project’s existing role, CSRF, modal, form, loading, toast, and optimistic-concurrency patterns.
 
-The clarified design uses academy-local date/time fields, a stable `series_id + original_date` occurrence identity, a maximum 45-date normal range, February 29 → February 28 yearly fallback, confirmation-aware exception cleanup during series edits, and atomic hard deletion of series plus exceptions.
+The clarified design uses academy-local date/time fields, a persisted `RecurrenceSeries.id` plus original-date occurrence identity, the owning `CalendarEvent.version_number` as the canonical recurring-series OCC version, a maximum 45-date normal range, February 29 → February 28 yearly fallback, confirmation-aware exception cleanup during series edits, and atomic hard deletion of series plus exceptions.
 
 ## Technical Context
 
@@ -36,7 +36,7 @@ The clarified design uses academy-local date/time fields, a stable `series_id + 
 
 | Principle / gate | Plan evidence | Status |
 |---|---|---|
-| I. Clean Code | Split recurrence/domain logic, API schemas, route handlers, hooks, grid, forms, and modals by responsibility; remove placeholder Calendar page. | PASS |
+| I. Clean Code | Split recurrence/domain logic, API schemas, route handlers, hooks, grid, forms, and modals by responsibility; update the retained route wrapper to delegate to the feature Calendar page. | PASS |
 | II. Simple UX | Calendar has one clear primary coach action, direct month/year controls, shared details modal, and explicit but concise confirmation steps. | PASS |
 | III. Responsive Design | Seven-column grid remains usable at 320px; controls/forms wrap or stack; responsive tests cover mobile and desktop. | PASS |
 | IV. Minimal Dependencies | Use existing date utilities and Python `zoneinfo`; no calendar library or new production package. | PASS |
@@ -44,7 +44,7 @@ The clarified design uses academy-local date/time fields, a stable `series_id + 
 | VI. MCP Server Priority | Existing repository patterns and literal searches were inspected before design; no additional external source is required for this local feature plan. | PASS |
 | VII. Database Schema Migrations | Add a numbered reversible migration for calendar tables, constraints, indexes, and cascade relationships; verify clean upgrade/downgrade behavior. | PASS |
 | VIII. UX Completeness | UI contract references `PRODUCT.md`, `DESIGN.md`, existing DateOfBirthPicker, ModalDialog, unsaved-change, toast, and focus patterns; loading/error/empty/responsive/a11y states are specified. | PASS |
-| IX. Optimistic Concurrency | Event/series and exception versions are returned and checked; stale mutation responses remain HTTP 409 with reload-only recovery. | PASS |
+| IX. Optimistic Concurrency | The owning event and exception versions are returned and checked; stale mutation responses remain HTTP 409 with reload-only recovery. | PASS |
 | X. Strongly-Typed API Boundaries | Pydantic request/response schemas and mirrored frontend calendar types are defined in `contracts/calendar-api.md`. | PASS |
 | XI. Frontend State & Component Discipline | Container hooks are separated from grid, event, form, and modal components; existing Tailwind tokens and shared overlays are reused. | PASS |
 | XII. Documentation | Implementation must add a concise verified `docs/calendar-interface.md` after tests pass; this plan documents the intended API and validation flow. | PASS |
@@ -116,6 +116,8 @@ backend/
     │   └── test_calendar_routes.py
     └── integration/
         ├── test_calendar_flow.py
+        ├── test_calendar_conflicts.py
+        ├── test_calendar_performance.py
         └── quickstart/test_008_quickstart_flow.py
 
 frontend/
@@ -128,6 +130,7 @@ frontend/
 │   │   │   ├── CalendarMonthGrid.tsx
 │   │   │   ├── CalendarDayCell.tsx
 │   │   │   ├── CalendarEventEntry.tsx
+│   │   │   ├── CalendarEventIcon.tsx
 │   │   │   ├── CalendarLoadingState.tsx
 │   │   │   ├── CalendarErrorState.tsx
 │   │   │   ├── TodaySection.tsx
@@ -139,10 +142,12 @@ frontend/
 │   │   │   ├── SeriesExceptionWarning.tsx
 │   │   │   └── CalendarDeleteDialog.tsx
 │   │   ├── hooks/useCalendarData.ts
+│   │   ├── hooks/useCalendarConflict.ts
 │   │   ├── pages/CalendarPage.tsx
 │   │   ├── types/calendar.ts
-│   │   └── utils/calendarLabels.ts
-│   ├── pages/CalendarPage.tsx        # thin compatibility export or remove after route update
+│   │   ├── utils/calendarLabels.ts
+│   │   └── utils/calendarErrors.ts
+│   ├── pages/CalendarPage.tsx        # retained route wrapper delegating to feature CalendarPage
 │   └── shared/
 │       ├── components/icons/NavIcons.tsx       # event-type icons if shared
 │       └── utils/calendarDate.ts                # extend grid/academy-date helpers
@@ -164,12 +169,12 @@ frontend/
 
 ### Backend service and routes
 
-1. Implement range and Today retrieval with `ZoneInfo("America/Los_Angeles")`, bounded range validation before expansion, exception suppression/application, stable identity generation, and specified ordering.
+1. Implement range and Today retrieval with `ZoneInfo("America/Los_Angeles")`, bounded range validation before expansion, exception suppression/application, stable identity generation, and specified ordering. The Today service calculates the current academy date and effective instances intersecting that one-date range.
 2. Implement typed event-instance detail retrieval and safe not-found behavior after concurrent changes.
 3. Implement atomic standalone/series creation with scope deduplication and past/time validation.
 4. Implement non-recurring update/delete with event version checks.
-5. Implement occurrence-only update/delete with series and exception OCC checks, move suppression, effective snapshots, and deletion exceptions.
-6. Implement series update impact calculation. Require explicit confirmation for invalidated exception dates, preserve valid exceptions, remove invalid exceptions, and update all related rows in one transaction.
+5. Implement occurrence-only update/delete with owning-event and exception OCC checks, move suppression, effective snapshots, and deletion exceptions.
+6. Implement series update impact calculation. Require explicit confirmation for invalidated exception dates, preserve valid exceptions whose original identity still exists under the new rule, remove invalid exceptions, and update all related rows in one transaction.
 7. Implement hard-delete series and cascaded exception cleanup in one transaction. Apply existing role dependencies so Player mutations return 403 before service mutation logic.
 
 ### Frontend data and interaction
@@ -197,7 +202,7 @@ frontend/
 | Minimal dependencies | PASS — no new production dependency is planned. |
 | Migrations and database integrity | PASS — migration 011, unique occurrence identity, FK cascades, and transaction rules are defined. |
 | Unit, quickstart, and E2E testing | PASS — paths and primary journey are defined. |
-| OCC and authorization | PASS — event/series/exception versions and backend role guards are defined. |
+| OCC and authorization | PASS — the owning event version, exception versions, and backend role guards are defined. |
 | Typed API boundaries | PASS — Pydantic and TypeScript contracts are documented together. |
 | Documentation | PASS — post-verification `docs/calendar-interface.md` is required. |
 

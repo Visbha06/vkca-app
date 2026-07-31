@@ -61,8 +61,7 @@ Response `200`:
       "age_groups": ["U15"],
       "is_recurring": true,
       "recurrence_summary": "Every week on Wednesday",
-      "event_version_number": 1,
-      "series_version_number": 2,
+      "event_version_number": 2,
       "exception_id": null,
       "exception_version_number": null
     }
@@ -93,7 +92,7 @@ The event object is the same shape as the range contract. The frontend displays 
 
 ### `GET /instances/{occurrence_id}`
 
-Returns the same effective event object as a range item, including the current event/series/exception versions needed for authorized mutation. The `occurrence_id` is URL-encoded because recurring identities contain `:`.
+Returns the same effective event object as a range item, including the owning event and exception versions needed for authorized mutation. The `occurrence_id` is URL-encoded because recurring identities contain `:`. A recurring `series_id` always refers to `RecurrenceSeries.id`.
 
 Responses: `200`, `403` for unauthenticated/unauthorized access according to existing authentication behavior, `404` when the instance no longer exists, and a safe retryable `503`/network failure as appropriate to the application’s existing error handling.
 
@@ -150,7 +149,7 @@ Response `204` after atomic hard deletion of the event and scope rows. Stale ver
 
 ### `PATCH /instances/{occurrence_id}`
 
-Request includes the effective replacement fields, `series_version_number`, and `exception_version_number` when an exception already exists. The request identifies the original occurrence through the path identity. A first edit creates exception version `1`; later edits require the current exception version. A moved occurrence must pass the same-day/past validation.
+Request includes the effective replacement fields, the owning event `version_number`, and `exception_version_number` when an exception already exists. The request identifies the original occurrence through the path identity. A first edit creates exception version `1`; later edits require the current exception version. A moved occurrence must pass the same-day/past validation.
 
 Response `200`: updated effective instance and current versions. The original generated instance is suppressed when moved.
 
@@ -160,7 +159,7 @@ Request body:
 
 ```json
 {
-  "series_version_number": 2,
+  "version_number": 2,
   "exception_version_number": 1
 }
 ```
@@ -171,7 +170,7 @@ For an untouched occurrence, `exception_version_number` is null. Response `204` 
 
 ### `PATCH /series/{series_id}`
 
-Request includes the complete series event fields, recurrence rule, `series_version_number`, and:
+`series_id` is the UUID of the persisted `RecurrenceSeries.id`. The owning `CalendarEvent.version_number` is the canonical series OCC version. The request includes the complete series event fields, recurrence rule, `version_number`, and:
 
 ```json
 { "confirm_exception_removals": false }
@@ -187,9 +186,9 @@ When the proposed rule invalidates existing exception original dates and confirm
 }
 ```
 
-The frontend presents the dates and asks the coach to continue or cancel. A resubmission with `confirm_exception_removals=true` preserves exceptions whose original dates still occur under the new rule, hard-deletes the invalid exceptions, updates the rule, increments the series version, and commits atomically.
+The frontend presents the dates and asks the coach to continue or cancel. A resubmission with `confirm_exception_removals=true` preserves exceptions whose original dates still occur under the new rule, hard-deletes the invalid exceptions, updates the rule, increments the owning event version, and commits atomically.
 
-Response `200`: updated series summary and current version. A stale series version returns `409` without applying the rule or exception cleanup.
+Response `200`: updated series summary and current owning event version. A stale event version returns `409` without applying the rule or exception cleanup.
 
 ## Entire-series deletion
 
@@ -201,7 +200,7 @@ Request body:
 { "version_number": 2 }
 ```
 
-Response `204` after atomically hard-deleting the series event definition, recurrence row, scope rows, and all exceptions. A stale version returns `409`; partial deletion is not observable.
+Response `204` after atomically hard-deleting the series event definition, `RecurrenceSeries` row, scope rows, and all exceptions. The request version is the owning event’s canonical `version_number`; a stale version returns `409`; partial deletion is not observable.
 
 ## Error contract
 

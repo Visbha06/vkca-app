@@ -25,7 +25,7 @@ Represents either a standalone event or the shared event definition for a recurr
 | `is_all_day` | boolean | True only for Miscellaneous events. |
 | `start_time` | time or null | Required for timed events; null for all-day. |
 | `end_time` | time or null | Required for timed events; later than `start_time` on the same date. |
-| `version_number` | positive integer | OCC version for standalone edits/deletes, or the base definition version for a recurring series. |
+| `version_number` | positive integer | Canonical OCC version for this event definition. It controls standalone edits/deletes or recurring-series updates when this event owns a `RecurrenceSeries`. |
 | `created_at` | timezone-aware timestamp | Server-managed. |
 | `updated_at` | timezone-aware timestamp | Server-managed. |
 
@@ -50,11 +50,12 @@ Invariants:
 
 ## RecurrenceSeries
 
-An optional one-to-one rule attached to a `CalendarEvent`. Its presence makes the event a recurring series.
+An optional one-to-one rule attached to a `CalendarEvent`. Its presence makes the event a recurring series; every recurring event has exactly one `RecurrenceSeries` row and every non-recurring event has none.
 
 | Field | Type | Rules |
 |---|---|---|
-| `event_id` | UUID | Primary/foreign key to `CalendarEvent`; cascades on deletion. |
+| `id` | UUID | Primary identity of exactly one persisted recurrence series. |
+| `event_id` | UUID | Unique foreign key to the owning `CalendarEvent`; one-to-one and cascades on deletion. |
 | `frequency` | `RecurrenceFrequency` | Weekly or yearly only. Interval is always one and is not user-configurable. |
 | `weekday` | integer or null | Required for weekly; academy weekday corresponding to `first_date`. |
 | `month` | integer or null | Required for yearly; month corresponding to `first_date`. |
@@ -62,12 +63,12 @@ An optional one-to-one rule attached to a `CalendarEvent`. Its presence makes th
 | `termination` | `RecurrenceTermination` | Exactly one mode. |
 | `end_date` | date or null | Required only for `end_date`; on/after `first_date`. |
 | `occurrence_count` | positive integer or null | Required only for `occurrence_count`; includes the initial occurrence. |
-| `version_number` | positive integer | OCC version for series-level updates/deletes. |
 | `created_at` | timezone-aware timestamp | Server-managed. |
 | `updated_at` | timezone-aware timestamp | Server-managed. |
 
 Validation invariants:
 
+- `id` is the only series identity exposed as `series_id`; `event_id` is unique and identifies the owning event.
 - Weekly rules have `weekday` and no yearly-only values; yearly rules have `month` and `month_day` and no weekly-only value.
 - Never-ending rules have neither `end_date` nor `occurrence_count`.
 - End-date rules have only `end_date`.
@@ -82,7 +83,7 @@ Represents one occurrence-level edit, move, or deletion. It is never generated f
 | Field | Type | Rules |
 |---|---|---|
 | `id` | UUID | Primary identity. |
-| `series_id` | UUID | Foreign key to the recurring event definition; cascades on series deletion. |
+| `series_id` | UUID | Foreign key exclusively to `RecurrenceSeries.id`; cascades on series deletion. |
 | `original_date` | date | The generated academy date being overridden; unique per series. |
 | `replacement_date` | date or null | Effective date when moved; null means the original date. Must not be newly in the past. |
 | `event_type` | `EventType` or null | Complete effective snapshot when not deleted. |
@@ -125,8 +126,7 @@ The read model returned by range and Today retrieval. It is not persisted for re
 | `age_groups` | unique list of `AgeGroup` | Empty only when `scope_kind=all_academy`. |
 | `is_recurring` | boolean | Whether the instance came from a series. |
 | `recurrence_summary` | string or null | User-facing summary for recurring instances. |
-| `event_version_number` | positive integer | Version of the parent event definition. |
-| `series_version_number` | positive integer or null | Current series version when recurring. |
+| `event_version_number` | positive integer | Canonical OCC version of the owning `CalendarEvent`; used for standalone updates or recurring-series mutations. |
 | `exception_id` | UUID or null | Present when the instance has an exception. |
 | `exception_version_number` | positive integer or null | Current exception version when present. |
 
@@ -138,10 +138,10 @@ Range results are sorted per day by all-day first, timed start time ascending, a
 2. **Create series**: validate request and recurrence → create event → create scope rows → create recurrence row → commit together.
 3. **Calculate range**: load active definitions whose first date/rule can intersect the bounded range → expand series in memory → load matching exceptions → suppress deleted originals → apply effective snapshots → sort results.
 4. **Edit standalone**: verify event version → validate resulting values → update event and replace scope rows → increment version → commit.
-5. **Edit one occurrence**: verify current series version and exception version if present → validate effective values → insert/update exception keyed by original date → increment exception version → commit.
-6. **Edit series**: verify series/event version → calculate exception impacts under the proposed rule → require explicit confirmation if invalid exceptions would be removed → update definition/rule, preserve valid exceptions, remove invalid exceptions, increment series version → commit.
-7. **Delete one occurrence**: verify series and exception versions → insert/update a deleted exception → commit; the series remains.
-8. **Delete standalone or entire series**: verify relevant version → delete parent inside one transaction; database cascades remove scopes, recurrence, and exceptions → commit or roll back completely.
+5. **Edit one occurrence**: verify the owning `CalendarEvent.version_number` and exception version if present → validate effective values → insert/update exception keyed by original date → increment exception version → commit.
+6. **Edit series**: verify the owning `CalendarEvent.version_number` → calculate exception impacts under the proposed rule → require explicit confirmation if invalid exceptions would be removed → update definition/rule, preserve valid exceptions, remove invalid exceptions, increment the owning event version → commit.
+7. **Delete one occurrence**: verify the owning event version and exception version → insert/update a deleted exception → commit; the series remains.
+8. **Delete standalone or entire series**: verify the relevant `CalendarEvent.version_number` → delete the parent inside one transaction; database cascades remove scopes, recurrence, and exceptions → commit or roll back completely.
 
 ## Date and range rules
 

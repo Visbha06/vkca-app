@@ -18,6 +18,14 @@
 - Q: May an event cross midnight? → A: No; its end time must be later on the same academy date as its start time.
 - Q: What event-range retrieval scope is allowed? → A: A complete month grid with a modest required adjacent-date buffer; arbitrary multi-year retrieval is rejected.
 
+### Follow-up decisions 2026-07-31
+
+- Q: How is a recurring series identified? → A: Each recurring event has exactly one persisted `RecurrenceSeries` row with UUID `id`; `series_id` refers exclusively to that `id`, and `event_id` is a unique foreign key to the owning `CalendarEvent`.
+- Q: Which version controls recurring-series OCC? → A: The owning `CalendarEvent.version_number` is canonical; `RecurrenceSeries` has no separate version field, while each occurrence exception retains its own version.
+- Q: What backend Today coverage is required? → A: Implement `/api/v1/calendar/today` using the Pacific academy date, with route and service tests for ordering, recurrence, exceptions, authorization, empty results, and Pacific-time boundaries.
+- Q: How is calendar performance validated? → A: Repeatedly validate one complete six-week grid with representative event data, record elapsed samples and p95, and require at least 95% within two seconds in the documented local environment.
+- Q: What happens to the existing Calendar route wrapper? → A: Retain it and update it to delegate to the feature-level `CalendarPage` component.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Review the academy calendar (Priority: P1)
@@ -83,7 +91,7 @@ As a calendar user or coach, I want clear feedback when loading, validation, aut
 1. **Given** a calendar or Today load failure, **When** the user selects Retry, **Then** only the affected data is requested again and the page does not present a failed or empty load as an empty schedule.
 2. **Given** a coach has unsaved form changes, **When** they attempt to close the form or navigate away, **Then** they can continue editing or intentionally discard changes.
 3. **Given** a Player attempts a mutation directly, **When** the request reaches the service, **Then** it is rejected with HTTP 403 and no data changes.
-4. **Given** a coach submits an outdated event, series, or exception version, **When** the service detects the stale version, **Then** it returns HTTP 409, preserves newer data, shows a conflict message, offers Reload, and does not retry the mutation automatically.
+4. **Given** a coach submits an outdated event or owning-event/exception version, **When** the service detects the stale version, **Then** it returns HTTP 409, preserves newer data, shows a conflict message, offers Reload, and does not retry the mutation automatically.
 5. **Given** a superseded month request is still in flight, **When** a newer navigation request completes, **Then** stale results cannot replace the newest visible range.
 
 ### Edge Cases
@@ -142,10 +150,10 @@ As a calendar user or coach, I want clear feedback when loading, validation, aut
 
 #### Service behavior and concurrency
 
-- **FR-026**: The backend MUST provide authenticated event-range retrieval for one complete visible month grid plus a modest adjacent-date buffer, returning non-recurring events, calculated recurring occurrences, edited/moved exceptions, and excluding deleted occurrences that intersect the requested academy-date range. Arbitrary multi-year range requests MUST be rejected.
+- **FR-026**: The backend MUST provide authenticated event-range retrieval for a range satisfying FR-006, returning non-recurring events, calculated recurring occurrences, edited/moved exceptions, and excluding deleted occurrences that intersect the requested academy-date range. Arbitrary multi-year range requests MUST be rejected.
 - **FR-027**: The backend MUST enforce role authorization as the authoritative layer: Players may retrieve calendar data but all event creation, update, and deletion attempts by Players MUST return HTTP 403.
 - **FR-028**: The backend MUST use the academy time zone for date/time interpretation, past validation, recurrence calculations, range intersection, and Today calculations, while preserving the project’s established timestamp storage convention.
-- **FR-029**: Each non-recurring event, recurring series, and occurrence exception MUST have a separately identifiable version used for optimistic concurrency. Stale mutation versions MUST return HTTP 409 and MUST NOT overwrite newer data.
+- **FR-029**: Each non-recurring event and recurring series MUST use the owning `CalendarEvent.version_number` as its canonical optimistic-concurrency version; each occurrence exception MUST have its own separately identifiable version. Stale mutation versions MUST return HTTP 409 and MUST NOT overwrite newer data.
 - **FR-030**: Each calculated occurrence MUST have a stable identity derived from its series and original scheduled date/time, including when an occurrence is edited, moved, or deleted.
 - **FR-031**: Backend validation MUST reject duplicate scope values, empty scope, invalid recurrence termination, invalid times, past creation/movement, invalid dates, and excessive ranges with user-safe errors; raw backend errors MUST not be exposed.
 - **FR-032**: Schema changes required by the feature MUST use a versioned, reversible migration where possible and be covered by migration verification.
@@ -163,7 +171,7 @@ As a calendar user or coach, I want clear feedback when loading, validation, aut
 ### Key Entities
 
 - **Event**: A named Practice, Game, or Miscellaneous activity with an academy-local date/time or all-day date, scope, lifecycle state, and version.
-- **Recurring Event Series**: The reusable weekly or yearly rule, first scheduled date, termination mode, and series version that produces bounded calculated occurrences.
+- **Recurring Event Series**: The single persisted `RecurrenceSeries` rule identified by its UUID `id`, linked one-to-one to its owning `CalendarEvent` through unique `event_id`, with the owning event’s canonical version controlling series-level optimistic concurrency.
 - **Occurrence**: A stable, calculated instance of a series identified by series and original scheduled date/time, with effective display values after exceptions.
 - **Occurrence Exception**: A persisted occurrence-level edit, move, or deletion, with its original occurrence identity, optional replacement values, deletion state, and version.
 - **Age-Group Scope**: A unique set of supported age groups or the academy-wide scope associated with an event.

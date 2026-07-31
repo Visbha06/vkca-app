@@ -26,7 +26,7 @@
 
 ## Decision 3: Persist exceptions by series and original academy date
 
-**Decision**: Persist one occurrence exception per `(series_id, original_date)`. The stable occurrence identity is the deterministic pair of the series identifier and the original scheduled academy date. An exception stores a complete effective-value snapshot, replacement date when moved, scope, deletion state, and its own OCC version.
+**Decision**: Persist one occurrence exception per `(series_id, original_date)`, where `series_id` refers exclusively to `RecurrenceSeries.id`. The stable occurrence identity is the deterministic pair of the series identifier and the original scheduled academy date. An exception stores a complete effective-value snapshot, replacement date when moved, scope, deletion state, and its own OCC version.
 
 **Rationale**: Each supported rule produces at most one occurrence per academy date, so the original date is sufficient and remains stable when a series time changes. A complete snapshot makes partial edits deterministic and avoids nullable “did the user clear this field?” ambiguity. The original date lets the recurrence engine suppress the generated occurrence before applying a move or deletion.
 
@@ -62,7 +62,7 @@
 
 ## Decision 6: Keep mutation authorization and OCC at the service boundary
 
-**Decision**: All authenticated roles may call read contracts. Mutation routes require Head Coach or Assistant Coach through the existing role dependency. Event definitions/series and exceptions each carry a version number; occurrence mutations verify the series version and existing exception version where applicable. Stale writes return HTTP 409 without retrying the mutation.
+**Decision**: All authenticated roles may call read contracts. Mutation routes require Head Coach or Assistant Coach through the existing role dependency. The owning `CalendarEvent.version_number` is the canonical OCC version for both standalone events and recurring-series updates; occurrence exceptions carry their own version number. Occurrence mutations verify the owning event version and existing exception version where applicable. Stale writes return HTTP 409 without retrying the mutation.
 
 **Rationale**: Existing routes already use database-loaded roles, CSRF-aware mutation requests, `version_number`, and `StaleVersionError`. Reusing those patterns keeps backend authorization authoritative and makes frontend conflict handling consistent with teams, coaches, and players.
 

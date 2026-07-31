@@ -45,11 +45,12 @@ The test must independently create and clean up its own authenticated users and 
 2. A range request returns the initial occurrence and later weekly occurrences, ordered correctly.
 3. A yearly Feb 29 rule returns Feb 28 in a non-leap year.
 4. A range over 45 academy dates is rejected without recurrence expansion.
-5. A Player can read the range but receives HTTP 403 for create, update, occurrence-delete, and series-delete attempts.
-6. An occurrence edit creates a stable exception, suppresses the original when moved, and leaves other occurrences unchanged.
-7. A series update preserves valid exceptions, returns the removal-warning contract without saving when confirmation is absent, and removes invalid exceptions after confirmation.
-8. A stale event/series/exception version returns HTTP 409 without overwriting newer data.
-9. Entire-series deletion hard-deletes the series and exceptions atomically.
+5. The `/calendar/today` route returns the academy-local current date and effective instances, including empty results, all-day/timed ordering, recurring occurrences, moved/deleted exceptions, authorization, and Pacific-time boundaries.
+6. A Player can read the range and Today data but receives HTTP 403 for create, update, occurrence-delete, and series-delete attempts.
+7. An occurrence edit creates a stable exception, suppresses the original when moved, and leaves other occurrences unchanged.
+8. A series update preserves valid exceptions, returns the removal-warning contract without saving when confirmation is absent, and removes invalid exceptions after confirmation.
+9. A stale owning-event/exception version returns HTTP 409 without overwriting newer data.
+10. Entire-series deletion hard-deletes the series and exceptions atomically.
 
 ## Automated frontend validation
 
@@ -82,6 +83,15 @@ The journey must:
 
 The Playwright API mock should model the contracts in `contracts/calendar-api.md`, including the series exception-removal warning and version fields. It must not bypass the Calendar page or rely on a full browser reload.
 
+Run the bounded-range performance validation:
+
+```bash
+cd backend
+uv run pytest tests/integration/test_calendar_performance.py -q
+```
+
+The validation repeatedly requests one complete six-week (42-date) calendar grid populated with representative standalone events, recurring series, and occurrence exceptions. It records elapsed request times, reports the p95 duration, and verifies that at least 95% of requests complete within two seconds under this documented local Docker/PostgreSQL and test-runner environment.
+
 ## Manual acceptance checks
 
 - Set the browser timezone outside Pacific time and verify the page still highlights the academy date and displays event times in `America/Los_Angeles`.
@@ -101,6 +111,7 @@ uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy src
+uv run pytest tests/integration/test_calendar_performance.py -q
 
 # Frontend
 cd ../frontend
