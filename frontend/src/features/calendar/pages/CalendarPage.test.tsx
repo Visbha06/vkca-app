@@ -95,11 +95,23 @@ function renderPage(role: 'head coach' | 'assistant coach' | 'player' = 'player'
   } as ReturnType<typeof useCalendarData>
   mockedUseCalendarData.mockReturnValue(hook)
 
-  return render(
+  const renderResult = render(
     <AuthContext.Provider value={authValue(role)}>
       <CalendarPage />
     </AuthContext.Provider>,
   )
+  return {
+    ...renderResult,
+    hook,
+    rerenderWithHook(nextHook: ReturnType<typeof useCalendarData>) {
+      mockedUseCalendarData.mockReturnValue(nextHook)
+      renderResult.rerender(
+        <AuthContext.Provider value={authValue(role)}>
+          <CalendarPage />
+        </AuthContext.Provider>,
+      )
+    },
+  }
 }
 
 afterEach(() => {
@@ -145,6 +157,68 @@ describe('CalendarPage', () => {
     )
     expect(screen.getByRole('button', { name: 'Edit Event' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Delete Event' })).toBeVisible()
+  })
+
+  it('retains focus on repeated month and year navigation controls', () => {
+    const page = renderPage('assistant coach')
+    let hook = page.hook
+    const rerenderCalendar = (
+      overrides: Partial<ReturnType<typeof useCalendarData>>,
+    ) => {
+      hook = { ...hook, ...overrides } as ReturnType<typeof useCalendarData>
+      page.rerenderWithHook(hook)
+    }
+
+    const nextMonth = screen.getByRole('button', { name: 'Next month' })
+    nextMonth.focus()
+    fireEvent.click(nextMonth)
+    expect(hook.goToNextMonth).toHaveBeenCalledOnce()
+    rerenderCalendar({
+      isRangeLoading: true,
+      viewMonth: { year: 2026, month: 9 },
+    })
+    expect(nextMonth).toHaveFocus()
+    expect(screen.getByRole('status')).toHaveTextContent('Loading September 2026')
+    rerenderCalendar({ isRangeLoading: false })
+    expect(nextMonth).toHaveFocus()
+    fireEvent.click(nextMonth)
+    expect(hook.goToNextMonth).toHaveBeenCalledTimes(2)
+
+    const previousMonth = screen.getByRole('button', { name: 'Previous month' })
+    previousMonth.focus()
+    fireEvent.click(previousMonth)
+    rerenderCalendar({
+      isRangeLoading: false,
+      viewMonth: { year: 2026, month: 8 },
+    })
+    expect(previousMonth).toHaveFocus()
+
+    const year = screen.getByRole('combobox', { name: 'Calendar year' })
+    year.focus()
+    fireEvent.change(year, { target: { value: '2027' } })
+    expect(hook.goToYear).toHaveBeenCalledWith(2027)
+    rerenderCalendar({
+      isRangeLoading: false,
+      viewMonth: { year: 2027, month: 8 },
+    })
+    expect(year).toHaveFocus()
+    expect(screen.getByRole('status')).toHaveTextContent('August 2027 ready')
+  })
+
+  it('keeps in-grid keyboard navigation focused within the grid', () => {
+    const { hook } = renderPage()
+    const august5 = screen.getByRole('gridcell', { name: /August 5, 2026/ })
+    const august6 = screen.getByRole('gridcell', { name: /August 6, 2026/ })
+
+    august5.focus()
+    fireEvent.keyDown(august5, { key: 'ArrowRight' })
+
+    expect(august6).toHaveFocus()
+    expect(hook.handleFocusDate).toHaveBeenLastCalledWith({
+      year: 2026,
+      month: 8,
+      day: 6,
+    })
   })
 
   it('keeps the semantic monthly grid bounded at mobile, tablet, and desktop widths', () => {

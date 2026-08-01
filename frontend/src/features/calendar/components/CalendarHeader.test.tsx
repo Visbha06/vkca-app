@@ -57,4 +57,35 @@ describe('CalendarHeader', () => {
     expect(screen.getByRole('status')).toHaveTextContent('December 2025 ready')
     expect(screen.queryByRole('option', { name: '2025' })).not.toBeInTheDocument()
   })
+
+  it('defines an explicit responsive control layout with 44px interaction targets', () => {
+    render(
+      <CalendarHeader
+        viewMonth={{ year: 2026, month: 8 }}
+        academyToday="2026-08-01"
+        isLoading={false}
+        onPreviousMonth={vi.fn()}
+        onNextMonth={vi.fn()}
+        onYearChange={vi.fn()}
+        onCreateEvent={vi.fn()}
+      />,
+    )
+
+    const heading = screen.getByRole('heading', { name: 'August 2026' })
+    const header = heading.closest('header')
+    const controls = screen.getByTestId('calendar-header-controls')
+    const createEvent = screen.getByRole('button', { name: 'Create Event' })
+    const year = screen.getByRole('combobox', { name: 'Calendar year' })
+    const monthNavigation = screen.getByRole('group', { name: 'Month navigation' })
+    const previousMonth = screen.getByRole('button', { name: 'Previous month' })
+    const nextMonth = screen.getByRole('button', { name: 'Next month' })
+
+    expect(header).toHaveClass('grid', 'sm:flex')
+    expect(controls).toHaveClass('grid', 'sm:flex')
+    expect(createEvent).toHaveClass('min-h-11', 'w-full', 'sm:w-auto')
+    expect(year).toHaveClass('min-h-11')
+    expect(monthNavigation).toHaveClass('flex-nowrap')
+    expect(previousMonth).toHaveClass('min-h-11', 'min-w-11')
+    expect(nextMonth).toHaveClass('min-h-11', 'min-w-11')
+  })
 })

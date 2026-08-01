@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useAuth } from '@features/auth'
 import useSuccessToast from '@shared/hooks/useSuccessToast'
-import { calendarDateToIso, type CalendarDate } from '@shared/utils/calendarDate'
+import type { CalendarDate } from '@shared/utils/calendarDate'
 import type { CalendarEventInstance } from '../types/calendar'
 import useCalendarData from '../hooks/useCalendarData'
 import CalendarErrorState from '../components/CalendarErrorState'
@@ -23,37 +23,18 @@ export default function CalendarPage() {
   const [openedEvent, setOpenedEvent] = useState<CalendarEventInstance | null>(null)
   const [formEvent, setFormEvent] = useState<CalendarEventInstance | 'create' | null>(null)
   const [deleteEvent, setDeleteEvent] = useState<CalendarEventInstance | null>(null)
-  const focusAfterNavigation = useRef(false)
   const { dismissSuccessToast, showSuccessToast, successToast } = useSuccessToast()
   const canManage = user?.role === 'head coach' || user?.role === 'assistant coach'
 
-  useEffect(() => {
-    if (
-      !focusAfterNavigation.current ||
-      calendar.isRangeLoading ||
-      calendar.focusedDate === null
-    ) {
-      return
-    }
-    focusAfterNavigation.current = false
-    const target = document.querySelector<HTMLButtonElement>(
-      `[data-calendar-date-button="${calendarDateToIso(calendar.focusedDate)}"]`,
-    )
-    target?.focus()
-  }, [calendar.focusedDate, calendar.isRangeLoading])
-
   function handlePreviousMonth() {
-    focusAfterNavigation.current = true
     calendar.goToPreviousMonth()
   }
 
   function handleNextMonth() {
-    focusAfterNavigation.current = true
     calendar.goToNextMonth()
   }
 
   function handleYearChange(year: number) {
-    focusAfterNavigation.current = true
     calendar.goToYear(year)
   }
 
