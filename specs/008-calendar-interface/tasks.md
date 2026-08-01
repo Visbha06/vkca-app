@@ -46,22 +46,22 @@
 
 ### Tests for User Story 1 (MANDATORY)
 
-- [ ] T013 [P] [US1] Add recurrence and range projection unit tests for Pacific-time current-date interpretation, complete-grid intersection, event ordering, stable occurrence identity, adjacent-month instances, and effective event instances intersecting the current academy day in `backend/tests/unit/test_calendar_recurrence.py` and `backend/tests/unit/test_calendar_service.py`.
-- [ ] T014 [P] [US1] Add authenticated read-route tests for Head Coach, Assistant Coach, and Player range/detail/Today access plus malformed and over-45-date range rejection in `backend/tests/unit/test_calendar_routes.py`; cover empty Today, all-day/timed ordering, recurring occurrences, moved/deleted exceptions, authorization, and Pacific-time boundaries.
-- [ ] T015 [P] [US1] Add typed read-client tests for range, Today, detail, query serialization, `AbortSignal`, and safe error mapping in `frontend/src/features/calendar/api/calendarApi.test.ts`.
-- [ ] T016 [P] [US1] Add component tests for event-type icons, age-group/All Academy labels, adjacent-month styling, current-date treatment, event ordering, three-entry limit, and accessible `+N more` labels in `frontend/src/features/calendar/components/CalendarMonthGrid.test.tsx`.
+- [X] T013 [P] [US1] Add recurrence and range projection unit tests for Pacific-time current-date interpretation, complete-grid intersection, event ordering, stable occurrence identity, adjacent-month instances, and effective event instances intersecting the current academy day in `backend/tests/unit/test_calendar_recurrence.py` and `backend/tests/unit/test_calendar_service.py`.
+- [X] T014 [P] [US1] Add authenticated read-route tests for Head Coach, Assistant Coach, and Player range/detail/Today access plus malformed and over-45-date range rejection in `backend/tests/unit/test_calendar_routes.py`; cover empty Today, all-day/timed ordering, recurring occurrences, moved/deleted exceptions, authorization, and Pacific-time boundaries.
+- [X] T015 [P] [US1] Add typed read-client tests for range, Today, detail, query serialization, `AbortSignal`, and safe error mapping in `frontend/src/features/calendar/api/calendarApi.test.ts`.
+- [X] T016 [P] [US1] Add component tests for event-type icons, age-group/All Academy labels, adjacent-month styling, current-date treatment, event ordering, three-entry limit, and accessible `+N more` labels in `frontend/src/features/calendar/components/CalendarMonthGrid.test.tsx`.
 
 ### Implementation for User Story 1
 
-- [ ] T017 [US1] Implement read-side range, Today-day retrieval, instance projection, scope display data, stable ordering, and safe not-found behavior in `backend/src/services/calendar_service.py` (depends on T005–T007 and T013–T014).
-- [ ] T018 [US1] Implement authenticated `GET /api/v1/calendar/events`, `GET /api/v1/calendar/today`, and `GET /api/v1/calendar/instances/{occurrence_id}` handlers with safe status/code mapping in `backend/src/routes/calendar.py` (depends on T006, T017).
-- [ ] T019 [US1] Implement initial Today-first loading, range state, selected instance state, and superseded-request guards in `frontend/src/features/calendar/hooks/useCalendarData.ts` (depends on T008–T009 and T015).
-- [ ] T020 [P] [US1] Implement event-type labels/icons and age-group/All Academy presentation helpers in `frontend/src/features/calendar/utils/calendarLabels.ts` and `frontend/src/features/calendar/components/CalendarEventIcon.tsx` (depends on T008).
-- [ ] T021 [P] [US1] Implement structure-preserving initial/navigation loading and calendar-load error/retry components in `frontend/src/features/calendar/components/CalendarLoadingState.tsx` and `frontend/src/features/calendar/components/CalendarErrorState.tsx` (depends on T008, T012).
-- [ ] T022 [US1] Implement the semantic seven-column grid, focusable date cells, adjacent-month cells, current-date styling, accessible event entries, and `+N more` trigger in `frontend/src/features/calendar/components/CalendarMonthGrid.tsx`, `frontend/src/features/calendar/components/CalendarDayCell.tsx`, and `frontend/src/features/calendar/components/CalendarEventEntry.tsx` (depends on T010, T016, T019–T021).
-- [ ] T023 [US1] Implement the shared event details and full-day overflow modal flows with read-only presentation and focus restoration in `frontend/src/features/calendar/components/EventDetailsModal.tsx` and `frontend/src/features/calendar/components/DayEventsModal.tsx` (depends on T019, T022).
-- [ ] T024 [US1] Compose the protected Calendar page shell and role-aware read-only rendering in `frontend/src/features/calendar/pages/CalendarPage.tsx` and `frontend/src/pages/CalendarPage.tsx` using `ModalDialog`, `PRODUCT.md`, and `DESIGN.md` tokens (depends on T019–T023).
-- [ ] T025 [US1] Add page-level tests for all authenticated roles, current academy month bootstrap, read-only Player details, modal focus behavior, and empty calendar days in `frontend/src/features/calendar/pages/CalendarPage.test.tsx` (depends on T024).
+- [X] T017 [US1] Implement read-side range, Today-day retrieval, instance projection, scope display data, stable ordering, and safe not-found behavior in `backend/src/services/calendar_service.py` (depends on T005–T007 and T013–T014).
+- [X] T018 [US1] Implement authenticated `GET /api/v1/calendar/events`, `GET /api/v1/calendar/today`, and `GET /api/v1/calendar/instances/{occurrence_id}` handlers with safe status/code mapping in `backend/src/routes/calendar.py` (depends on T006, T017).
+- [X] T019 [US1] Implement initial Today-first loading, range state, selected instance state, and superseded-request guards in `frontend/src/features/calendar/hooks/useCalendarData.ts` (depends on T008–T009 and T015).
+- [X] T020 [P] [US1] Implement event-type labels/icons and age-group/All Academy presentation helpers in `frontend/src/features/calendar/utils/calendarLabels.ts` and `frontend/src/features/calendar/components/CalendarEventIcon.tsx` (depends on T008).
+- [X] T021 [P] [US1] Implement structure-preserving initial/navigation loading and calendar-load error/retry components in `frontend/src/features/calendar/components/CalendarLoadingState.tsx` and `frontend/src/features/calendar/components/CalendarErrorState.tsx` (depends on T008, T012).
+- [X] T022 [US1] Implement the semantic seven-column grid, focusable date cells, adjacent-month cells, current-date styling, accessible event entries, and `+N more` trigger in `frontend/src/features/calendar/components/CalendarMonthGrid.tsx`, `frontend/src/features/calendar/components/CalendarDayCell.tsx`, and `frontend/src/features/calendar/components/CalendarEventEntry.tsx` (depends on T010, T016, T019–T021).
+- [X] T023 [US1] Implement the shared event details and full-day overflow modal flows with read-only presentation and focus restoration in `frontend/src/features/calendar/components/EventDetailsModal.tsx` and `frontend/src/features/calendar/components/DayEventsModal.tsx` (depends on T019, T022).
+- [X] T024 [US1] Compose the protected Calendar page shell and role-aware read-only rendering in `frontend/src/features/calendar/pages/CalendarPage.tsx` and `frontend/src/pages/CalendarPage.tsx` using `ModalDialog`, `PRODUCT.md`, and `DESIGN.md` tokens (depends on T019–T023).
+- [X] T025 [US1] Add page-level tests for all authenticated roles, current academy month bootstrap, read-only Player details, modal focus behavior, and empty calendar days in `frontend/src/features/calendar/pages/CalendarPage.test.tsx` (depends on T024).
 
 **Checkpoint**: All authenticated roles can review the monthly calendar and open details; Player users have no mutation affordances.
 
@@ -75,16 +75,16 @@
 
 ### Tests for User Story 2 (MANDATORY)
 
-- [ ] T026 [P] [US2] Add navigation and year-selector tests for one-month movement, year boundaries, 2026-to-current-year-plus-five options, pre-2026 arrow access, month preservation, focus restoration, and dynamic range reloads in `frontend/src/features/calendar/components/CalendarHeader.test.tsx` and `frontend/src/features/calendar/hooks/useCalendarData.test.ts`.
-- [ ] T027 [P] [US2] Add Today-section tests for academy-local date selection, all-day/timed ordering, recurring summaries, empty copy, inline loading, retry, and event selection in `frontend/src/features/calendar/components/TodaySection.test.tsx`.
-- [ ] T028 [P] [US2] Add responsive keyboard-navigation tests for 320px, tablet, and desktop grid usability, visible focus, semantic date labels, and no horizontal page overflow in `frontend/src/features/calendar/pages/CalendarPage.test.tsx`.
+- [X] T026 [P] [US2] Add navigation and year-selector tests for one-month movement, year boundaries, 2026-to-current-year-plus-five options, pre-2026 arrow access, month preservation, focus restoration, and dynamic range reloads in `frontend/src/features/calendar/components/CalendarHeader.test.tsx` and `frontend/src/features/calendar/hooks/useCalendarData.test.ts`.
+- [X] T027 [P] [US2] Add Today-section tests for academy-local date selection, all-day/timed ordering, recurring summaries, empty copy, inline loading, retry, and event selection in `frontend/src/features/calendar/components/TodaySection.test.tsx`.
+- [X] T028 [P] [US2] Add responsive keyboard-navigation tests for 320px, tablet, and desktop grid usability, visible focus, semantic date labels, and no horizontal page overflow in `frontend/src/features/calendar/pages/CalendarPage.test.tsx`.
 
 ### Implementation for User Story 2
 
-- [ ] T029 [US2] Implement the calendar header with active-year selector, previous/next month controls, dynamic year range, disabled/loading states, and accessible announcements in `frontend/src/features/calendar/components/CalendarHeader.tsx` (depends on T010 and T026).
-- [ ] T030 [US2] Extend `useCalendarData.ts` to load the newly visible complete grid range, cancel/ignore superseded requests, retain structure while loading, and restore focus after month/year changes (depends on T019, T026).
-- [ ] T031 [US2] Implement Today retrieval/rendering with inline loading/error/retry, exact empty copy, academy-local ordering, recurrence indicators, and shared event selection in `frontend/src/features/calendar/components/TodaySection.tsx` (depends on T009, T027).
-- [ ] T032 [US2] Integrate header navigation, Today refresh, selected date announcements, and responsive wrapping into `frontend/src/features/calendar/pages/CalendarPage.tsx` and `frontend/src/features/calendar/components/CalendarMonthGrid.tsx` (depends on T022, T024, T028–T031).
+- [X] T029 [US2] Implement the calendar header with active-year selector, previous/next month controls, dynamic year range, disabled/loading states, and accessible announcements in `frontend/src/features/calendar/components/CalendarHeader.tsx` (depends on T010 and T026).
+- [X] T030 [US2] Extend `useCalendarData.ts` to load the newly visible complete grid range, cancel/ignore superseded requests, retain structure while loading, and restore focus after month/year changes (depends on T019, T026).
+- [X] T031 [US2] Implement Today retrieval/rendering with inline loading/error/retry, exact empty copy, academy-local ordering, recurrence indicators, and shared event selection in `frontend/src/features/calendar/components/TodaySection.tsx` (depends on T009, T027).
+- [X] T032 [US2] Integrate header navigation, Today refresh, selected date announcements, and responsive wrapping into `frontend/src/features/calendar/pages/CalendarPage.tsx` and `frontend/src/features/calendar/components/CalendarMonthGrid.tsx` (depends on T022, T024, T028–T031).
 
 **Checkpoint**: Users can navigate the full supported calendar range and receive an accurate Today briefing without stale results or focus loss.
 
