@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ApiClientError } from '@shared/api/client'
 import ModalDialog from '@shared/components/overlays/ModalDialog'
 import {
@@ -27,6 +27,7 @@ export default function CalendarDeleteDialog({
   const [target, setTarget] = useState<'occurrence' | 'series'>('occurrence')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const submissionInFlight = useRef(false)
   const conflict = useCalendarConflict({
     event: currentEvent,
     onReloaded: (latest) => {
@@ -37,7 +38,8 @@ export default function CalendarDeleteDialog({
   })
 
   async function handleDelete() {
-    if (isSubmitting) return
+    if (submissionInFlight.current || conflict.hasConflict) return
+    submissionInFlight.current = true
     setIsSubmitting(true)
     setErrorMessage(null)
     try {
@@ -67,32 +69,35 @@ export default function CalendarDeleteDialog({
         onEventReloaded(currentEvent)
       }
     } finally {
+      submissionInFlight.current = false
       setIsSubmitting(false)
     }
   }
 
   function handleClose() {
-    if (!isSubmitting && !conflict.isReloading) onClose()
+    if (!submissionInFlight.current && !isSubmitting && !conflict.isReloading) {
+      onClose()
+    }
   }
 
   return (
-    <ModalDialog labelledBy="calendar-delete-title" onClose={handleClose} testId="calendar-delete-dialog">
-      <div className="relative bg-white p-5 text-slate-900 sm:p-6">
-        <h2 id="calendar-delete-title" className="pr-12 text-xl font-bold">
+    <ModalDialog describedBy="calendar-delete-description" labelledBy="calendar-delete-title" onClose={handleClose} testId="calendar-delete-dialog">
+      <div aria-busy={isSubmitting} className="relative bg-white p-5 text-slate-900 sm:p-6">
+        <h2 id="calendar-delete-title" className="break-words pr-12 text-xl font-bold">
           Delete {currentEvent.name}?
         </h2>
-        <p className="mt-2 max-w-prose text-sm leading-6 text-slate-700">
+        <p id="calendar-delete-description" className="mt-2 max-w-prose text-sm leading-6 text-slate-700">
           This action cannot be undone.
         </p>
         {currentEvent.is_recurring ? (
           <fieldset className="mt-5 space-y-2">
             <legend className="text-sm font-semibold text-slate-900">Delete</legend>
             <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 px-3 text-sm text-slate-800">
-              <input type="radio" name="delete-target" value="occurrence" checked={target === 'occurrence'} disabled={isSubmitting} className="size-5 text-academy focus:ring-academy" onChange={() => setTarget('occurrence')} />
+              <input type="radio" name="delete-target" value="occurrence" checked={target === 'occurrence'} disabled={isSubmitting || conflict.isReloading} className="size-5 text-academy focus:ring-academy" onChange={() => setTarget('occurrence')} />
               This occurrence only
             </label>
             <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 px-3 text-sm text-slate-800">
-              <input type="radio" name="delete-target" value="series" checked={target === 'series'} disabled={isSubmitting} className="size-5 text-academy focus:ring-academy" onChange={() => setTarget('series')} />
+              <input type="radio" name="delete-target" value="series" checked={target === 'series'} disabled={isSubmitting || conflict.isReloading} className="size-5 text-academy focus:ring-academy" onChange={() => setTarget('series')} />
               Entire series
             </label>
           </fieldset>
@@ -108,8 +113,8 @@ export default function CalendarDeleteDialog({
           </div>
         ) : null}
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" data-modal-initial-focus disabled={isSubmitting} className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2" onClick={handleClose}>Cancel</button>
-          <button type="button" disabled={isSubmitting || conflict.hasConflict} className="min-h-11 rounded-lg bg-red-800 px-4 text-sm font-semibold text-white hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-800 focus:ring-offset-2 disabled:bg-red-300" onClick={() => void handleDelete()}>
+          <button type="button" data-modal-initial-focus disabled={isSubmitting || conflict.isReloading} className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2" onClick={handleClose}>Cancel</button>
+          <button type="button" disabled={isSubmitting || conflict.hasConflict || conflict.isReloading} className="min-h-11 rounded-lg bg-red-800 px-4 text-sm font-semibold text-white hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-800 focus:ring-offset-2 disabled:bg-red-300" onClick={() => void handleDelete()}>
             {isSubmitting ? 'Deleting event…' : target === 'series' ? 'Delete entire series' : 'Delete event'}
           </button>
         </div>

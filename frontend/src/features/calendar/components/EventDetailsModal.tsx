@@ -33,8 +33,13 @@ export default function EventDetailsModal({
   const dateLabel = parsedDate === null ? event.event_date : formatAcademyDateLabel(parsedDate)
 
   return (
-    <ModalDialog labelledBy="calendar-event-details-title" onClose={onClose} testId="calendar-event-details">
-      <div className="relative bg-white text-slate-900">
+    <ModalDialog
+      describedBy="calendar-event-details-description"
+      labelledBy="calendar-event-details-title"
+      onClose={onClose}
+      testId="calendar-event-details"
+    >
+      <div aria-busy={isLoading} className="relative bg-white text-slate-900">
         <header className="border-b border-slate-200 px-5 py-4 pr-16 sm:px-6 sm:pr-16">
           <div className="flex items-start gap-3">
             <span className="mt-1 flex size-10 shrink-0 items-center justify-center rounded-lg bg-academy/10 text-academy">
@@ -42,7 +47,7 @@ export default function EventDetailsModal({
             </span>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-slate-600">{getEventTypeLabel(event.event_type)}</p>
-              <h2 id="calendar-event-details-title" className="mt-1 text-xl font-bold leading-7 text-slate-900">
+              <h2 id="calendar-event-details-title" className="mt-1 break-words text-xl font-bold leading-7 text-slate-900">
                 {event.name}
               </h2>
             </div>
@@ -79,7 +84,7 @@ export default function EventDetailsModal({
               </div>
             ) : null}
           </dl>
-          <p className="text-xs text-slate-600">Times shown in America/Los_Angeles academy time.</p>
+          <p id="calendar-event-details-description" className="text-xs text-slate-600">Times shown in America/Los_Angeles academy time.</p>
           {canManage && !isLoading && errorMessage === null ? (
             <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
               <button type="button" className="min-h-11 rounded-lg border border-red-700 bg-white px-4 text-sm font-semibold text-red-800 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-800 focus:ring-offset-2" onClick={() => onDelete?.(event)}>

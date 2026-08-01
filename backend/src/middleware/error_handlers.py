@@ -8,9 +8,48 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.exc import IntegrityError
 
+from src.schemas.calendar import CalendarApiErrorResponse, CalendarErrorCode
 from src.services.occ import StaleVersionError
 
 logger = logging.getLogger(__name__)
+
+
+def _calendar_validation_error(
+    exc: RequestValidationError,
+) -> CalendarApiErrorResponse:
+    """Convert calendar schema failures into stable, non-sensitive errors."""
+
+    errors = exc.errors()
+    locations = {
+        str(part) for error in errors for part in error.get("loc", ()) if part != "body"
+    }
+    messages = " ".join(str(error.get("msg", "")) for error in errors).lower()
+    code: CalendarErrorCode | None = None
+    detail = "Check the calendar details and try again."
+
+    if "recurrence" in locations:
+        code = "calendar_recurrence_invalid"
+        detail = "Check the recurrence details and try again."
+    elif "scope" in locations or "age_groups" in locations:
+        code = "calendar_scope_invalid"
+        detail = "Select at least one age group or choose All Academy."
+    elif "has not passed" in messages:
+        code = "calendar_event_in_past"
+        detail = "Choose an academy date and time that has not passed."
+    elif locations.intersection({"start_time", "end_time", "is_all_day"}) or any(
+        phrase in messages
+        for phrase in (
+            "all-day",
+            "all day",
+            "end time",
+            "start and end times",
+            "wall-clock",
+        )
+    ):
+        code = "calendar_event_times_invalid"
+        detail = "Enter a start time and a later end time on the same academy day."
+
+    return CalendarApiErrorResponse(detail=detail, code=code)
 
 
 async def validation_error_handler(
@@ -21,6 +60,11 @@ async def validation_error_handler(
 
     if not isinstance(exc, RequestValidationError):
         raise exc
+    if request.url.path.startswith("/api/v1/calendar"):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content=_calendar_validation_error(exc).model_dump(mode="json"),
+        )
     is_coach_creation = (
         request.method == "POST" and request.url.path == "/api/v1/coaches"
     )

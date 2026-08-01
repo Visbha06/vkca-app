@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { ApiClientError } from '@shared/api/client'
 import { fetchCalendarInstance } from '../api/calendarApi'
 import type { CalendarEventInstance } from '../types/calendar'
+import { getCalendarErrorMessage } from '../utils/calendarErrors'
 
 const conflictCopy =
   'This event changed since you opened it. Reload the latest event before trying again.'
@@ -18,6 +19,7 @@ export default function useCalendarConflict({
   const [hasConflict, setHasConflict] = useState(false)
   const [isReloading, setIsReloading] = useState(false)
   const [reloadError, setReloadError] = useState<string | null>(null)
+  const reloadInFlight = useRef(false)
 
   const handleConflict = useCallback((error: unknown) => {
     if (!(error instanceof ApiClientError) || error.status !== 409) return false
@@ -32,7 +34,8 @@ export default function useCalendarConflict({
   }, [])
 
   const reload = useCallback(async () => {
-    if (event === null || isReloading) return null
+    if (event === null || reloadInFlight.current) return null
+    reloadInFlight.current = true
     setIsReloading(true)
     setReloadError(null)
     try {
@@ -40,13 +43,19 @@ export default function useCalendarConflict({
       clearConflict()
       onReloaded(latest)
       return latest
-    } catch {
-      setReloadError('Unable to reload the latest event. Please try again.')
+    } catch (error) {
+      setReloadError(
+        getCalendarErrorMessage(
+          error,
+          'Unable to reload the latest event. Please try again.',
+        ),
+      )
       return null
     } finally {
+      reloadInFlight.current = false
       setIsReloading(false)
     }
-  }, [clearConflict, event, isReloading, onReloaded])
+  }, [clearConflict, event, onReloaded])
 
   return {
     clearConflict,

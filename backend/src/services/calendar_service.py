@@ -205,6 +205,7 @@ class CalendarService:
             await self._replace_event_values(event, payload)
             event.version_number += 1
             await self.session.flush()
+            await self._refresh_definition_timestamps(event)
             response = self._definition_response(event)
             await self.session.commit()
             return response
@@ -370,6 +371,7 @@ class CalendarService:
             )
             event.version_number += 1
             await self.session.flush()
+            await self._refresh_definition_timestamps(event)
             response = self._definition_response(event)
             await self.session.commit()
             return response
@@ -644,6 +646,19 @@ class CalendarService:
             created_at=event.created_at,
             updated_at=event.updated_at,
         )
+
+    async def _refresh_definition_timestamps(
+        self,
+        event: CalendarEvent,
+    ) -> None:
+        """Load server-updated timestamps without triggering implicit async IO."""
+
+        await self.session.refresh(event, attribute_names=["updated_at"])
+        if event.recurrence_series is not None:
+            await self.session.refresh(
+                event.recurrence_series,
+                attribute_names=["updated_at"],
+            )
 
     async def _load_event_for_update(
         self,

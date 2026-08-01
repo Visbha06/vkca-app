@@ -21,7 +21,10 @@ export default function EventFormModalHeader({
         <h2 id="calendar-event-form-title" className="text-xl font-bold">
           {isCreating ? 'Create event' : 'Edit event'}
         </h2>
-        <p className="mt-1 text-sm text-slate-600">
+        <p
+          id="calendar-event-form-description"
+          className="mt-1 text-sm text-slate-600"
+        >
           Academy dates and times use America/Los_Angeles.
         </p>
       </header>

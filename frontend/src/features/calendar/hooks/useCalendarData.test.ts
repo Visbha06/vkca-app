@@ -2,7 +2,12 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchCalendarRange, fetchCalendarToday } from '../api/calendarApi'
+import {
+  fetchCalendarInstance,
+  fetchCalendarRange,
+  fetchCalendarToday,
+} from '../api/calendarApi'
+import type { CalendarEventInstance } from '../types/calendar'
 import useCalendarData from './useCalendarData'
 
 vi.mock('../api/calendarApi', () => ({
@@ -13,6 +18,7 @@ vi.mock('../api/calendarApi', () => ({
 
 const mockedFetchRange = vi.mocked(fetchCalendarRange)
 const mockedFetchToday = vi.mocked(fetchCalendarToday)
+const mockedFetchInstance = vi.mocked(fetchCalendarInstance)
 
 function todayResponse() {
   return {
@@ -51,7 +57,7 @@ function rangeResponse(name: string) {
 }
 
 afterEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
 })
 
 describe('useCalendarData', () => {
@@ -121,5 +127,118 @@ describe('useCalendarData', () => {
       resolveFirst?.(rangeResponse('Stale'))
     })
     expect(result.current.events[0]?.name).toBe('Newest')
+  })
+
+  it('retries only a failed range and never exposes the raw network error', async () => {
+    mockedFetchToday.mockResolvedValue(todayResponse())
+    mockedFetchRange.mockRejectedValueOnce(
+      new Error('database host calendar-primary.internal refused the request'),
+    )
+    const { result } = renderHook(() => useCalendarData())
+
+    await waitFor(() => {
+      expect(result.current.rangeError).toBe(
+        'Unable to load the calendar. Please try again.',
+      )
+    })
+    expect(result.current.rangeError).not.toContain('calendar-primary')
+    expect(mockedFetchToday).toHaveBeenCalledOnce()
+
+    mockedFetchRange.mockResolvedValueOnce(rangeResponse('Recovered range'))
+    act(() => result.current.retryRange())
+
+    await waitFor(() => {
+      expect(result.current.events[0]?.name).toBe('Recovered range')
+    })
+    expect(mockedFetchToday).toHaveBeenCalledOnce()
+    expect(mockedFetchRange).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries Today independently and bootstraps the calendar after recovery', async () => {
+    mockedFetchToday.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    const { result } = renderHook(() => useCalendarData())
+
+    await waitFor(() => {
+      expect(result.current.todayError).toBe(
+        'Unable to load Today. Please try again.',
+      )
+    })
+    expect(mockedFetchRange).not.toHaveBeenCalled()
+
+    mockedFetchToday.mockResolvedValueOnce(todayResponse())
+    mockedFetchRange.mockResolvedValueOnce(rangeResponse('Today recovered'))
+    act(() => result.current.retryToday())
+
+    await waitFor(() => expect(result.current.viewMonth).toEqual({ year: 2026, month: 8 }))
+    await waitFor(() => expect(result.current.events[0]?.name).toBe('Today recovered'))
+    expect(mockedFetchToday).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries a failed detail request without closing the selected event', async () => {
+    mockedFetchToday.mockResolvedValue(todayResponse())
+    mockedFetchRange.mockResolvedValue(rangeResponse('Selected practice'))
+    mockedFetchInstance.mockRejectedValueOnce(
+      new Error('unsafe upstream response body'),
+    )
+    const { result } = renderHook(() => useCalendarData())
+    await waitFor(() => expect(result.current.events).toHaveLength(1))
+
+    act(() => result.current.selectInstance(result.current.events[0]))
+    await waitFor(() => {
+      expect(result.current.detailError).toBe(
+        'Unable to load event details. Please try again.',
+      )
+    })
+    expect(result.current.selectedInstance?.name).toBe('Selected practice')
+
+    const refreshed = {
+      ...rangeResponse('Reloaded practice').events[0],
+      event_version_number: 2,
+    }
+    mockedFetchInstance.mockResolvedValueOnce(refreshed)
+    act(() => result.current.retryDetail())
+
+    await waitFor(() => {
+      expect(result.current.selectedInstance?.name).toBe('Reloaded practice')
+    })
+    expect(result.current.detailError).toBeNull()
+    expect(mockedFetchInstance).toHaveBeenCalledTimes(2)
+  })
+
+  it('ignores a superseded detail response', async () => {
+    mockedFetchToday.mockResolvedValue(todayResponse())
+    mockedFetchRange.mockResolvedValue(rangeResponse('Initial'))
+    let resolveFirst:
+      | ((value: CalendarEventInstance) => void)
+      | undefined
+    let resolveSecond:
+      | ((value: CalendarEventInstance) => void)
+      | undefined
+    mockedFetchInstance
+      .mockImplementationOnce(
+        () => new Promise((resolve) => { resolveFirst = resolve }),
+      )
+      .mockImplementationOnce(
+        () => new Promise((resolve) => { resolveSecond = resolve }),
+      )
+    const { result } = renderHook(() => useCalendarData())
+    await waitFor(() => expect(result.current.events).toHaveLength(1))
+    const first = result.current.events[0]
+    const second = { ...first, occurrence_id: 'second', name: 'Second event' }
+
+    act(() => result.current.selectInstance(first))
+    act(() => result.current.selectInstance(second))
+
+    await act(async () => {
+      resolveSecond?.({ ...second, name: 'Newest detail' })
+    })
+    await waitFor(() => {
+      expect(result.current.selectedInstance?.name).toBe('Newest detail')
+    })
+
+    await act(async () => {
+      resolveFirst?.({ ...first, name: 'Stale detail' })
+    })
+    expect(result.current.selectedInstance?.name).toBe('Newest detail')
   })
 })

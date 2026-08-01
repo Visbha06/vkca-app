@@ -17,15 +17,19 @@ const focusableSelector = [
 
 interface ModalDialogProps {
   children: ReactNode
+  describedBy?: string
   labelledBy: string
   onClose: () => void
+  role?: 'alertdialog' | 'dialog'
   testId?: string
 }
 
 export default function ModalDialog({
   children,
+  describedBy,
   labelledBy,
   onClose,
+  role,
   testId,
 }: ModalDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
@@ -114,10 +118,12 @@ export default function ModalDialog({
   return createPortal(
     <dialog
       ref={dialogRef}
+      aria-describedby={describedBy}
       aria-labelledby={labelledBy}
       aria-modal="true"
       className="modal-dialog"
       data-testid={testId}
+      role={role}
       {...backdropDismissHandlers}
     >
       {children}

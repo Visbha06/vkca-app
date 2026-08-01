@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiClientError } from '@shared/api/client'
 import {
   createCalendarEvent,
+  fetchCalendarInstance,
   updateCalendarOccurrence,
   updateCalendarSeries,
 } from '../api/calendarApi'
@@ -21,6 +22,7 @@ vi.mock('../api/calendarApi', () => ({
 }))
 
 const mockedCreate = vi.mocked(createCalendarEvent)
+const mockedFetchInstance = vi.mocked(fetchCalendarInstance)
 const mockedUpdateOccurrence = vi.mocked(updateCalendarOccurrence)
 const mockedUpdateSeries = vi.mocked(updateCalendarSeries)
 
@@ -75,7 +77,7 @@ function recurringEvent(): CalendarEventInstance {
 
 afterEach(() => {
   cleanup()
-  vi.clearAllMocks()
+  vi.resetAllMocks()
 })
 
 describe('EventFormModal', () => {
@@ -200,5 +202,170 @@ describe('EventFormModal', () => {
       name: 'Wednesday practice',
       event_date: '2026-08-05',
     })
+  })
+
+  it('uses safe permission copy and preserves entered values after failure', async () => {
+    mockedCreate.mockRejectedValue(
+      new ApiClientError(403, {
+        detail: 'raw authorization middleware detail',
+      }),
+    )
+    render(
+      <EventFormModal
+        academyToday="2026-08-01"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        onEventReloaded={vi.fn()}
+      />,
+    )
+
+    const nameInput = screen.getByLabelText('Event name')
+    fireEvent.change(nameInput, { target: { value: 'Keep this practice' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create event' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'You do not have permission to make this calendar change.',
+    )
+    expect(screen.getByLabelText('Event name')).toHaveValue('Keep this practice')
+    expect(screen.getByRole('alert')).not.toHaveTextContent('middleware')
+  })
+
+  it('offers one explicit reload after a conflict without retrying the mutation', async () => {
+    const event = recurringEvent()
+    mockedUpdateOccurrence.mockRejectedValue(
+      new ApiClientError(409, {
+        detail: 'raw stale write detail',
+        code: 'calendar_stale_version',
+      }),
+    )
+    mockedFetchInstance.mockResolvedValue({
+      ...event,
+      name: 'Latest practice from server',
+      event_version_number: 3,
+    })
+    const onEventReloaded = vi.fn()
+    render(
+      <EventFormModal
+        academyToday="2026-08-01"
+        event={event}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        onEventReloaded={onEventReloaded}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Event name'), {
+      target: { value: 'Conflicting local edit' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    const reload = await screen.findByRole('button', {
+      name: 'Reload latest event',
+    })
+    expect(mockedUpdateOccurrence).toHaveBeenCalledOnce()
+    expect(screen.getByRole('alert')).not.toHaveTextContent('raw stale')
+
+    fireEvent.click(reload)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Event name')).toHaveValue(
+        'Latest practice from server',
+      )
+    })
+    expect(mockedUpdateOccurrence).toHaveBeenCalledOnce()
+    expect(mockedFetchInstance).toHaveBeenCalledOnce()
+    expect(onEventReloaded).toHaveBeenCalledOnce()
+  })
+
+  it('cancels an exception-removal warning without losing the series draft', async () => {
+    mockedUpdateSeries.mockRejectedValue(
+      new ApiClientError(422, {
+        detail: 'internal detail',
+        code: 'exception_removal_confirmation_required',
+        removed_exception_original_dates: ['2026-08-12'],
+      }),
+    )
+    render(
+      <EventFormModal
+        academyToday="2026-08-01"
+        event={recurringEvent()}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        onEventReloaded={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Entire series' }))
+    fireEvent.change(screen.getByLabelText('Event name'), {
+      target: { value: 'Preserved series draft' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await screen.findByRole('alertdialog', {
+      name: 'Remove saved occurrence changes?',
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.getByLabelText('Event name')).toHaveValue(
+      'Preserved series draft',
+    )
+  })
+
+  it('blocks repeated submission while the first mutation is in flight', async () => {
+    let resolveCreate: (() => void) | undefined
+    mockedCreate.mockImplementation(
+      () => new Promise((resolve) => { resolveCreate = () => resolve({} as never) }),
+    )
+    render(
+      <EventFormModal
+        academyToday="2026-08-01"
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        onEventReloaded={vi.fn()}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Event name'), {
+      target: { value: 'One submission only' },
+    })
+    const submit = screen.getByRole('button', { name: 'Create event' })
+    fireEvent.click(submit)
+    fireEvent.click(submit)
+
+    expect(mockedCreate).toHaveBeenCalledOnce()
+    expect(screen.getByRole('button', { name: 'Saving event…' })).toBeDisabled()
+
+    await waitFor(async () => {
+      resolveCreate?.()
+      expect(mockedCreate).toHaveBeenCalledOnce()
+    })
+  })
+
+  it('uses an accessible discard confirmation and can continue editing', () => {
+    const onClose = vi.fn()
+    render(
+      <EventFormModal
+        academyToday="2026-08-01"
+        onClose={onClose}
+        onSaved={vi.fn()}
+        onEventReloaded={vi.fn()}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Event name'), {
+      target: { value: 'Unsaved practice' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Close create event' }))
+
+    expect(
+      screen.getByRole('alertdialog', { name: 'Discard unsaved changes?' }),
+    ).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Continue editing' }))
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Event name')).toHaveValue('Unsaved practice')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close create event' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }))
+    expect(onClose).toHaveBeenCalledOnce()
   })
 })

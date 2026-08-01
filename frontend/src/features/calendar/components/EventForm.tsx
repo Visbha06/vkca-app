@@ -103,7 +103,7 @@ export default function EventForm({
   }
 
   return (
-    <form ref={formRef} noValidate className="space-y-5 px-5 py-5 sm:px-6" onSubmit={handleSubmit}>
+    <form ref={formRef} noValidate aria-busy={isSubmitting} className="space-y-5 px-5 py-5 sm:px-6" onSubmit={handleSubmit}>
       {errorMessage !== null ? (
         <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-950">
           {errorMessage}
@@ -142,6 +142,7 @@ export default function EventForm({
       <label className="block text-sm font-semibold text-slate-800">
         Event name
         <input
+          id="calendar-event-name"
           type="text"
           maxLength={200}
           value={values.name}
@@ -190,7 +191,7 @@ export default function EventForm({
       ) : null}
       <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
         <button type="button" disabled={controlsDisabled} className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:text-slate-400" onClick={onCancel}>Cancel</button>
-        <button type="submit" disabled={controlsDisabled} className="min-h-11 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400">
+        <button type="submit" data-calendar-submit disabled={controlsDisabled} className="min-h-11 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-400">
           {isSubmitting ? 'Saving event…' : submitLabel}
         </button>
       </div>

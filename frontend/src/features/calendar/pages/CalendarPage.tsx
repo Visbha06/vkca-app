@@ -132,9 +132,12 @@ export default function CalendarPage() {
               onCreateEvent={canManage ? () => setFormEvent('create') : undefined}
             />
             <div className="mt-4 min-w-0">
-              {calendar.rangeError !== null && calendar.events.length === 0 ? (
-                <CalendarErrorState message={calendar.rangeError} onRetry={calendar.retryRange} />
-              ) : (
+              {calendar.rangeError !== null ? (
+                <div className="mb-4">
+                  <CalendarErrorState message={calendar.rangeError} onRetry={calendar.retryRange} />
+                </div>
+              ) : null}
+              {calendar.rangeError !== null && calendar.events.length === 0 ? null : (
                 <CalendarMonthGrid
                   viewMonth={calendar.viewMonth!}
                   academyToday={calendar.academyToday}

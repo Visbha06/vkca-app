@@ -218,6 +218,7 @@ def mutation_session():
     session.add_all = Mock()
     session.flush = AsyncMock()
     session.commit = AsyncMock()
+    session.refresh = AsyncMock()
     session.rollback = AsyncMock()
     session.delete = AsyncMock()
     return session

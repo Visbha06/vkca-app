@@ -45,16 +45,24 @@ export default function useCalendarData() {
   const [rangeError, setRangeError] = useState<string | null>(null)
   const [todayRetryKey, setTodayRetryKey] = useState(0)
   const [rangeRetryKey, setRangeRetryKey] = useState(0)
+  const todayRequestId = useRef(0)
   const rangeRequestId = useRef(0)
   const detailRequestId = useRef(0)
   const detailController = useRef<AbortController | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
+    const requestId = todayRequestId.current + 1
+    todayRequestId.current = requestId
 
     void fetchCalendarToday(controller.signal)
       .then((response) => {
-        if (controller.signal.aborted) return
+        if (
+          controller.signal.aborted ||
+          todayRequestId.current !== requestId
+        ) {
+          return
+        }
         const currentDate = parseResponseDate(response.academy_today)
         setAcademyToday(response.academy_today)
         setTodayEvents(response.events)
@@ -62,7 +70,11 @@ export default function useCalendarData() {
         setFocusedDate((current) => current ?? currentDate)
       })
       .catch((error: unknown) => {
-        if (!controller.signal.aborted && !isAbortError(error)) {
+        if (
+          !controller.signal.aborted &&
+          todayRequestId.current === requestId &&
+          !isAbortError(error)
+        ) {
           setIsRangeLoading(false)
           setTodayError(
             getCalendarErrorMessage(
@@ -73,11 +85,23 @@ export default function useCalendarData() {
         }
       })
       .finally(() => {
-        if (!controller.signal.aborted) setIsTodayLoading(false)
+        if (
+          !controller.signal.aborted &&
+          todayRequestId.current === requestId
+        ) {
+          setIsTodayLoading(false)
+        }
       })
 
     return () => controller.abort()
   }, [todayRetryKey])
+
+  useEffect(
+    () => () => {
+      detailController.current?.abort()
+    },
+    [],
+  )
 
   useEffect(() => {
     if (viewMonth === null) return
@@ -168,7 +192,6 @@ export default function useCalendarData() {
   const retryRange = useCallback(() => {
     setIsRangeLoading(true)
     setRangeError(null)
-    setEvents([])
     setRangeRetryKey((current) => current + 1)
   }, [])
 

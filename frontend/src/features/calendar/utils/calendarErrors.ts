@@ -30,6 +30,13 @@ const CALENDAR_ERROR_CODES = new Set<CalendarErrorCode>(
   Object.keys(CALENDAR_ERROR_MESSAGES) as CalendarErrorCode[],
 )
 
+export type CalendarRecoveryAction = 'none' | 'reload' | 'retry'
+
+export interface CalendarErrorPresentation {
+  message: string
+  recoveryAction: CalendarRecoveryAction
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
@@ -59,28 +66,56 @@ export function getCalendarErrorMessage(
   error: unknown,
   fallback = DEFAULT_CALENDAR_ERROR,
 ) {
-  const code = getCalendarErrorCode(error)
-  if (code !== null) return CALENDAR_ERROR_MESSAGES[code]
+  return getCalendarErrorPresentation(error, fallback).message
+}
 
-  if (error instanceof ApiClientError) {
-    if (error.status === 403) {
-      return 'You do not have permission to make this calendar change.'
-    }
-    if (error.status === 404) {
-      return 'This calendar event is no longer available.'
-    }
-    if (error.status === 409) {
-      return CALENDAR_ERROR_MESSAGES.calendar_stale_version
-    }
-    if (error.status === 429) {
-      return 'Too many calendar requests. Please wait and try again.'
-    }
-    if (error.status === 400 || error.status === 422) {
-      return 'Check the calendar details and try again.'
+export function getCalendarErrorPresentation(
+  error: unknown,
+  fallback = DEFAULT_CALENDAR_ERROR,
+): CalendarErrorPresentation {
+  const code = getCalendarErrorCode(error)
+  if (code !== null) {
+    return {
+      message: CALENDAR_ERROR_MESSAGES[code],
+      recoveryAction:
+        code === 'calendar_stale_version' ? 'reload' : 'none',
     }
   }
 
-  return fallback
+  if (error instanceof ApiClientError) {
+    if (error.status === 403) {
+      return {
+        message: 'You do not have permission to make this calendar change.',
+        recoveryAction: 'none',
+      }
+    }
+    if (error.status === 404) {
+      return {
+        message: 'This calendar event is no longer available.',
+        recoveryAction: 'none',
+      }
+    }
+    if (error.status === 409) {
+      return {
+        message: CALENDAR_ERROR_MESSAGES.calendar_stale_version,
+        recoveryAction: 'reload',
+      }
+    }
+    if (error.status === 429) {
+      return {
+        message: 'Too many calendar requests. Please wait and try again.',
+        recoveryAction: 'retry',
+      }
+    }
+    if (error.status === 400 || error.status === 422) {
+      return {
+        message: 'Check the calendar details and try again.',
+        recoveryAction: 'none',
+      }
+    }
+  }
+
+  return { message: fallback, recoveryAction: 'retry' }
 }
 
 export function isExceptionRemovalWarning(
