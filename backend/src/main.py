@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.middleware.error_handlers import register_error_handlers
 from src.routes.auth import router as auth_router
+from src.routes.calendar import router as calendar_router
 from src.routes.coaches import router as coaches_router
 from src.routes.matches import router as matches_router
 from src.routes.performances import router as performances_router
@@ -16,6 +17,7 @@ from src.services.rate_limiter import rate_limiter
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)
+api_router.include_router(calendar_router)
 api_router.include_router(coaches_router)
 api_router.include_router(matches_router)
 api_router.include_router(performances_router)

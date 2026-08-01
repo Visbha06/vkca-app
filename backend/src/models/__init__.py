@@ -3,6 +3,13 @@
 from src.models.auth_audit_log import AuthAuditLog
 from src.models.auth_session import AuthSession
 from src.models.base import Base, TimestampMixin, UUIDMixin, VersionMixin
+from src.models.calendar import (
+    CalendarEvent,
+    CalendarEventScope,
+    OccurrenceException,
+    OccurrenceExceptionScope,
+    RecurrenceSeries,
+)
 from src.models.data_sync_log import DataSyncLog
 from src.models.match import Match
 from src.models.match_batting_performance import MatchBattingPerformance
@@ -20,14 +27,19 @@ __all__ = [
     "AuthAuditLog",
     "AuthSession",
     "Base",
+    "CalendarEvent",
+    "CalendarEventScope",
     "DataSyncLog",
     "Match",
     "MatchBattingPerformance",
     "MatchBowlingPerformance",
     "MatchFieldingPerformance",
+    "OccurrenceException",
+    "OccurrenceExceptionScope",
     "Player",
     "PlayerBattingStats",
     "PlayerBowlingStats",
+    "RecurrenceSeries",
     "Team",
     "TeamCoach",
     "TeamPlayer",

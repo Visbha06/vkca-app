@@ -14,6 +14,17 @@ export interface CalendarDateRange {
   latest: CalendarDate
 }
 
+export type CalendarFocusKey =
+  | 'ArrowLeft'
+  | 'ArrowRight'
+  | 'ArrowUp'
+  | 'ArrowDown'
+  | 'Home'
+  | 'End'
+
+export const CALENDAR_MINIMUM_YEAR = 2026
+export const CALENDAR_FUTURE_YEAR_COUNT = 5
+
 export const CALENDAR_MONTH_NAMES = [
   'January',
   'February',
@@ -63,6 +74,10 @@ export function parseCalendarDate(value: string): CalendarDate | null {
   return date
 }
 
+export function parseAcademyDate(value: string): CalendarDate | null {
+  return parseCalendarDate(value)
+}
+
 export function calendarDateToIso(date: CalendarDate) {
   if (
     date.month < 1 ||
@@ -77,6 +92,10 @@ export function calendarDateToIso(date: CalendarDate) {
     String(date.month).padStart(2, '0'),
     String(date.day).padStart(2, '0'),
   ].join('-')
+}
+
+export function formatAcademyDate(date: CalendarDate) {
+  return calendarDateToIso(date)
 }
 
 export function compareCalendarDates(
@@ -160,6 +179,74 @@ export function calendarGrid(month: CalendarMonth) {
   )
 }
 
+export function calendarGridRows(month: CalendarMonth) {
+  const grid = calendarGrid(month)
+  return Array.from(
+    { length: grid.length / 7 },
+    (_, rowIndex) => grid.slice(rowIndex * 7, rowIndex * 7 + 7),
+  )
+}
+
+export function calendarGridRange(month: CalendarMonth): CalendarDateRange {
+  const grid = calendarGrid(month)
+  return {
+    earliest: grid[0],
+    latest: grid[grid.length - 1],
+  }
+}
+
+export function isCalendarDateInMonth(
+  date: CalendarDate,
+  month: CalendarMonth,
+) {
+  return date.year === month.year && date.month === month.month
+}
+
+export function moveCalendarFocus(
+  date: CalendarDate,
+  key: CalendarFocusKey,
+) {
+  switch (key) {
+    case 'ArrowLeft':
+      return addCalendarDays(date, -1)
+    case 'ArrowRight':
+      return addCalendarDays(date, 1)
+    case 'ArrowUp':
+      return addCalendarDays(date, -7)
+    case 'ArrowDown':
+      return addCalendarDays(date, 7)
+    case 'Home':
+      return addCalendarDays(date, -calendarWeekday(date))
+    case 'End':
+      return addCalendarDays(date, 6 - calendarWeekday(date))
+  }
+}
+
+export function calendarWeekday(date: CalendarDate) {
+  return calendarDateForFormatting(date).getUTCDay()
+}
+
+export function calendarYearOptions(
+  academyToday: CalendarDate,
+  minimumYear = CALENDAR_MINIMUM_YEAR,
+  futureYearCount = CALENDAR_FUTURE_YEAR_COUNT,
+) {
+  if (!Number.isInteger(minimumYear) || !Number.isInteger(futureYearCount)) {
+    throw new RangeError('Calendar year limits must be integers')
+  }
+  if (futureYearCount < 0) {
+    throw new RangeError('Future year count cannot be negative')
+  }
+  const latestYear = Math.max(
+    minimumYear,
+    academyToday.year + futureYearCount,
+  )
+  return Array.from(
+    { length: latestYear - minimumYear + 1 },
+    (_, index) => minimumYear + index,
+  )
+}
+
 export function calendarMonthFromDate(date: CalendarDate): CalendarMonth {
   return { year: date.year, month: date.month }
 }
@@ -175,4 +262,17 @@ export function compareCalendarMonths(
 
 export function calendarDateForFormatting(date: CalendarDate) {
   return new Date(Date.UTC(date.year, date.month - 1, date.day))
+}
+
+export function formatAcademyDateLabel(
+  date: CalendarDate,
+  locale = 'en-US',
+) {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: 'UTC',
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(calendarDateForFormatting(date))
 }

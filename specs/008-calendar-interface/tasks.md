@@ -12,8 +12,8 @@
 
 **Purpose**: Establish the calendar feature paths and test scaffolding without adding a new production dependency.
 
-- [ ] T001 Create the calendar feature package/index paths in `backend/src/models/__init__.py`, `backend/src/schemas/__init__.py`, `backend/src/services/__init__.py`, and `frontend/src/features/calendar/index.ts`.
-- [ ] T002 [P] Add reusable calendar fixture builders and academy-time test constants in `backend/tests/unit/conftest.py` and `frontend/src/features/calendar/testFixtures.ts`.
+- [X] T001 Create the calendar feature package/index paths in `backend/src/models/__init__.py`, `backend/src/schemas/__init__.py`, `backend/src/services/__init__.py`, and `frontend/src/features/calendar/index.ts`.
+- [X] T002 [P] Add reusable calendar fixture builders and academy-time test constants in `backend/tests/unit/conftest.py` and `frontend/src/features/calendar/testFixtures.ts`.
 
 ---
 
@@ -23,16 +23,16 @@
 
 **⚠️ CRITICAL**: No user story implementation should begin until this phase is complete.
 
-- [ ] T003 Add `EventType`, `ScopeKind`, `RecurrenceFrequency`, and `RecurrenceTermination` enums without changing existing enum values in `backend/src/enums.py`.
-- [ ] T004 Create migration `backend/src/migrations/versions/011_create_calendar.py` for event definitions, recurrence rules, scope rows, occurrence exceptions, OCC versions, indexes, uniqueness constraints, and cascading hard-delete foreign keys.
-- [ ] T005 Implement SQLAlchemy calendar entities and relationships in `backend/src/models/calendar.py` from `data-model.md`, including the UUID `RecurrenceSeries.id`, unique one-to-one `event_id`, stable `(series_id, original_date)` exception identity, canonical owning-event OCC version, and cascade behavior.
-- [ ] T006 Implement Pydantic calendar request/response schemas in `backend/src/schemas/calendar.py`, including scope, recurrence, effective instance, owning-event/exception mutation versions, and exception-removal-warning payloads.
-- [ ] T007 Implement bounded weekly/yearly recurrence arithmetic in `backend/src/services/calendar_recurrence.py`, including `America/Los_Angeles` date rules, Feb 29 → Feb 28 fallback, end-date/count termination, and no multi-year expansion.
-- [ ] T008 Add mirrored TypeScript calendar types for event instances, scopes, recurrence, versions, warning responses, and API errors in `frontend/src/features/calendar/types/calendar.ts`.
-- [ ] T009 Add the typed calendar API client surface in `frontend/src/features/calendar/api/calendarApi.ts` for range, Today, instance details, create, standalone update/delete, occurrence update/delete, series update/delete, and `AbortSignal` support.
-- [ ] T010 Extend `frontend/src/shared/utils/calendarDate.ts` and its tests in `frontend/src/shared/utils/calendarDate.test.ts` with complete-week grid helpers, academy-date parsing/formatting, focus movement, and dynamic 2026-to-current-year-plus-five calculations.
-- [ ] T011 Register the backend calendar router in `backend/src/main.py`, preserve the protected `/calendar` route in `frontend/src/app/router.tsx`, and update the retained route wrapper in `frontend/src/pages/CalendarPage.tsx` to delegate to the feature page entry point.
-- [ ] T012 Add safe calendar error-code mapping and typed exception-removal warning handling in `frontend/src/features/calendar/utils/calendarErrors.ts`, preserving the existing `ApiClientError` and raw-error redaction behavior.
+- [X] T003 Add `EventType`, `ScopeKind`, `RecurrenceFrequency`, and `RecurrenceTermination` enums without changing existing enum values in `backend/src/enums.py`.
+- [X] T004 Create migration `backend/src/migrations/versions/011_create_calendar.py` for event definitions, recurrence rules, scope rows, occurrence exceptions, OCC versions, indexes, uniqueness constraints, and cascading hard-delete foreign keys.
+- [X] T005 Implement SQLAlchemy calendar entities and relationships in `backend/src/models/calendar.py` from `data-model.md`, including the UUID `RecurrenceSeries.id`, unique one-to-one `event_id`, stable `(series_id, original_date)` exception identity, canonical owning-event OCC version, and cascade behavior.
+- [X] T006 Implement Pydantic calendar request/response schemas in `backend/src/schemas/calendar.py`, including scope, recurrence, effective instance, owning-event/exception mutation versions, and exception-removal-warning payloads.
+- [X] T007 Implement bounded weekly/yearly recurrence arithmetic in `backend/src/services/calendar_recurrence.py`, including `America/Los_Angeles` date rules, Feb 29 → Feb 28 fallback, end-date/count termination, and no multi-year expansion.
+- [X] T008 Add mirrored TypeScript calendar types for event instances, scopes, recurrence, versions, warning responses, and API errors in `frontend/src/features/calendar/types/calendar.ts`.
+- [X] T009 Add the typed calendar API client surface in `frontend/src/features/calendar/api/calendarApi.ts` for range, Today, instance details, create, standalone update/delete, occurrence update/delete, series update/delete, and `AbortSignal` support.
+- [X] T010 Extend `frontend/src/shared/utils/calendarDate.ts` and its tests in `frontend/src/shared/utils/calendarDate.test.ts` with complete-week grid helpers, academy-date parsing/formatting, focus movement, and dynamic 2026-to-current-year-plus-five calculations.
+- [X] T011 Register the backend calendar router in `backend/src/main.py`, preserve the protected `/calendar` route in `frontend/src/app/router.tsx`, and update the retained route wrapper in `frontend/src/pages/CalendarPage.tsx` to delegate to the feature page entry point.
+- [X] T012 Add safe calendar error-code mapping and typed exception-removal warning handling in `frontend/src/features/calendar/utils/calendarErrors.ts`, preserving the existing `ApiClientError` and raw-error redaction behavior.
 
 **Checkpoint**: Migration, models, schemas, recurrence primitives, typed API boundaries, and protected route wiring are ready for story work.
 
