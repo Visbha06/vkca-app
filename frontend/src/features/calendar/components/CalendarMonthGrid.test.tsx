@@ -50,7 +50,27 @@ describe('CalendarMonthGrid', () => {
     expect(screen.getByRole('grid', { name: 'August 2026 calendar' })).toBeInTheDocument()
     expect(screen.getAllByRole('columnheader')).toHaveLength(7)
     expect(screen.getByRole('button', { name: /Today, Wednesday, August 5, 2026/ })).toHaveAttribute('aria-current', 'date')
-    expect(screen.getByRole('button', { name: /Sunday, July 26, 2026/ })).toHaveAttribute('data-outside-month', 'true')
+    for (const day of [26, 27, 28, 29, 30, 31]) {
+      expect(
+        screen.getByRole('button', {
+          name: new RegExp(`July ${day}, 2026`),
+        }),
+      ).toHaveClass('text-slate-500')
+    }
+    for (const day of [1, 2, 3, 4, 5]) {
+      expect(
+        screen.getByRole('button', {
+          name: new RegExp(`September ${day}, 2026`),
+        }),
+      ).toHaveClass('text-slate-500')
+    }
+    for (const day of [1, 4, 31]) {
+      const augustDate = screen.getByRole('button', {
+        name: new RegExp(`August ${day}, 2026`),
+      })
+      expect(augustDate).not.toHaveAttribute('data-outside-month')
+      expect(augustDate).not.toHaveClass('text-slate-500')
+    }
     expect(screen.getByRole('button', { name: /Wednesday practice/ })).toBeInTheDocument()
   })
 

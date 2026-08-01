@@ -100,7 +100,7 @@ export default function CalendarPage() {
         <h1 id="calendar-page-title" className="text-3xl font-bold tracking-tight text-slate-900" tabIndex={-1}>
           Calendar
         </h1>
-        <p className="mt-2 max-w-prose text-slate-600">
+        <p className="mt-2 max-w-none text-slate-600 md:whitespace-nowrap">
           Review academy events in Pacific time and keep today’s schedule close at hand.
         </p>
       </div>

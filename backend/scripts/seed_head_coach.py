@@ -56,9 +56,7 @@ async def seed_head_coach(
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--email", default=os.getenv("HEAD_COACH_EMAIL", DEFAULT_EMAIL)
-    )
+    parser.add_argument("--email", default=os.getenv("HEAD_COACH_EMAIL", DEFAULT_EMAIL))
     parser.add_argument(
         "--password",
         default=os.getenv("HEAD_COACH_PASSWORD", DEFAULT_PASSWORD),

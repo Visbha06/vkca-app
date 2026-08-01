@@ -364,9 +364,7 @@ async def test_user_disable_logged(mocker) -> None:
 
     await disable_user(user.id, session, None)
 
-    assert any(
-        call.args[1] == "user_disablement" for call in log_event.await_args_list
-    )
+    assert any(call.args[1] == "user_disablement" for call in log_event.await_args_list)
 
 
 @pytest.mark.asyncio
@@ -393,9 +391,7 @@ async def test_password_change_logged(mocker) -> None:
         (user, auth_session),
     )
 
-    assert any(
-        call.args[1] == "password_change" for call in log_event.await_args_list
-    )
+    assert any(call.args[1] == "password_change" for call in log_event.await_args_list)
 
 
 @pytest.mark.asyncio

@@ -58,8 +58,7 @@ export default function CalendarHeader({
   return (
     <header className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-slate-600">Academy calendar</p>
-        <h2 className="mt-1 text-xl font-bold text-slate-900" id="calendar-month-heading">
+        <h2 className="text-xl font-bold text-slate-900" id="calendar-month-heading">
           {monthLabel}
         </h2>
         {isHistorical ? (

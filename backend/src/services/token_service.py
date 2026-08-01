@@ -11,9 +11,7 @@ from jose import JWTError, jwt  # type: ignore[import-untyped]
 from src.config import get_settings
 from src.enums import UserRole
 
-REQUIRED_ACCESS_TOKEN_CLAIMS = frozenset(
-    {"sub", "sid", "role", "jti", "iat", "exp"}
-)
+REQUIRED_ACCESS_TOKEN_CLAIMS = frozenset({"sub", "sid", "role", "jti", "iat", "exp"})
 
 
 class TokenService:

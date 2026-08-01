@@ -147,12 +147,12 @@
 
 **Purpose**: Verify the complete feature, apply documentation requirements, and run all project quality gates.
 
-- [ ] T054 [P] Add the required isolated backend quickstart journey covering the steps in `specs/008-calendar-interface/quickstart.md` in `backend/tests/integration/quickstart/test_008_quickstart_flow.py`.
-- [ ] T055 [P] Add verified feature documentation covering purpose, user flows, API surface, timezone behavior, recurrence/exception rules, and configuration in `docs/calendar-interface.md` after implementation and tests pass.
-- [ ] T056 Run migration upgrade/downgrade verification and the full backend checks from `specs/008-calendar-interface/quickstart.md` against `backend/src/migrations/versions/011_create_calendar.py`, `backend/src`, and `backend/tests`.
-- [ ] T057 Run frontend lint, unit tests, strict build, Playwright E2E, and 320px/tablet/desktop checks from `specs/008-calendar-interface/quickstart.md` against `frontend/src` and `frontend/e2e`.
-- [ ] T058 Review the completed implementation against `PRODUCT.md`, `DESIGN.md`, `spec.md`, `data-model.md`, `contracts/calendar-api.md`, and `contracts/calendar-ui.md`; remove dead code and record any justified deviations in `docs/calendar-interface.md`.
-- [ ] T059 [P] Add `backend/tests/integration/test_calendar_performance.py` for bounded-range performance validation that repeatedly requests one complete six-week calendar grid with representative standalone events, recurring series, and occurrence exceptions; record elapsed samples and p95, and verify at least 95% complete within the two-second success criterion under the documented local test environment.
+- [X] T054 [P] Add the required isolated backend quickstart journey covering the steps in `specs/008-calendar-interface/quickstart.md` in `backend/tests/integration/quickstart/test_008_quickstart_flow.py`.
+- [X] T055 [P] Add verified feature documentation covering purpose, user flows, API surface, timezone behavior, recurrence/exception rules, and configuration in `docs/calendar-interface.md` after implementation and tests pass.
+- [X] T056 Run migration upgrade/downgrade verification and the full backend checks from `specs/008-calendar-interface/quickstart.md` against `backend/src/migrations/versions/011_create_calendar.py`, `backend/src`, and `backend/tests`.
+- [X] T057 Run frontend lint, unit tests, strict build, Playwright E2E, and 320px/tablet/desktop checks from `specs/008-calendar-interface/quickstart.md` against `frontend/src` and `frontend/e2e`.
+- [X] T058 Review the completed implementation against `PRODUCT.md`, `DESIGN.md`, `spec.md`, `data-model.md`, `contracts/calendar-api.md`, and `contracts/calendar-ui.md`; remove dead code and record any justified deviations in `docs/calendar-interface.md`.
+- [X] T059 [P] Add `backend/tests/integration/test_calendar_performance.py` for bounded-range performance validation that repeatedly requests one complete six-week calendar grid with representative standalone events, recurring series, and occurrence exceptions; record elapsed samples and p95, and verify at least 95% complete within the two-second success criterion under the documented local test environment.
 
 ---
 

@@ -30,9 +30,7 @@ async def test_seed_head_coach_creates_argon2id_account() -> None:
     assert user.email == "headcoach@vkca.test"
     assert user.role == UserRole.HEAD_COACH
     assert user.hashed_password.startswith("$argon2id$")
-    assert PasswordService.verify_password(
-        "SuperSecur3!P@ss", user.hashed_password
-    )
+    assert PasswordService.verify_password("SuperSecur3!P@ss", user.hashed_password)
     session.add.assert_called_once_with(user)
     session.commit.assert_awaited_once()
     session.refresh.assert_awaited_once_with(user)

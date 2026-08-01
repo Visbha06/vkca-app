@@ -177,6 +177,11 @@ class CalendarService:
                     payload.event_date,
                     payload.recurrence,
                 )
+            else:
+                # Mark the one-to-one relationship as loaded for the response
+                # built before commit.  Async SQLAlchemy cannot lazy-load this
+                # newly-created empty relationship outside a greenlet.
+                event.recurrence_series = None
             self.session.add(event)
             await self.session.flush()
             response = self._definition_response(event)

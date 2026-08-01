@@ -2,6 +2,7 @@ import type { KeyboardEvent } from 'react'
 import {
   calendarDateToIso,
   formatAcademyDateLabel,
+  isCalendarDateInMonth,
   isSameCalendarDate,
   moveCalendarFocus,
   type CalendarDate,
@@ -42,7 +43,7 @@ export default function CalendarDayCell({
   onSelectMore,
 }: CalendarDayCellProps) {
   const dateLabel = formatAcademyDateLabel(date)
-  const outsideMonth = date.month !== viewMonth.month || date.year !== viewMonth.year
+  const outsideMonth = !isCalendarDateInMonth(date, viewMonth)
   const isToday = isSameCalendarDate(date, academyToday)
   const orderedEvents = [...events].sort(compareEvents)
   const visibleEvents = orderedEvents.slice(0, 3)
@@ -66,7 +67,7 @@ export default function CalendarDayCell({
     <div
       role="gridcell"
       aria-label={`${dateLabel}${isToday ? ', current academy date' : ''}`}
-      className={`min-w-0 border-b border-r border-slate-200 bg-white p-1 sm:p-2 ${outsideMonth ? 'bg-slate-50 text-slate-500' : ''}`}
+      className={`min-w-0 border-b border-r border-slate-200 p-1 sm:p-2 ${outsideMonth ? 'bg-slate-50 text-slate-500' : 'bg-white'}`}
       data-calendar-date={calendarDateToIso(date)}
       data-outside-month={outsideMonth ? 'true' : undefined}
     >
@@ -77,8 +78,10 @@ export default function CalendarDayCell({
         className={`flex min-h-11 min-w-11 items-center justify-center rounded-md border text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-academy focus:ring-inset ${
           isToday
             ? 'border-academy bg-academy/10 text-slate-950'
-            : 'border-transparent text-slate-800 hover:bg-academy/10'
-        } ${outsideMonth ? 'text-slate-500' : ''}`}
+            : `border-transparent hover:bg-academy/10 ${
+                outsideMonth ? 'text-slate-500' : 'text-slate-800'
+              }`
+        }`}
         data-calendar-date-button={calendarDateToIso(date)}
         data-outside-month={outsideMonth ? 'true' : undefined}
         onFocus={() => onFocusDate(date)}

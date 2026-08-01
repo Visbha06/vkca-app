@@ -66,17 +66,11 @@ class TeamService:
         if not 7 <= len(player_ids) <= 15:
             raise TeamValidationError("A team roster must contain 7 to 15 players.")
         if len(set(player_ids)) != len(player_ids):
-            raise TeamValidationError(
-                "A team roster cannot contain duplicate players."
-            )
+            raise TeamValidationError("A team roster cannot contain duplicate players.")
 
-        statement = select(Player.id, Player.is_active).where(
-            Player.id.in_(player_ids)
-        )
+        statement = select(Player.id, Player.is_active).where(Player.id.in_(player_ids))
         rows = (await self.session.execute(statement)).all()
-        players_by_id = {
-            player_id: is_active for player_id, is_active in rows
-        }
+        players_by_id = {player_id: is_active for player_id, is_active in rows}
         missing_ids = [
             player_id for player_id in player_ids if player_id not in players_by_id
         ]

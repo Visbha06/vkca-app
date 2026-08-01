@@ -33,6 +33,8 @@ describe('CalendarHeader', () => {
     expect(onNextMonth).toHaveBeenCalledOnce()
     expect(onPreviousMonth).toHaveBeenCalledOnce()
     expect(onYearChange).toHaveBeenCalledWith(2031)
+    expect(screen.getByRole('heading', { name: 'December 2026' })).not.toHaveClass('mt-1')
+    expect(screen.queryByText('Academy calendar')).not.toBeInTheDocument()
     expect(screen.getByRole('option', { name: '2031' })).toBeInTheDocument()
     expect(screen.queryByRole('option', { name: '2032' })).not.toBeInTheDocument()
   })

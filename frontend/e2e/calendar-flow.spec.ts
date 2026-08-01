@@ -3,6 +3,80 @@ import { installAuthApiMock } from './auth-api-mock'
 import { installCalendarApiMock } from './calendar-api-mock'
 
 test.describe('calendar coach lifecycle', () => {
+  test('preserves responsive subtitle flow and mutes only adjacent-month dates', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await installAuthApiMock(page)
+    await installCalendarApiMock(page)
+
+    await page.goto('/calendar')
+    await expect(page.getByRole('heading', { name: 'August 2026' })).toBeVisible()
+    await expect(page.getByText('Academy calendar', { exact: true })).toHaveCount(0)
+
+    const subtitle = page.getByText(
+      'Review academy events in Pacific time and keep today’s schedule close at hand.',
+      { exact: true },
+    )
+    await expect(subtitle).toHaveCSS('white-space', 'nowrap')
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true)
+
+    const grid = page.getByRole('grid', { name: 'August 2026 calendar' })
+    const tokenColors = await page.evaluate(() => {
+      const sample = document.createElement('span')
+      document.body.append(sample)
+      const colorFor = (className: string) => {
+        sample.className = className
+        return getComputedStyle(sample).color
+      }
+      const colors = {
+        muted: colorFor('text-slate-500'),
+        normal: colorFor('text-slate-800'),
+        current: colorFor('text-slate-950'),
+      }
+      sample.remove()
+      return colors
+    })
+    for (const day of [26, 27, 28, 29, 30, 31]) {
+      await expect(
+        grid.getByRole('button', { name: new RegExp(`July ${day}, 2026`) }),
+      ).toHaveCSS('color', tokenColors.muted)
+    }
+    for (const day of [1, 2, 3, 4, 5]) {
+      await expect(
+        grid.getByRole('button', { name: new RegExp(`September ${day}, 2026`) }),
+      ).toHaveCSS('color', tokenColors.muted)
+    }
+    for (const day of [1, 4, 31]) {
+      const augustDate = grid.getByRole('button', {
+        name: new RegExp(`August ${day}, 2026`),
+      })
+      await expect(augustDate).not.toHaveAttribute('data-outside-month', 'true')
+      await expect(augustDate).toHaveCSS('color', tokenColors.normal)
+    }
+    await expect(
+      grid.getByRole('button', { name: /Today, Wednesday, August 5, 2026/ }),
+    ).toHaveCSS('color', tokenColors.current)
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect(subtitle).toHaveCSS('white-space', 'normal')
+    expect(
+      await subtitle.evaluate(
+        (element) =>
+          element.clientHeight > Number.parseFloat(getComputedStyle(element).lineHeight),
+      ),
+    ).toBe(true)
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true)
+  })
+
   test('creates a weekly event, edits and deletes one occurrence, then deletes the series', async ({
     page,
   }) => {

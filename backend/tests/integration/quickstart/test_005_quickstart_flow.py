@@ -100,9 +100,9 @@ async def test_players_interface_quickstart_flow(
         second_page_json = second_page.json()
         assert second_page_json["page"] == 2
         assert second_page_json["has_previous"] is True
-        assert {
-            item["id"] for item in first_page_json["players"]
-        }.isdisjoint(item["id"] for item in second_page_json["players"])
+        assert {item["id"] for item in first_page_json["players"]}.isdisjoint(
+            item["id"] for item in second_page_json["players"]
+        )
 
         ordered = await client.get(
             "/api/v1/players",
@@ -121,9 +121,7 @@ async def test_players_interface_quickstart_flow(
             json={
                 "name": f"Quickstart XI {run_id}",
                 "age_group": "U15",
-                "player_ids": [
-                    str(player_id) for player_id in assigned_ids
-                ],
+                "player_ids": [str(player_id) for player_id in assigned_ids],
             },
         )
         assert created_team.status_code == 201, created_team.text
@@ -135,9 +133,7 @@ async def test_players_interface_quickstart_flow(
         )
         assert team_filtered.status_code == 200, team_filtered.text
         team_json = team_filtered.json()
-        assert {UUID(item["id"]) for item in team_json["players"]} == set(
-            assigned_ids
-        )
+        assert {UUID(item["id"]) for item in team_json["players"]} == set(assigned_ids)
         assert all(
             any(team["id"] == str(team_id) for team in item["teams"])
             for item in team_json["players"]
