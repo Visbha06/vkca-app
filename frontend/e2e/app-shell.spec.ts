@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { installAuthApiMock } from './auth-api-mock'
+import { installCalendarApiMock } from './calendar-api-mock'
 
 test.describe('application shell primary journey', () => {
   test.beforeEach(async ({ page }) => {
@@ -117,7 +118,7 @@ test.describe('application shell primary journey', () => {
     expect(hasHorizontalOverflow).toBe(false)
   })
 
-  test('renders implemented routes, remaining placeholders, and the recoverable 404 page', async ({
+  test('renders implemented routes and the recoverable 404 page', async ({
     page,
   }) => {
     await page.goto('/players')
@@ -148,14 +149,17 @@ test.describe('application shell primary journey', () => {
     ).toBeVisible()
     await expect(page.getByRole('button', { name: 'Add Coach' })).toBeVisible()
 
+    await installCalendarApiMock(page)
     await page.goto('/calendar')
     await expect(
       page.getByRole('heading', { level: 1, name: 'Calendar' }),
     ).toBeVisible()
     await expect(
       page.getByText('This section will be available in a future update.'),
-    ).toBeVisible()
-    await expect(page.locator('main form, main input, main select')).toHaveCount(0)
+    ).toHaveCount(0)
+    await expect(page.getByRole('grid', { name: /calendar$/ })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 2, name: 'Today' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Create Event' })).toBeVisible()
 
     await page.goto('/settings')
     await expect(page.getByRole('dialog', { name: 'User Settings' })).toBeVisible()

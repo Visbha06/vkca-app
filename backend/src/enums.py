@@ -49,6 +49,36 @@ class AgeGroup(StrEnum):
     U15 = "U15"
 
 
+class EventType(StrEnum):
+    """Supported academy calendar event classifications."""
+
+    PRACTICE = "practice"
+    GAME = "game"
+    MISCELLANEOUS = "miscellaneous"
+
+
+class ScopeKind(StrEnum):
+    """Supported audience scope representations for calendar events."""
+
+    AGE_GROUP = "age_group"
+    ALL_ACADEMY = "all_academy"
+
+
+class RecurrenceFrequency(StrEnum):
+    """Supported fixed-interval calendar recurrence frequencies."""
+
+    WEEKLY = "weekly"
+    YEARLY = "yearly"
+
+
+class RecurrenceTermination(StrEnum):
+    """Supported ways to terminate a recurring calendar series."""
+
+    NEVER = "never"
+    END_DATE = "end_date"
+    OCCURRENCE_COUNT = "occurrence_count"
+
+
 class MatchFormat(StrEnum):
     """Supported cricket match formats."""
 

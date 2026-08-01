@@ -42,9 +42,7 @@ async def authenticated_client(client: httpx.AsyncClient) -> None:
             json={"email": email, "password": password},
         )
         assert login.status_code == 200, login.text
-        client.headers["Authorization"] = (
-            f"Bearer {login.json()['access_token']}"
-        )
+        client.headers["Authorization"] = f"Bearer {login.json()['access_token']}"
         yield
     finally:
         client.headers.pop("Authorization", None)

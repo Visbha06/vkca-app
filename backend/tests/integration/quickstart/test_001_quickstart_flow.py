@@ -129,8 +129,7 @@ async def test_full_twelve_step_quickstart_flow(
                 "name": f"Senior XI {run_id}",
                 "age_group": "U15",
                 "player_ids": [
-                    str(support_player_id)
-                    for support_player_id in support_player_ids
+                    str(support_player_id) for support_player_id in support_player_ids
                 ],
             },
         )

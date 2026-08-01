@@ -6,12 +6,21 @@ import {
   calendarDateFromLocalDate,
   calendarDateToIso,
   calendarGrid,
+  calendarGridRange,
+  calendarGridRows,
   calendarMonthFromDate,
+  calendarWeekday,
+  calendarYearOptions,
   clampCalendarDate,
   compareCalendarDates,
   compareCalendarMonths,
   daysInCalendarMonth,
+  formatAcademyDate,
+  formatAcademyDateLabel,
+  isCalendarDateInMonth,
   isSameCalendarDate,
+  moveCalendarFocus,
+  parseAcademyDate,
   parseCalendarDate,
 } from '@shared/utils/calendarDate'
 
@@ -88,6 +97,95 @@ describe('calendar date utilities', () => {
     expect(calendarGrid({ year: 2026, month: 7 })).toHaveLength(35)
     expect(calendarGrid({ year: 2024, month: 2 })).toHaveLength(35)
     expect(calendarGrid({ year: 2025, month: 8 })).toHaveLength(42)
+  })
+
+  it('returns complete rows and an inclusive visible grid range', () => {
+    const rows = calendarGridRows({ year: 2026, month: 8 })
+    expect(rows).toHaveLength(6)
+    expect(rows.every((row) => row.length === 7)).toBe(true)
+    expect(calendarGridRange({ year: 2026, month: 8 })).toEqual({
+      earliest: { year: 2026, month: 7, day: 26 },
+      latest: { year: 2026, month: 9, day: 5 },
+    })
+    expect(
+      isCalendarDateInMonth(
+        { year: 2026, month: 8, day: 31 },
+        { year: 2026, month: 8 },
+      ),
+    ).toBe(true)
+    expect(
+      isCalendarDateInMonth(
+        { year: 2026, month: 9, day: 1 },
+        { year: 2026, month: 8 },
+      ),
+    ).toBe(false)
+  })
+
+  it('parses, serializes, and labels academy-local dates without drift', () => {
+    const academyDate = parseAcademyDate('2026-08-05')
+    expect(academyDate).toEqual({ year: 2026, month: 8, day: 5 })
+    expect(formatAcademyDate(academyDate!)).toBe('2026-08-05')
+    expect(formatAcademyDateLabel(academyDate!)).toBe(
+      'Wednesday, August 5, 2026',
+    )
+  })
+
+  it('calculates keyboard focus movement across week and month edges', () => {
+    const monday = { year: 2026, month: 8, day: 31 }
+    expect(calendarWeekday(monday)).toBe(1)
+    expect(moveCalendarFocus(monday, 'ArrowLeft')).toEqual({
+      year: 2026,
+      month: 8,
+      day: 30,
+    })
+    expect(moveCalendarFocus(monday, 'ArrowRight')).toEqual({
+      year: 2026,
+      month: 9,
+      day: 1,
+    })
+    expect(moveCalendarFocus(monday, 'ArrowUp')).toEqual({
+      year: 2026,
+      month: 8,
+      day: 24,
+    })
+    expect(moveCalendarFocus(monday, 'ArrowDown')).toEqual({
+      year: 2026,
+      month: 9,
+      day: 7,
+    })
+    expect(moveCalendarFocus(monday, 'Home')).toEqual({
+      year: 2026,
+      month: 8,
+      day: 30,
+    })
+    expect(moveCalendarFocus(monday, 'End')).toEqual({
+      year: 2026,
+      month: 9,
+      day: 5,
+    })
+  })
+
+  it('builds the dynamic 2026 through academy-year-plus-five options', () => {
+    expect(calendarYearOptions({ year: 2026, month: 8, day: 1 })).toEqual([
+      2026,
+      2027,
+      2028,
+      2029,
+      2030,
+      2031,
+    ])
+    expect(calendarYearOptions({ year: 2030, month: 1, day: 1 })).toEqual([
+      2026,
+      2027,
+      2028,
+      2029,
+      2030,
+      2031,
+      2032,
+      2033,
+      2034,
+      2035,
+    ])
   })
 
   it('orders unique dates without ever generating a seventh week', () => {

@@ -152,14 +152,10 @@ async def test_create_team_rejects_duplicate_missing_and_inactive_players() -> N
 
     player_ids = make_player_ids()
     missing_session = Mock()
-    missing_session.execute = AsyncMock(
-        return_value=roster_result(player_ids[:-1])
-    )
+    missing_session.execute = AsyncMock(return_value=roster_result(player_ids[:-1]))
     missing_session.rollback = AsyncMock()
     with pytest.raises(PlayerNotFoundError):
-        await TeamService(missing_session).create_team(
-            make_create_payload(player_ids)
-        )
+        await TeamService(missing_session).create_team(make_create_payload(player_ids))
     missing_session.rollback.assert_awaited_once()
 
     inactive_session = Mock()
@@ -168,9 +164,7 @@ async def test_create_team_rejects_duplicate_missing_and_inactive_players() -> N
     )
     inactive_session.rollback = AsyncMock()
     with pytest.raises(TeamValidationError, match="active"):
-        await TeamService(inactive_session).create_team(
-            make_create_payload(player_ids)
-        )
+        await TeamService(inactive_session).create_team(make_create_payload(player_ids))
     inactive_session.rollback.assert_awaited_once()
 
 
@@ -219,9 +213,7 @@ async def test_update_team_replaces_the_roster_and_increments_version(mocker) ->
     await populate_team_defaults(team)
     session = Mock()
     session.get = AsyncMock(return_value=team)
-    session.execute = AsyncMock(
-        side_effect=[roster_result(player_ids), Mock()]
-    )
+    session.execute = AsyncMock(side_effect=[roster_result(player_ids), Mock()])
     session.scalar = AsyncMock(return_value=None)
     session.flush = AsyncMock()
     session.commit = AsyncMock()
@@ -263,9 +255,7 @@ async def test_update_team_rolls_back_when_roster_replacement_fails(mocker) -> N
     await populate_team_defaults(team)
     session = Mock()
     session.get = AsyncMock(return_value=team)
-    session.execute = AsyncMock(
-        side_effect=[roster_result(player_ids), Mock()]
-    )
+    session.execute = AsyncMock(side_effect=[roster_result(player_ids), Mock()])
     session.scalar = AsyncMock(return_value=None)
     session.flush = AsyncMock()
     session.refresh = AsyncMock(side_effect=populate_team_defaults)

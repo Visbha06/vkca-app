@@ -203,9 +203,7 @@ async def test_full_eight_scenario_authentication_quickstart_flow() -> None:
             assert head_coach_login.status_code == 200, head_coach_login.text
             head_coach_token = head_coach_login.json()["access_token"]
             issued_secrets.add(head_coach_token)
-            head_coach_headers = {
-                "Authorization": f"Bearer {head_coach_token}"
-            }
+            head_coach_headers = {"Authorization": f"Bearer {head_coach_token}"}
             create_assistant = await client.post(
                 "/api/v1/users",
                 headers=head_coach_headers,
@@ -296,8 +294,7 @@ async def test_full_eight_scenario_authentication_quickstart_flow() -> None:
                 "rate_limit",
             } <= event_types
             assert all(
-                record["result"] in {"success", "failure"}
-                for record in audit_records
+                record["result"] in {"success", "failure"} for record in audit_records
             )
             assert all(record["event_timestamp"] for record in audit_records)
             serialized_audit = audit_log.text
@@ -313,9 +310,7 @@ async def test_full_eight_scenario_authentication_quickstart_flow() -> None:
         app.state.rate_limiter.clear()
         app.dependency_overrides.clear()
         user_ids = [
-            user_id
-            for user_id in (head_coach_id, assistant_id)
-            if user_id is not None
+            user_id for user_id in (head_coach_id, assistant_id) if user_id is not None
         ]
         async with AsyncSessionFactory() as cleanup_session:
             await cleanup_session.execute(
@@ -330,7 +325,5 @@ async def test_full_eight_scenario_authentication_quickstart_flow() -> None:
                     delete(Player).where(Player.id == player_id)
                 )
             if user_ids:
-                await cleanup_session.execute(
-                    delete(User).where(User.id.in_(user_ids))
-                )
+                await cleanup_session.execute(delete(User).where(User.id.in_(user_ids)))
             await cleanup_session.commit()

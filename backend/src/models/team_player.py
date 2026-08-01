@@ -14,9 +14,7 @@ class TeamPlayer(TimestampMixin, VersionMixin, Base):
     """A player's membership in a cricket team."""
 
     __tablename__ = "team_players"
-    __table_args__ = (
-        Index("ix_team_players_team_order", "team_id", "roster_order"),
-    )
+    __table_args__ = (Index("ix_team_players_team_order", "team_id", "roster_order"),)
 
     team_id: Mapped[UUID] = mapped_column(
         PostgreSQLUUID(as_uuid=True),

@@ -187,9 +187,7 @@ async def test_create_team_rejects_invalid_and_conflicting_requests(
 
 
 @pytest.mark.asyncio
-async def test_create_team_rejects_unauthorized_users(
-    client, service_mock
-) -> None:
+async def test_create_team_rejects_unauthorized_users(client, service_mock) -> None:
     async def override_get_current_user():
         return (
             Mock(id=uuid4(), role=UserRole.PLAYER),
@@ -263,9 +261,7 @@ async def test_update_team_returns_conflict_for_stale_versions(
 
 
 @pytest.mark.asyncio
-async def test_update_team_rejects_unauthorized_users(
-    client, service_mock
-) -> None:
+async def test_update_team_rejects_unauthorized_users(client, service_mock) -> None:
     async def override_get_current_user():
         return (
             Mock(id=uuid4(), role=UserRole.PLAYER),

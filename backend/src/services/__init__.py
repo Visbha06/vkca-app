@@ -1,1 +1,1 @@
-"""Application services."""
+"""Application services, including bounded calendar recurrence helpers."""

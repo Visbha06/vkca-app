@@ -77,9 +77,7 @@ async def test_full_auth_flow_records_all_audit_events() -> None:
             audit_page = await client.get(
                 "/api/v1/auth/audit-log",
                 params={"user_id": str(user_id), "limit": 10, "offset": 0},
-                headers={
-                    "Authorization": f"Bearer {refresh.json()['access_token']}"
-                },
+                headers={"Authorization": f"Bearer {refresh.json()['access_token']}"},
             )
             assert audit_page.status_code == 200, audit_page.text
             assert {item["event_type"] for item in audit_page.json()} == {
