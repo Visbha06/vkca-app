@@ -102,6 +102,7 @@ export interface CalendarEventInstance {
   age_groups: AgeGroup[]
   is_recurring: boolean
   recurrence_summary: string | null
+  series_definition?: CalendarEventDefinitionResponse | null
   event_version_number: number
   exception_id: string | null
   exception_version_number: number | null

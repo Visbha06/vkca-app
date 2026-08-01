@@ -82,6 +82,7 @@ function renderPage(role: 'head coach' | 'assistant coach' | 'player' = 'player'
     isTodayLoading: false,
     navigateToMonth: vi.fn(),
     rangeError: null,
+    refreshAfterMutation: vi.fn(),
     retryDetail: vi.fn(),
     retryRange: vi.fn(),
     retryToday: vi.fn(),
@@ -131,6 +132,19 @@ describe('CalendarPage', () => {
 
     expect(view.container).toContainElement(eventButton)
     expect(eventButton).toHaveFocus()
+  })
+
+  it('shows create, edit, and delete actions only to coaches', () => {
+    renderPage('assistant coach')
+    fireEvent.click(screen.getByRole('button', { name: 'Create Event' }))
+    expect(screen.getByRole('dialog', { name: 'Create event' })).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Close create event' }))
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Practice event: Wednesday practice/ }),
+    )
+    expect(screen.getByRole('button', { name: 'Edit Event' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Delete Event' })).toBeVisible()
   })
 
   it('keeps the semantic monthly grid bounded at mobile, tablet, and desktop widths', () => {

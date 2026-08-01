@@ -111,3 +111,39 @@ def test_range_validation_rejects_inverted_and_overlong_ranges_before_work():
             range_start=date(2026, 1, 1),
             range_end=date(2026, 3, 1),
         )
+
+
+def test_never_ending_and_terminated_rules_stay_bounded_to_the_requested_range():
+    first_date = date(2000, 1, 5)
+
+    assert expand_recurrence(
+        first_date=first_date,
+        frequency="weekly",
+        termination="never",
+        range_start=date(2030, 8, 1),
+        range_end=date(2030, 8, 31),
+    ) == [
+        date(2030, 8, 7),
+        date(2030, 8, 14),
+        date(2030, 8, 21),
+        date(2030, 8, 28),
+    ]
+    assert expand_recurrence(
+        first_date=date(2028, 2, 29),
+        frequency="yearly",
+        termination="occurrence_count",
+        occurrence_count=3,
+        range_start=date(2030, 2, 20),
+        range_end=date(2030, 3, 5),
+    ) == [date(2030, 2, 28)]
+    assert (
+        expand_recurrence(
+            first_date=date(2028, 2, 29),
+            frequency="yearly",
+            termination="end_date",
+            end_date=date(2029, 2, 28),
+            range_start=date(2030, 2, 20),
+            range_end=date(2030, 3, 5),
+        )
+        == []
+    )

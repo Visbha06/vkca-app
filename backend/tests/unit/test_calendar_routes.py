@@ -1,6 +1,6 @@
-"""Authenticated read-route coverage for the calendar API."""
+"""Authenticated read and coach mutation route coverage for the calendar API."""
 
-from datetime import date, time
+from datetime import UTC, date, datetime, time
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
@@ -13,9 +13,15 @@ from src.enums import AgeGroup, EventType, ScopeKind, UserRole
 from src.main import app
 from src.middleware.auth import get_current_user
 from src.schemas.calendar import (
+    CalendarEventDefinitionResponse,
     CalendarEventInstance,
     CalendarRangeResponse,
     CalendarTodayResponse,
+)
+from src.services.calendar_service import (
+    CalendarExceptionRemovalRequiredError,
+    CalendarMutationValidationError,
+    CalendarStaleVersionError,
 )
 
 
@@ -47,14 +53,26 @@ def service_mock(mocker):
     service.get_range = AsyncMock()
     service.get_today = AsyncMock()
     service.get_instance = AsyncMock()
+    service.create_event = AsyncMock()
+    service.update_standalone = AsyncMock()
+    service.delete_standalone = AsyncMock()
+    service.update_occurrence = AsyncMock()
+    service.delete_occurrence = AsyncMock()
+    service.update_series = AsyncMock()
+    service.delete_series = AsyncMock()
     mocker.patch("src.routes.calendar.CalendarService", return_value=service)
     return service
 
 
 @pytest_asyncio.fixture
 async def client():
+    session = Mock()
+    session.add = Mock()
+    session.flush = AsyncMock()
+    session.commit = AsyncMock()
+
     async def override_get_db():
-        yield Mock()
+        yield session
 
     async def override_get_current_user():
         return Mock(role=UserRole.HEAD_COACH), Mock()
@@ -122,3 +140,185 @@ async def test_range_route_rejects_malformed_and_overlong_ranges(client, service
     assert overlong.status_code == 422
     assert overlong.json()["code"] == "calendar_range_too_large"
     service_mock.get_range.assert_not_awaited()
+
+
+def make_definition():
+    timestamp = datetime(2026, 8, 1, 12, tzinfo=UTC)
+    return CalendarEventDefinitionResponse(
+        id=uuid4(),
+        event_type=EventType.PRACTICE,
+        name="Practice",
+        event_date=date(2026, 8, 5),
+        is_all_day=False,
+        start_time=time(17),
+        end_time=time(18),
+        scope={"scope_kind": "age_group", "age_groups": ["U13"]},
+        version_number=1,
+        recurrence=None,
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+
+
+def mutation_payload(**overrides):
+    payload = {
+        "event_type": "practice",
+        "name": "Practice",
+        "event_date": "2026-08-05",
+        "is_all_day": False,
+        "start_time": "17:00:00",
+        "end_time": "18:00:00",
+        "scope": {"scope_kind": "age_group", "age_groups": ["U13"]},
+    }
+    payload.update(overrides)
+    return payload
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("role", [UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH])
+async def test_coaches_can_create_update_and_delete_calendar_events(
+    client, service_mock, role
+):
+    definition = make_definition()
+    service_mock.create_event.return_value = definition
+    service_mock.update_standalone.return_value = definition.model_copy(
+        update={"version_number": 2}
+    )
+
+    async def override_get_current_user():
+        return Mock(role=role), Mock()
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    created = await client.post(
+        "/api/v1/calendar/events",
+        json=mutation_payload(recurrence=None),
+    )
+    updated = await client.patch(
+        f"/api/v1/calendar/events/{definition.id}",
+        json=mutation_payload(version_number=1),
+    )
+    deleted = await client.request(
+        "DELETE",
+        f"/api/v1/calendar/events/{definition.id}",
+        json={"version_number": 2},
+    )
+
+    assert created.status_code == 201
+    assert updated.status_code == 200
+    assert deleted.status_code == 204
+    service_mock.create_event.assert_awaited_once()
+    service_mock.update_standalone.assert_awaited_once()
+    service_mock.delete_standalone.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_player_mutations_return_403_without_calling_calendar_service(
+    client, service_mock
+):
+    async def override_get_current_user():
+        return Mock(role=UserRole.PLAYER), Mock(id=uuid4())
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+
+    response = await client.post(
+        "/api/v1/calendar/events",
+        json=mutation_payload(recurrence=None),
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Not authorized"}
+    service_mock.create_event.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_mutation_routes_map_stale_versions_and_validation_safely(
+    client, service_mock
+):
+    event_id = uuid4()
+    series_id = uuid4()
+    service_mock.update_standalone.side_effect = CalendarStaleVersionError
+    stale = await client.patch(
+        f"/api/v1/calendar/events/{event_id}",
+        json=mutation_payload(version_number=1),
+    )
+    service_mock.update_occurrence.side_effect = CalendarStaleVersionError
+    stale_exception = await client.patch(
+        f"/api/v1/calendar/instances/{series_id}:2026-08-05",
+        json=mutation_payload(
+            version_number=1,
+            exception_version_number=1,
+        ),
+    )
+
+    service_mock.update_standalone.side_effect = CalendarMutationValidationError(
+        "calendar_event_in_past",
+        "Choose an academy date and time that has not passed.",
+    )
+    invalid = await client.patch(
+        f"/api/v1/calendar/events/{event_id}",
+        json=mutation_payload(version_number=1),
+    )
+
+    assert stale.status_code == 409
+    assert stale.json() == {
+        "detail": "This calendar event changed. Reload and try again.",
+        "code": "calendar_stale_version",
+    }
+    assert stale_exception.status_code == 409
+    assert stale_exception.json()["code"] == "calendar_stale_version"
+    assert invalid.status_code == 422
+    assert invalid.json()["code"] == "calendar_event_in_past"
+    assert "traceback" not in str(invalid.json()).lower()
+
+
+@pytest.mark.asyncio
+async def test_series_update_returns_typed_exception_removal_warning(
+    client, service_mock
+):
+    series_id = uuid4()
+    service_mock.update_series.side_effect = CalendarExceptionRemovalRequiredError(
+        [date(2026, 8, 5), date(2026, 8, 12)]
+    )
+
+    response = await client.patch(
+        f"/api/v1/calendar/series/{series_id}",
+        json=mutation_payload(
+            recurrence={"frequency": "weekly", "termination": "never"},
+            version_number=2,
+            confirm_exception_removals=False,
+        ),
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "This change will remove saved changes for 2 occurrences.",
+        "code": "exception_removal_confirmation_required",
+        "removed_exception_original_dates": ["2026-08-05", "2026-08-12"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_occurrence_and_series_delete_routes_forward_both_version_shapes(
+    client, service_mock
+):
+    series_id = uuid4()
+    occurrence_id = f"{series_id}:2026-08-05"
+
+    occurrence_response = await client.request(
+        "DELETE",
+        f"/api/v1/calendar/instances/{occurrence_id}",
+        json={"version_number": 2, "exception_version_number": 1},
+    )
+    series_response = await client.request(
+        "DELETE",
+        f"/api/v1/calendar/series/{series_id}",
+        json={"version_number": 2},
+    )
+
+    assert occurrence_response.status_code == 204
+    assert series_response.status_code == 204
+    occurrence_payload = service_mock.delete_occurrence.await_args.args[1]
+    assert occurrence_payload.exception_version_number == 1
+    series_payload = service_mock.delete_series.await_args.args[1]
+    assert series_payload.version_number == 2

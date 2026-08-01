@@ -1,26 +1,39 @@
-"""Authenticated read routes for the academy calendar."""
+"""Authenticated calendar reads and coach-only mutation routes."""
 
 from datetime import date
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
-from src.middleware.auth import AuthenticatedUser, get_current_user
+from src.enums import UserRole
+from src.middleware.auth import AuthenticatedUser, get_current_user, require_role
 from src.schemas.calendar import (
     CalendarApiErrorResponse,
+    CalendarEventCreate,
+    CalendarEventDefinitionResponse,
+    CalendarEventDelete,
     CalendarEventInstance,
+    CalendarOccurrenceDelete,
+    CalendarOccurrenceUpdate,
     CalendarRangeResponse,
+    CalendarSeriesUpdate,
+    CalendarStandaloneUpdate,
     CalendarTodayResponse,
+    ExceptionRemovalWarningResponse,
 )
 from src.services.calendar_recurrence import MAX_CALENDAR_RANGE_DATES
 from src.services.calendar_service import (
     CalendarEventNotFoundError,
+    CalendarExceptionRemovalRequiredError,
+    CalendarMutationValidationError,
     CalendarRangeError,
     CalendarRangeTooLargeError,
     CalendarService,
+    CalendarStaleVersionError,
 )
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
@@ -46,6 +59,46 @@ def _range_error_response() -> JSONResponse:
             ),
             code="calendar_range_too_large",
         ).model_dump(mode="json"),
+    )
+
+
+def _stale_response() -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content=CalendarApiErrorResponse(
+            detail="This calendar event changed. Reload and try again.",
+            code="calendar_stale_version",
+        ).model_dump(mode="json"),
+    )
+
+
+def _validation_response(error: CalendarMutationValidationError) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        content=CalendarApiErrorResponse(
+            detail=error.detail,
+            code=error.code,
+        ).model_dump(mode="json"),
+    )
+
+
+def _warning_response(
+    error: CalendarExceptionRemovalRequiredError,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        content=ExceptionRemovalWarningResponse(
+            detail=str(error),
+            code="exception_removal_confirmation_required",
+            removed_exception_original_dates=error.removed_original_dates,
+        ).model_dump(mode="json"),
+    )
+
+
+def _not_found(error: CalendarEventNotFoundError) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="This calendar event is no longer available.",
     )
 
 
@@ -100,7 +153,189 @@ async def get_calendar_instance(
     try:
         return await CalendarService(session).get_instance(occurrence_id)
     except CalendarEventNotFoundError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="This calendar event is no longer available.",
-        ) from error
+        raise _not_found(error) from error
+
+
+@router.post(
+    "/events",
+    response_model=CalendarEventDefinitionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_calendar_event(
+    payload: CalendarEventCreate,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _write_access: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
+    ],
+) -> CalendarEventDefinitionResponse | JSONResponse:
+    """Create a standalone event or recurring series atomically."""
+
+    try:
+        return await CalendarService(session).create_event(payload)
+    except CalendarMutationValidationError as error:
+        return _validation_response(error)
+    except CalendarStaleVersionError:
+        return _stale_response()
+
+
+@router.patch(
+    "/events/{event_id}",
+    response_model=CalendarEventDefinitionResponse,
+)
+async def update_standalone_calendar_event(
+    event_id: UUID,
+    payload: CalendarStandaloneUpdate,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _write_access: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
+    ],
+) -> CalendarEventDefinitionResponse | JSONResponse:
+    """Replace a non-recurring event using its canonical OCC version."""
+
+    try:
+        return await CalendarService(session).update_standalone(event_id, payload)
+    except CalendarEventNotFoundError as error:
+        raise _not_found(error) from error
+    except CalendarMutationValidationError as error:
+        return _validation_response(error)
+    except CalendarStaleVersionError:
+        return _stale_response()
+
+
+@router.delete(
+    "/events/{event_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
+async def delete_standalone_calendar_event(
+    event_id: UUID,
+    payload: CalendarEventDelete,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _write_access: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
+    ],
+) -> Response | JSONResponse:
+    """Hard-delete one standalone event after OCC verification."""
+
+    try:
+        await CalendarService(session).delete_standalone(event_id, payload)
+    except CalendarEventNotFoundError as error:
+        raise _not_found(error) from error
+    except CalendarStaleVersionError:
+        return _stale_response()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch(
+    "/instances/{occurrence_id}",
+    response_model=CalendarEventInstance,
+)
+async def update_calendar_occurrence(
+    occurrence_id: str,
+    payload: CalendarOccurrenceUpdate,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _write_access: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
+    ],
+) -> CalendarEventInstance | JSONResponse:
+    """Persist one complete occurrence exception snapshot."""
+
+    try:
+        return await CalendarService(session).update_occurrence(
+            occurrence_id,
+            payload,
+        )
+    except CalendarEventNotFoundError as error:
+        raise _not_found(error) from error
+    except CalendarMutationValidationError as error:
+        return _validation_response(error)
+    except CalendarStaleVersionError:
+        return _stale_response()
+
+
+@router.delete(
+    "/instances/{occurrence_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
+async def delete_calendar_occurrence(
+    occurrence_id: str,
+    payload: CalendarOccurrenceDelete,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _write_access: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
+    ],
+) -> Response | JSONResponse:
+    """Suppress one stable occurrence while retaining the series."""
+
+    try:
+        await CalendarService(session).delete_occurrence(occurrence_id, payload)
+    except CalendarEventNotFoundError as error:
+        raise _not_found(error) from error
+    except CalendarStaleVersionError:
+        return _stale_response()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch(
+    "/series/{series_id}",
+    response_model=CalendarEventDefinitionResponse,
+)
+async def update_calendar_series(
+    series_id: UUID,
+    payload: CalendarSeriesUpdate,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _write_access: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
+    ],
+) -> CalendarEventDefinitionResponse | JSONResponse:
+    """Replace an entire series with confirmation-aware exception cleanup."""
+
+    try:
+        return await CalendarService(session).update_series(series_id, payload)
+    except CalendarEventNotFoundError as error:
+        raise _not_found(error) from error
+    except CalendarExceptionRemovalRequiredError as error:
+        return _warning_response(error)
+    except CalendarMutationValidationError as error:
+        return _validation_response(error)
+    except CalendarStaleVersionError:
+        return _stale_response()
+
+
+@router.delete(
+    "/series/{series_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
+async def delete_calendar_series(
+    series_id: UUID,
+    payload: CalendarEventDelete,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    _current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    _write_access: Annotated[
+        None,
+        Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
+    ],
+) -> Response | JSONResponse:
+    """Hard-delete an entire series through the owning event cascade."""
+
+    try:
+        await CalendarService(session).delete_series(series_id, payload)
+    except CalendarEventNotFoundError as error:
+        raise _not_found(error) from error
+    except CalendarStaleVersionError:
+        return _stale_response()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

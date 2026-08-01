@@ -13,6 +13,7 @@ interface CalendarHeaderProps {
   onPreviousMonth: () => void
   onNextMonth: () => void
   onYearChange: (year: number) => void
+  onCreateEvent?: () => void
 }
 
 function MonthChevron({ direction }: { direction: 'left' | 'right' }) {
@@ -41,6 +42,7 @@ export default function CalendarHeader({
   onPreviousMonth,
   onNextMonth,
   onYearChange,
+  onCreateEvent,
 }: CalendarHeaderProps) {
   const parsedToday = parseAcademyDate(academyToday)
   const years = calendarYearOptions(
@@ -65,6 +67,15 @@ export default function CalendarHeader({
         ) : null}
       </div>
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+        {onCreateEvent !== undefined ? (
+          <button
+            type="button"
+            className="min-h-11 rounded-lg border border-academy bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-academy/10 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-1"
+            onClick={onCreateEvent}
+          >
+            Create Event
+          </button>
+        ) : null}
         {isHistorical ? null : (
           <label className="flex min-h-11 items-center gap-2 text-sm font-semibold text-slate-700">
             <span className="sr-only">Calendar year</span>

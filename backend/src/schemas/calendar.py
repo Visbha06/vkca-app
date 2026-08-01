@@ -14,6 +14,7 @@ from src.enums import (
     ScopeKind,
 )
 from src.schemas.base import BaseRequestSchema
+from src.services.calendar_recurrence import ACADEMY_TIMEZONE, academy_now
 
 CalendarErrorCode = Literal[
     "calendar_range_too_large",
@@ -120,7 +121,26 @@ class CalendarEventCreate(CalendarEventValues):
 
     @model_validator(mode="after")
     def validate_recurrence_end(self) -> "CalendarEventCreate":
-        """Keep a bounded end date on or after the first occurrence."""
+        """Reject past creation and keep recurrence after the first date."""
+
+        current = academy_now()
+        is_past = self.event_date < current.date()
+        if (
+            not is_past
+            and self.event_date == current.date()
+            and not self.is_all_day
+            and self.start_time is not None
+        ):
+            is_past = (
+                datetime.combine(
+                    self.event_date,
+                    self.start_time,
+                    tzinfo=ACADEMY_TIMEZONE,
+                )
+                < current
+            )
+        if is_past:
+            raise ValueError("Choose an academy date and time that has not passed.")
 
         if (
             self.recurrence is not None
@@ -222,6 +242,7 @@ class CalendarEventInstance(BaseModel):
     age_groups: list[AgeGroup] = Field(max_length=4)
     is_recurring: bool
     recurrence_summary: str | None
+    series_definition: CalendarEventDefinitionResponse | None = None
     event_version_number: int = Field(ge=1)
     exception_id: UUID | None
     exception_version_number: int | None = Field(default=None, ge=1)

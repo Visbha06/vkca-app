@@ -227,6 +227,15 @@ export default function useCalendarData() {
     if (selectedInstance !== null) selectInstance(selectedInstance)
   }, [selectInstance, selectedInstance])
 
+  const refreshAfterMutation = useCallback(() => {
+    setIsRangeLoading(true)
+    setIsTodayLoading(true)
+    setRangeError(null)
+    setTodayError(null)
+    setRangeRetryKey((current) => current + 1)
+    setTodayRetryKey((current) => current + 1)
+  }, [])
+
   const handleFocusDate = useCallback((date: CalendarDate) => {
     setFocusedDate(date)
   }, [])
@@ -247,6 +256,7 @@ export default function useCalendarData() {
     isTodayLoading,
     navigateToMonth,
     rangeError,
+    refreshAfterMutation,
     retryRange,
     retryDetail,
     retryToday,

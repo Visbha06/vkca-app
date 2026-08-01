@@ -1,17 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@features/auth'
-import {
-  calendarDateToIso,
-  type CalendarDate,
-} from '@shared/utils/calendarDate'
+import useSuccessToast from '@shared/hooks/useSuccessToast'
+import { calendarDateToIso, type CalendarDate } from '@shared/utils/calendarDate'
 import type { CalendarEventInstance } from '../types/calendar'
 import useCalendarData from '../hooks/useCalendarData'
 import CalendarErrorState from '../components/CalendarErrorState'
 import CalendarHeader from '../components/CalendarHeader'
 import CalendarLoadingState from '../components/CalendarLoadingState'
 import CalendarMonthGrid from '../components/CalendarMonthGrid'
-import DayEventsModal from '../components/DayEventsModal'
-import EventDetailsModal from '../components/EventDetailsModal'
+import CalendarPageOverlays from '../components/CalendarPageOverlays'
 import TodaySection from '../components/TodaySection'
 
 interface OverflowState {
@@ -24,7 +21,11 @@ export default function CalendarPage() {
   const calendar = useCalendarData()
   const [overflow, setOverflow] = useState<OverflowState | null>(null)
   const [openedEvent, setOpenedEvent] = useState<CalendarEventInstance | null>(null)
+  const [formEvent, setFormEvent] = useState<CalendarEventInstance | 'create' | null>(null)
+  const [deleteEvent, setDeleteEvent] = useState<CalendarEventInstance | null>(null)
   const focusAfterNavigation = useRef(false)
+  const { dismissSuccessToast, showSuccessToast, successToast } = useSuccessToast()
+  const canManage = user?.role === 'head coach' || user?.role === 'assistant coach'
 
   useEffect(() => {
     if (
@@ -67,6 +68,30 @@ export default function CalendarPage() {
     calendar.closeSelectedInstance()
   }
 
+  function handleEditEvent(event: CalendarEventInstance) {
+    handleCloseDetails()
+    setFormEvent(event)
+  }
+
+  function handleDeleteEvent(event: CalendarEventInstance) {
+    handleCloseDetails()
+    setDeleteEvent(event)
+  }
+
+  function handleMutationComplete(message: string) {
+    setFormEvent(null)
+    setDeleteEvent(null)
+    setOpenedEvent(null)
+    calendar.closeSelectedInstance()
+    calendar.refreshAfterMutation()
+    showSuccessToast(message)
+  }
+
+  function handleEventReloaded(event: CalendarEventInstance) {
+    setOpenedEvent(event)
+    calendar.setSelectedInstance(event)
+  }
+
   const initialLoading = calendar.viewMonth === null || calendar.academyToday === null
 
   return (
@@ -104,6 +129,7 @@ export default function CalendarPage() {
               onPreviousMonth={handlePreviousMonth}
               onNextMonth={handleNextMonth}
               onYearChange={handleYearChange}
+              onCreateEvent={canManage ? () => setFormEvent('create') : undefined}
             />
             <div className="mt-4 min-w-0">
               {calendar.rangeError !== null && calendar.events.length === 0 ? (
@@ -133,23 +159,25 @@ export default function CalendarPage() {
         </>
       )}
 
-      {calendar.selectedInstance !== null || openedEvent !== null ? (
-        <EventDetailsModal
-          event={calendar.selectedInstance ?? openedEvent!}
-          isLoading={calendar.isDetailLoading}
-          errorMessage={calendar.detailError}
-          onRetry={calendar.retryDetail}
-          onClose={handleCloseDetails}
-        />
-      ) : null}
-      {overflow !== null ? (
-        <DayEventsModal
-          date={overflow.date}
-          events={overflow.events}
-          onSelectEvent={handleSelectEvent}
-          onClose={() => setOverflow(null)}
-        />
-      ) : null}
+      <CalendarPageOverlays
+        calendar={calendar}
+        canManage={canManage}
+        openedEvent={openedEvent}
+        formEvent={formEvent}
+        deleteEvent={deleteEvent}
+        overflow={overflow}
+        successToast={successToast}
+        onCloseDetails={handleCloseDetails}
+        onEdit={handleEditEvent}
+        onDelete={handleDeleteEvent}
+        onCloseForm={() => setFormEvent(null)}
+        onCloseDelete={() => setDeleteEvent(null)}
+        onCloseOverflow={() => setOverflow(null)}
+        onSelectEvent={handleSelectEvent}
+        onMutationComplete={handleMutationComplete}
+        onEventReloaded={handleEventReloaded}
+        onDismissToast={dismissSuccessToast}
+      />
       <p className="sr-only" aria-live="polite">
         {user?.role === 'player' ? 'Calendar is read-only for Players.' : 'Calendar events are displayed in academy time.'}
       </p>

@@ -14,6 +14,9 @@ interface EventDetailsModalProps {
   errorMessage: string | null
   onRetry: () => void
   onClose: () => void
+  canManage?: boolean
+  onEdit?: (event: CalendarEventInstance) => void
+  onDelete?: (event: CalendarEventInstance) => void
 }
 
 export default function EventDetailsModal({
@@ -22,6 +25,9 @@ export default function EventDetailsModal({
   errorMessage,
   onRetry,
   onClose,
+  canManage = false,
+  onEdit,
+  onDelete,
 }: EventDetailsModalProps) {
   const parsedDate = parseAcademyDate(event.event_date)
   const dateLabel = parsedDate === null ? event.event_date : formatAcademyDateLabel(parsedDate)
@@ -74,6 +80,16 @@ export default function EventDetailsModal({
             ) : null}
           </dl>
           <p className="text-xs text-slate-600">Times shown in America/Los_Angeles academy time.</p>
+          {canManage && !isLoading && errorMessage === null ? (
+            <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
+              <button type="button" className="min-h-11 rounded-lg border border-red-700 bg-white px-4 text-sm font-semibold text-red-800 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-800 focus:ring-offset-2" onClick={() => onDelete?.(event)}>
+                Delete Event
+              </button>
+              <button type="button" className="min-h-11 rounded-lg border border-academy bg-white px-4 text-sm font-semibold text-slate-900 hover:bg-academy/10 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2" onClick={() => onEdit?.(event)}>
+                Edit Event
+              </button>
+            </div>
+          ) : null}
         </div>
         <button type="button" aria-label="Close event details" data-modal-initial-focus className="absolute right-3 top-3 flex size-11 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 sm:right-4 sm:top-4" onClick={onClose}>
           <svg aria-hidden="true" className="size-6" fill="none" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" strokeLinecap="round" strokeWidth="2" /></svg>
