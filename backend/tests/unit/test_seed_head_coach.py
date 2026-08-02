@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from scripts.seed_head_coach import seed_head_coach
+from scripts.seed_dev_head_coach import seed_head_coach
 from src.enums import UserRole
 from src.services.password_service import PasswordService
 

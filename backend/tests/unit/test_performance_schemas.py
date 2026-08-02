@@ -8,6 +8,8 @@ from pydantic import ValidationError
 
 from src.enums import DismissalType
 from src.schemas.performance import (
+    MAX_PERFORMANCE_BATCH_SIZE,
+    MAX_PERFORMANCE_NOTES_LENGTH,
     BatchPerformanceRequest,
     BatchPerformanceResponse,
     BattingPerformance,
@@ -75,6 +77,27 @@ def test_batch_performance_request_requires_at_least_one_entry() -> None:
         BatchPerformanceRequest(performances=[])
 
 
+def test_batch_performance_request_accepts_the_maximum_supported_batch() -> None:
+    request = BatchPerformanceRequest(
+        performances=[
+            {"player_id": uuid4(), "batting": {}}
+            for _ in range(MAX_PERFORMANCE_BATCH_SIZE)
+        ]
+    )
+
+    assert len(request.performances) == MAX_PERFORMANCE_BATCH_SIZE
+
+
+def test_batch_performance_request_rejects_batches_above_maximum() -> None:
+    with pytest.raises(ValidationError):
+        BatchPerformanceRequest(
+            performances=[
+                {"player_id": uuid4(), "batting": {}}
+                for _ in range(MAX_PERFORMANCE_BATCH_SIZE + 1)
+            ]
+        )
+
+
 def test_batch_performance_request_rejects_duplicate_players() -> None:
     player_id = uuid4()
 
@@ -98,6 +121,16 @@ def test_batch_performance_request_rejects_duplicate_players() -> None:
 def test_performance_metrics_reject_negative_values(schema, payload) -> None:
     with pytest.raises(ValidationError):
         schema.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "schema", [BattingPerformance, BowlingPerformance, FieldingPerformance]
+)
+def test_performance_notes_have_a_bounded_length(schema) -> None:
+    schema.model_validate({"notes": "n" * MAX_PERFORMANCE_NOTES_LENGTH})
+
+    with pytest.raises(ValidationError):
+        schema.model_validate({"notes": "n" * (MAX_PERFORMANCE_NOTES_LENGTH + 1)})
 
 
 def test_batch_performance_response_serializes_counts() -> None:

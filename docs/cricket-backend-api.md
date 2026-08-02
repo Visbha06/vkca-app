@@ -25,6 +25,11 @@ validated before any performance is persisted. The three performance tables
 and affected batting/bowling aggregate rows commit together. Any validation or
 database failure rolls back the entire batch.
 
+Each performance batch may contain 1–30 distinct players. The limit represents
+two complete 15-player academy rosters and is enforced during request
+validation, before database work begins. Batting, bowling, and fielding notes
+are each limited to 1,000 characters.
+
 ## API surface
 
 | Method | Path | Purpose |

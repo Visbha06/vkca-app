@@ -11,7 +11,7 @@ from src.database import get_db
 from src.enums import UserRole
 from src.main import app
 from src.middleware.auth import get_current_user
-from src.schemas.performance import BatchPerformanceResponse
+from src.schemas.performance import MAX_PERFORMANCE_BATCH_SIZE, BatchPerformanceResponse
 from src.services.performance_service import MatchNotFoundError
 
 
@@ -24,9 +24,9 @@ def service_mock(mocker):
 
 
 @pytest_asyncio.fixture
-async def client():
+async def client(db_session):
     async def override_get_db():
-        yield AsyncMock()
+        yield db_session
 
     async def override_get_current_user():
         return Mock(role=UserRole.HEAD_COACH), Mock()
@@ -39,6 +39,11 @@ async def client():
     ) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def db_session():
+    return AsyncMock()
 
 
 @pytest.mark.asyncio
@@ -104,3 +109,53 @@ async def test_submit_batch_performance_rejects_empty_batch(
 
     assert result.status_code == 422
     service_mock.submit_batch_performance.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_submit_batch_performance_accepts_the_maximum_supported_batch(
+    client, service_mock
+) -> None:
+    match_id = uuid4()
+    response = BatchPerformanceResponse(
+        match_id=match_id,
+        performances_created=MAX_PERFORMANCE_BATCH_SIZE,
+        batting_records=MAX_PERFORMANCE_BATCH_SIZE,
+        bowling_records=0,
+        fielding_records=0,
+        players_stats_updated=MAX_PERFORMANCE_BATCH_SIZE,
+    )
+    service_mock.submit_batch_performance.return_value = response
+
+    result = await client.post(
+        f"/api/v1/matches/{match_id}/performances",
+        json={
+            "performances": [
+                {"player_id": str(uuid4()), "batting": {}}
+                for _ in range(MAX_PERFORMANCE_BATCH_SIZE)
+            ]
+        },
+    )
+
+    assert result.status_code == 201
+    service_mock.submit_batch_performance.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_submit_batch_performance_rejects_oversized_batch_before_dependencies(
+    client, service_mock, db_session
+) -> None:
+    result = await client.post(
+        f"/api/v1/matches/{uuid4()}/performances",
+        json={
+            "performances": [
+                {"player_id": str(uuid4()), "batting": {}}
+                for _ in range(MAX_PERFORMANCE_BATCH_SIZE + 1)
+            ]
+        },
+    )
+
+    assert result.status_code == 422
+    service_mock.submit_batch_performance.assert_not_awaited()
+    db_session.get.assert_not_awaited()
+    db_session.execute.assert_not_awaited()
+    db_session.add.assert_not_called()
