@@ -7,7 +7,7 @@ import httpx
 import pytest
 from sqlalchemy import delete
 
-from scripts.seed_head_coach import seed_head_coach
+from scripts.seed_dev_head_coach import seed_head_coach
 from src.database import AsyncSessionFactory, get_db
 from src.main import app
 from src.models.auth_audit_log import AuthAuditLog

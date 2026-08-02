@@ -8,6 +8,10 @@ from pydantic import BaseModel, Field, model_validator
 from src.enums import DismissalType
 from src.schemas.base import BaseRequestSchema
 
+# A match can include two complete academy team rosters, with a small buffer.
+MAX_PERFORMANCE_BATCH_SIZE = 30
+MAX_PERFORMANCE_NOTES_LENGTH = 1_000
+
 
 class BattingPerformance(BaseRequestSchema):
     """Optional batting metrics for one player in one match."""
@@ -17,7 +21,7 @@ class BattingPerformance(BaseRequestSchema):
     dismissal: DismissalType = DismissalType.NOT_OUT
     fours: int = Field(default=0, ge=0)
     sixes: int = Field(default=0, ge=0)
-    notes: str | None = None
+    notes: str | None = Field(default=None, max_length=MAX_PERFORMANCE_NOTES_LENGTH)
 
 
 class BowlingPerformance(BaseRequestSchema):
@@ -30,7 +34,7 @@ class BowlingPerformance(BaseRequestSchema):
     runs_conceded: int = Field(default=0, ge=0)
     wickets_taken: int = Field(default=0, ge=0)
     wides: int = Field(default=0, ge=0)
-    notes: str | None = None
+    notes: str | None = Field(default=None, max_length=MAX_PERFORMANCE_NOTES_LENGTH)
 
 
 class FieldingPerformance(BaseRequestSchema):
@@ -40,7 +44,7 @@ class FieldingPerformance(BaseRequestSchema):
     stumpings: int = Field(default=0, ge=0)
     run_outs: int = Field(default=0, ge=0)
     dropped_catches: int = Field(default=0, ge=0)
-    notes: str | None = None
+    notes: str | None = Field(default=None, max_length=MAX_PERFORMANCE_NOTES_LENGTH)
 
 
 class PlayerPerformance(BaseRequestSchema):
@@ -61,9 +65,16 @@ class PlayerPerformance(BaseRequestSchema):
 
 
 class BatchPerformanceRequest(BaseRequestSchema):
-    """Non-empty atomic batch of player performances."""
+    """Atomic batch of one to 30 player performances.
 
-    performances: list[PlayerPerformance] = Field(min_length=1)
+    The upper bound covers two complete 15-player academy rosters while keeping
+    parsing, database writes, and aggregate recalculation bounded.
+    """
+
+    performances: list[PlayerPerformance] = Field(
+        min_length=1,
+        max_length=MAX_PERFORMANCE_BATCH_SIZE,
+    )
 
     @model_validator(mode="after")
     def reject_duplicate_players(self) -> "BatchPerformanceRequest":
