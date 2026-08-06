@@ -16,7 +16,7 @@
 Page structure:
 
 1. Existing application shell and page-header pattern.
-2. Filter region with labeled actor, action category, action type, entity type, start date, end date, and clear/apply controls as appropriate.
+2. Filter region with labeled actor options loaded from the bounded Head Coach-only actor-options query, action category, action type, entity type, start date, end date, and clear/apply controls as appropriate.
 3. Accessible result-count/status announcement.
 4. Newest-first audit-event list.
 5. Existing pagination component when more than one page exists.

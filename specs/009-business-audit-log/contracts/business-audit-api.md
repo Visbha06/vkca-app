@@ -8,7 +8,7 @@ These contracts are business-audit-only. The existing `/api/v1/auth/audit-log` s
 ## Authentication and authorization
 
 - All routes use the existing bearer authentication behavior.
-- Head Coach is required for both business-audit routes.
+- Head Coach authorization is required for all business-audit routes.
 - Assistant Coach and Player requests return `403` with the existing safe `{"detail":"Not authorized"}` response.
 - Missing or invalid authentication retains the existing `401` behavior.
 - Authorization denials do not create business-audit events.
@@ -112,6 +112,26 @@ The route returns the same event representation in an envelope:
 ```
 
 `limit` is required to be between 1 and 4, defaults to 4, and is enforced server-side. The route uses the same retrieval service and ordering as the full log and never returns pagination beyond the bounded event list.
+
+## Actor filter options
+
+### `GET /api/v1/audit-log/actors`
+
+This Head Coach-only route returns bounded actor choices derived from distinct actor snapshots present in business audit history:
+
+```json
+{
+  "actors": [
+    {
+      "actor_user_id": "uuid",
+      "actor_display_name": "Alex Morgan",
+      "actor_role": "head coach"
+    }
+  ]
+}
+```
+
+Only events with a non-null `actor_user_id` contribute options. Options are ordered by display name, deduplicated by actor UUID, and limited to at most 100 actors represented in current history. Events with null actor IDs remain valid feed events but are excluded from actor options in the initial release. Assistant Coaches and Players receive HTTP 403.
 
 ## Action identifiers
 

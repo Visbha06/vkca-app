@@ -35,7 +35,7 @@ As a Head Coach or Assistant Coach performing an administrative task, I want eac
 
 ### User Story 2 - Review and Investigate the Business Audit Log (Priority: P1)
 
-As a Head Coach, I want a searchable, paginated record of academy business activity so that I can review recent changes, investigate a particular actor or entity, and understand historical actions without exposing security logs or sensitive data.
+As a Head Coach, I want a filterable, paginated record of academy business activity so that I can review recent changes, investigate a particular actor or entity, and understand historical actions without exposing security logs or sensitive data.
 
 **Why this priority**: Head Coaches need a dependable operational history for academy oversight. Separating business activity from authentication history keeps the page relevant and prevents inappropriate disclosure.
 
@@ -45,9 +45,10 @@ As a Head Coach, I want a searchable, paginated record of academy business activ
 
 1. **Given** business audit history exists, **When** a Head Coach opens Audit Log, **Then** events appear newest first with actor name, role snapshot, summary, target label, category identification, and academy-local timestamp.
 2. **Given** a Head Coach selects an actor, action category, action type, entity type, or inclusive date range, **When** the filter is applied, **Then** the server returns only matching events, pagination resets to the first page, and the result status identifies the count or no-results state.
-3. **Given** multiple events share the same creation timestamp, **When** the Head Coach refreshes or changes pages, **Then** their relative order remains deterministic.
-4. **Given** an event has useful safe metadata, **When** the Head Coach expands its details, **Then** the page shows the action identifier and allowlisted context without showing raw payloads, credentials, tokens, secrets, stack traces, or unrestricted personal information.
-5. **Given** no business events exist, **When** the Head Coach opens Audit Log, **Then** the page distinguishes an empty history from a filtered no-results response and offers no placeholder events.
+3. **Given** business audit history contains actor snapshots, **When** a Head Coach opens the actor filter, **Then** the application loads bounded actor options from the business-audit actor-options endpoint, ordered by display name and suitable for selecting a historical actor.
+4. **Given** multiple events share the same creation timestamp, **When** the Head Coach refreshes or changes pages, **Then** their relative order remains deterministic.
+5. **Given** an event has useful safe metadata, **When** the Head Coach expands its details, **Then** the page shows the action identifier and allowlisted context without showing raw payloads, credentials, tokens, secrets, stack traces, or unrestricted personal information.
+6. **Given** no business events exist, **When** the Head Coach opens Audit Log, **Then** the page distinguishes an empty history from a filtered no-results response and offers no placeholder events.
 
 ---
 
@@ -87,7 +88,7 @@ As an academy user, I want the Audit Log and dashboard activity to respect my ro
 ### Edge Cases
 
 - A request with an end date before its start date is rejected with a clear validation error and does not query an unbounded range.
-- A date range that exceeds the supported history-query window is rejected or constrained according to the existing API validation convention; it must never trigger an unbounded retrieval.
+- Audit Log date ranges may span at most 366 inclusive academy dates. Requests exceeding this limit return the project’s standard validation response and must not execute the audit-history query.
 - A filter combination that is syntactically valid but matches no events returns the filtered no-results state, not the initial empty-history state.
 - A malformed actor, action category, action type, entity type, entity ID, page, page size, or date filter is rejected without exposing database details.
 - Equal timestamps use the event’s stable identifier as the secondary sort key, with newest creation timestamp first.
@@ -142,7 +143,7 @@ As an academy user, I want the Audit Log and dashboard activity to respect my ro
 - **FR-021**: The backend MUST provide one reusable business-audit retrieval capability for the full Audit Log and the bounded dashboard recent-activity query. The dashboard MUST NOT use a separate activity store or tracking mechanism.
 - **FR-022**: The full business-audit list MUST be server-paginated, bounded, and ordered by creation timestamp descending with the stable event identifier descending as the secondary key.
 - **FR-023**: The list MUST support server-side filtering by actor, action category, action type, entity type, and inclusive date range. It MAY support target entity ID filtering for drill-down links.
-- **FR-024**: Filter values, date ranges, page numbers, page sizes, and filter combinations MUST be validated using the project’s established API error conventions. Invalid or excessive requests MUST fail safely and MUST NOT retrieve the complete audit history.
+- **FR-024**: Filter values, date ranges, page numbers, page sizes, and filter combinations MUST be validated using the project’s established API error conventions. Date ranges exceeding 366 inclusive academy dates MUST return the standard validation response before executing the audit-history query. Invalid or excessive requests MUST fail safely and MUST NOT retrieve the complete audit history.
 - **FR-025**: The retrieval contract MUST support a bounded recent-activity request limited to the latest four business events, and the dashboard request MUST never retrieve the complete audit history.
 - **FR-026**: Primary feed responses MUST use stored actor and target snapshots and MUST avoid N+1 linked-record lookups. Current linked records MAY be loaded only for an explicitly requested secondary view and MUST not be required for normal list rendering.
 - **FR-027**: Retrieval MUST expose business audit events only. Authentication, authorization, session, login, logout, token, and other security events MUST never be included or mixed into the response.
@@ -162,7 +163,7 @@ As an academy user, I want the Audit Log and dashboard activity to respect my ro
 
 #### Dashboard Recent Academy Activity
 
-- **FR-038**: The Recent academy activity section MUST be available only to Head Coaches and MUST retain its current dashboard placement and general visual composition while replacing static entries with real business audit data.
+- **FR-038**: The Recent academy activity section MUST be available only to Head Coaches and MUST retain its current dashboard placement and general visual composition while replacing static entries with real business audit data. Assistant Coaches and Players MUST neither render the section nor initiate the recent-activity request.
 - **FR-039**: The section MUST display the latest four business audit events using a category-appropriate icon, concise activity title or summary, a short supporting description where useful, and a relative timestamp such as “2h ago” or “Yesterday.”
 - **FR-040**: Dashboard activity MUST exclude performance-related entries until match and performance workflows are implemented.
 - **FR-041**: The section MUST provide a View all activity link or equivalent action to the full Audit Log page.
@@ -183,9 +184,10 @@ As an academy user, I want the Audit Log and dashboard activity to respect my ro
 
 - **FR-051**: Unit tests MUST cover the business-audit service, including caller-transaction use, flush without independent commit, allowlisted metadata, sensitive-field exclusion, safe summaries, snapshots, duplicate prevention, and absence of update/delete methods or endpoints.
 - **FR-052**: Integration tests MUST cover successful and rolled-back audit capture for Assistant Coach account creation, coach activation and deactivation, coach-team assignment changes, player mutations, team and roster mutations, standalone calendar mutations, recurring-series mutations, and occurrence-only calendar mutations.
-- **FR-053**: Backend route tests MUST cover Head Coach access, Assistant Coach and Player HTTP 403 responses, each supported filter, pagination, stable newest-first ordering, invalid filters and date ranges, bounded recent-activity retrieval, initial empty history, and filtered no-results responses.
+- **FR-053**: Backend route tests MUST cover Head Coach access, Assistant Coach and Player HTTP 403 responses, each supported filter, the actor-options route’s alphabetical ordering, actor-ID deduplication, 100-option bound, null-actor exclusion, and empty results, pagination, stable newest-first ordering, invalid filters and date ranges, bounded recent-activity retrieval, initial empty history, and filtered no-results responses.
 - **FR-054**: Frontend tests MUST cover role-protected navigation and route behavior, hidden unauthorized navigation, feed rendering, filters, pagination, loading, initial empty, filtered no-results, error and retry states, safe expandable details, academy-local timestamp formatting, dashboard activity rendering and failure isolation, and navigation from dashboard to Audit Log.
 - **FR-055**: One Playwright journey MUST sign in as Head Coach, perform several existing administrative actions, verify those actions in dashboard Recent academy activity, open full Audit Log, verify stable newest-first order, filter by category or entity type, expand an event’s details, and verify Assistant Coach or Player cannot access Audit Log.
+- **FR-056**: The backend MUST provide a bounded Head Coach-only actor-options endpoint returning only actors represented by business audit events with a non-null `actor_user_id`. Each option MUST contain the actor user ID, actor display-name snapshot, and actor role snapshot. Options MUST be ordered by display name, deduplicated by actor ID, and limited to at most 100 actors represented in current business audit history. Business audit events with a null `actor_user_id` remain valid and may appear in the audit feed, but are excluded from actor filter options in the initial release.
 
 ### Key Entities
 
@@ -206,8 +208,8 @@ As an academy user, I want the Audit Log and dashboard activity to respect my ro
 - **SC-004**: 100% of tested Assistant Coach and Player direct Audit Log requests return HTTP 403, and no unauthorized response contains a business audit event.
 - **SC-005**: Head Coaches can open the Audit Log, apply each supported filter, and reach a requested page with a bounded result set; no tested request retrieves more than the configured page size or four dashboard records.
 - **SC-006**: 100% of tested equal-timestamp result sets remain in the same newest-first order across repeated requests and page navigation.
-- **SC-007**: In the required Playwright journey, Head Coaches see their recent administrative actions on the dashboard within the normal dashboard load, can reach the full log in one navigation action, and can filter and expand an event without a full browser reload.
-- **SC-008**: At least 95% of representative users can distinguish initial empty history, filtered no-results, loading, error, and unauthorized states without assistance, including at 320px viewport width.
+- **SC-007**: In the required Playwright journey, the Recent academy activity section becomes available during the dashboard session without requiring a browser reload; Head Coaches can reach the full log in one navigation action and can filter and expand an event without a full browser reload.
+- **SC-008**: Automated and manual verification confirms that the initial empty, filtered no-results, loading, error, and unauthorized states are visually and semantically distinguishable at supported viewport widths, including 320px.
 - **SC-009**: All tested timestamps display the correct `America/Los_Angeles` date and time across both standard-time and daylight-saving-time scenarios, with no source-of-truth dependence on formatted local strings.
 - **SC-010**: Accessibility testing finds no critical WCAG 2.1 AA issue in the Audit Log or dashboard activity section, including keyboard disclosure, focus visibility, labeled filters, status announcements, and responsive use.
 - **SC-011**: The existing dashboard remains usable when the bounded recent-activity request fails; 100% of failure fixtures preserve the other dashboard sections and expose a working retry action.

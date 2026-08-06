@@ -91,6 +91,16 @@ All supplied filters combine with AND. `start_date` and `end_date` are inclusive
 
 ## Response models
 
+### BusinessAuditActorOption
+
+The actor filter options are derived from distinct actor snapshots already present in business audit events. Each option contains:
+
+- `actor_user_id: UUID | None`
+- `actor_display_name: str`
+- `actor_role: str | None`
+
+Only events with a non-null `actor_user_id` contribute options. Options are ordered by display name, deduplicated by actor UUID, and bounded to at most 100 actors represented in current business audit history. Events with null actor IDs remain valid business audit events and remain available in the audit feed, but do not produce actor filter options in the initial release.
+
 ### BusinessAuditEventResponse
 
 The response mirrors the stored safe fields and never joins linked actor/target tables for primary rendering:

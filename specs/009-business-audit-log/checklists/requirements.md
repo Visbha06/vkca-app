@@ -32,7 +32,7 @@
 ## Validation Notes
 
 - The specification explicitly separates business activity from the existing security audit boundary in FR-001 and FR-027.
-- Transactional behavior, rollback behavior, duplicate prevention, allowlisted metadata, sensitive-data exclusions, and immutable history are covered by FR-007 through FR-015 and the verification requirements FR-051 through FR-055.
+- Transactional behavior, rollback behavior, duplicate prevention, allowlisted metadata, sensitive-data exclusions, and immutable history are covered by FR-007 through FR-015 and verification requirements FR-051 through FR-055; actor-options behavior is covered by FR-056.
 - Head Coach-only access, hidden navigation, direct-request HTTP 403 behavior, and unauthorized states are covered by FR-028 through FR-037.
 - Dashboard reuse, four-item bounded retrieval, empty/error isolation, and navigation to the full log are covered by FR-021, FR-025, and FR-038 through FR-042.
 - Responsive, keyboard, announcement, timezone, and design-system expectations are covered by FR-043 through FR-050 and SC-008 through SC-011.

@@ -96,7 +96,7 @@
 
 ## Decision 9: Reuse the existing frontend shell and state patterns
 
-**Decision**: Add a `frontend/src/features/business-audit` module with API, types, hooks, components, page, and timestamp utilities. Reuse `apiClient`, `Pagination`, `EmptyState`, existing role/auth context, generalized forbidden behavior, native disclosure controls, `aria-live` patterns, and the current dashboard timeline composition.
+**Decision**: Add a `frontend/src/features/audit` module with API, types, hooks, components, page, and timestamp utilities. Reuse `apiClient`, `Pagination`, `EmptyState`, existing role/auth context, generalized forbidden behavior, native disclosure controls, `aria-live` patterns, and the current dashboard timeline composition. Add a bounded Head Coach-only actor-options query derived from historical actor snapshots for the actor filter.
 
 **Rationale**: The project already has tested patterns for paginated directories, role-aware navigation, loading/error/empty states, keyboard focus, and responsive layouts. Reuse minimizes dependencies and visual drift.
 

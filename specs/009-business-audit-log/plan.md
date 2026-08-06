@@ -22,7 +22,7 @@ Create a separate append-only business-audit capability for successful coach, pl
 
 **Project Type**: Full-stack web application with a PostgreSQL-backed API and React frontend.
 
-**Performance Goals**: Every list request is bounded to at most 100 events; the dashboard request is bounded to four. Indexed newest-first retrieval and stored snapshots avoid N+1 feed queries. Representative local fixtures should keep full-log and recent-activity retrieval within the application’s normal interactive response budget.
+**Runtime behavior**: Every list request is bounded to at most 100 events; the dashboard request is bounded to four. The Recent academy activity request must load independently and must not block or fail the remaining dashboard sections. Indexed newest-first retrieval and stored snapshots avoid N+1 feed queries.
 
 **Constraints**: Preserve the existing authentication/security audit boundary; no new runtime dependencies; one event per external mutation; no audit updates/deletes/cleanup; existing optimistic-concurrency and safe-error behavior must remain intact; timestamps display in `America/Los_Angeles`; sensitive metadata is allowlisted and sanitized before persistence.
 
@@ -100,7 +100,7 @@ backend/
 
 frontend/
 ├── src/
-│   ├── features/business-audit/
+│   ├── features/audit/
 │   │   ├── api/businessAuditApi.ts
 │   │   ├── types/businessAudit.ts
 │   │   ├── hooks/useBusinessAudit.ts
@@ -125,7 +125,7 @@ docs/
 └── business-audit-log.md                     # written after implementation verification
 ```
 
-**Structure Decision**: Use the existing split `backend/src` + `backend/tests` and `frontend/src` + `frontend/e2e` web-application structure. Business audit code gets its own backend modules and `frontend/src/features/business-audit` module; existing domain services, routes, shell, dashboard, shared UI components, and test fixtures are extended rather than parallel infrastructure being created. Security audit files remain untouched.
+**Structure Decision**: Use the existing split `backend/src` + `backend/tests` and `frontend/src` + `frontend/e2e` web-application structure. Business audit code gets its own backend modules and `frontend/src/features/audit` module; existing domain services, routes, shell, dashboard, shared UI components, and test fixtures are extended rather than parallel infrastructure being created. Security audit files remain untouched.
 
 ## Design Decisions
 
@@ -141,7 +141,7 @@ The new migration does not add foreign keys for actor or polymorphic target UUID
 
 ### Read contracts
 
-`GET /api/v1/audit-log` provides Head Coach-only filtering and pagination. `GET /api/v1/audit-log/recent?limit=4` provides a strict bounded dashboard query. Both call one query/service implementation and serialize the same safe event shape.
+`GET /api/v1/audit-log` provides Head Coach-only filtering and pagination. `GET /api/v1/audit-log/recent?limit=4` provides a strict bounded dashboard query. `GET /api/v1/audit-log/actors` provides bounded Head Coach-only actor filter options derived from historical actor snapshots. The full-log and recent routes call one query/service implementation and serialize the same safe event shape.
 
 ### Frontend role protection
 
@@ -154,7 +154,7 @@ The route is nested under the existing authenticated app layout and wrapped in a
 1. Add `BusinessAuditEvent`, action/category/entity vocabulary, indexes, and migration `012` with no strict actor/target foreign keys and no update timestamp.
 2. Add immutable actor/target contexts, action registry, allowlist sanitizer, summary builders, and `BusinessAuditService.record()` that accepts the caller session, flushes, and never commits.
 3. Add typed list/recent schemas, filter validation, inclusive academy-local date conversion, deterministic ordering, and bounded query methods.
-4. Add a separate Head Coach-only `business_audit` router and register it in `src/main.py` without touching auth audit routes.
+4. Add bounded actor-options schemas/query behavior and a separate Head Coach-only `business_audit` router for the full-log, recent-activity, and actor-options routes; register it in `src/main.py` without touching auth audit routes.
 
 ### Phase 2: Transactional domain integration
 
@@ -166,10 +166,10 @@ The route is nested under the existing authenticated app layout and wrapped in a
 
 ### Phase 3: Frontend Audit Log and dashboard
 
-1. Add typed API client, query hooks, filter state, abort/stale-result protection, and dedicated `America/Los_Angeles` timestamp/relative-time utilities.
+1. Add typed API client, actor-options query, query hooks, filter state, abort/stale-result protection, and dedicated `America/Los_Angeles` timestamp/relative-time utilities.
 2. Build the Audit Log page using shared shell, pagination, empty/error/loading patterns, accessible filters, native disclosures, and responsive layout.
 3. Add Head Coach-only navigation and route guard; generalize forbidden copy while preserving existing Coaches Portal behavior.
-4. Replace static `HomeSchedule` activity data with the bounded recent query, retaining the current timeline composition and adding View all activity, empty, and compact retry states.
+4. Replace static `HomeSchedule` activity data with the bounded recent query, retaining the current timeline composition and adding View all activity, empty, and compact retry states; gate the section and request on the authenticated Head Coach role so Assistant Coaches and Players do not initiate the query.
 
 ### Phase 4: Verification and documentation
 
@@ -183,7 +183,7 @@ The route is nested under the existing authenticated app layout and wrapped in a
 - **Persistence**: inspect the migration for creation-only timestamp, UUID generation, indexes, no strict historical-ID foreign keys, and reversible downgrade.
 - **Atomicity**: assert one event on each successful external mutation; inject event flush/commit failures and assert domain rollback; assert failed validation/authorization creates no business event.
 - **Safety**: test allowlist rejection/removal of credentials, tokens, secrets, raw payloads, raw exceptions, and unrestricted snapshots; verify security audit tables/routes remain unchanged.
-- **Retrieval**: test filters, inclusive date boundaries, 366-day limit, invalid combinations, page metadata, `created_at DESC, id DESC`, and recent limit enforcement.
+- **Retrieval**: test filters, bounded actor options, inclusive date boundaries, rejection of ranges over 366 academy dates before query execution, invalid combinations, page metadata, `created_at DESC, id DESC`, and recent limit enforcement.
 - **Authorization**: test Head Coach `200`, Assistant Coach/Player `403`, unauthenticated `401`, hidden navigation, direct forbidden route, and no unauthorized data rendering.
 - **UI**: test all loading/empty/no-results/error/retry/disclosure states, dashboard isolation, focus/status announcements, responsive wrapping, and academy-local timestamp/relative-time formatting.
 - **E2E**: perform existing administrative actions as Head Coach, verify dashboard latest four, navigate to full log, filter, expand details, and verify unauthorized role access.

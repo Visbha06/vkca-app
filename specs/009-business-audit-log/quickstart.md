@@ -52,7 +52,7 @@ Run frontend unit/component coverage:
 ```bash
 cd frontend
 npm test -- \
-  src/features/business-audit \
+  src/features/audit \
   src/layouts/AppLayout.test.tsx \
   src/app/router.test.tsx \
   src/pages/home/HomePage.test.tsx
@@ -106,8 +106,8 @@ Repeat with a domain validation, stale-version, not-found, and authorization fai
 
 ### 5. Verify Head Coach-only retrieval
 
-1. Request both business-audit endpoints as Head Coach and verify `200` responses.
-2. Request both endpoints as Assistant Coach and Player and verify `403` responses with no event data.
+1. Request all three business-audit endpoints as Head Coach and verify `200` responses.
+2. Request all three endpoints as Assistant Coach and Player and verify `403` responses with no event data or actor options.
 3. Request the existing `/api/v1/auth/audit-log` endpoint separately and verify its security behavior is unchanged.
 
 ### 6. Verify filtering, ordering, and bounds
@@ -116,7 +116,9 @@ Repeat with a domain validation, stale-version, not-found, and authorization fai
 2. Verify `created_at DESC, id DESC` ordering across repeated requests and page boundaries.
 3. Verify each filter combines with the others and resets page to 1 in the UI.
 4. Verify invalid UUIDs, unknown enum values, reversed dates, and spans over 366 dates fail safely.
-5. Verify the recent route never returns more than four events even when a larger limit is requested.
+5. Verify spans over 366 inclusive academy dates return the standard validation response before the audit-history query executes.
+6. Verify the actor-options route is Head Coach-only, excludes null-actor events, returns at most 100 distinct non-null historical actor snapshots ordered by display name, and returns 403 for Assistant Coaches and Players.
+7. Verify the recent route never returns more than four events even when a larger limit is requested.
 
 ### 7. Verify dashboard activity and recovery
 
@@ -125,6 +127,7 @@ Repeat with a domain validation, stale-version, not-found, and authorization fai
 3. Verify category text/icon, concise summaries, and relative academy-local times.
 4. Follow View all activity and verify the full Audit Log opens.
 5. Simulate no events and a recent-query failure; verify distinct empty and retryable compact states while the rest of the dashboard remains usable.
+6. Open the dashboard as an Assistant Coach and Player; verify Recent academy activity is absent and the recent-activity endpoint is not called.
 
 ### 8. Verify responsive accessibility
 
