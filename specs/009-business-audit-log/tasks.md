@@ -17,9 +17,9 @@ description: "Implementation tasks for the Business Audit Log and Recent Academy
 
 **Purpose**: Establish the feature boundaries and test seams without changing existing security-audit infrastructure.
 
-- [ ] T001 [P] Establish the backend business-audit module boundaries in `backend/src/models/business_audit_event.py`, `backend/src/services/business_audit_service.py`, `backend/src/schemas/business_audit.py`, and `backend/src/routes/business_audit.py`, reusing existing project naming and import conventions.
-- [ ] T002 [P] Establish the frontend feature module structure under `frontend/src/features/audit/` for API access, typed models, hooks, components, page composition, and academy-local time utilities.
-- [ ] T003 [P] Add isolated business-audit test seams in `backend/tests/conftest.py`, `backend/tests/unit/`, `backend/tests/integration/`, `frontend/src/features/audit/`, and `frontend/e2e/` without changing security-audit fixtures or tests.
+- [X] T001 [P] Establish the backend business-audit module boundaries in `backend/src/models/business_audit_event.py`, `backend/src/services/business_audit_service.py`, `backend/src/schemas/business_audit.py`, and `backend/src/routes/business_audit.py`, reusing existing project naming and import conventions.
+- [X] T002 [P] Establish the frontend feature module structure under `frontend/src/features/audit/` for API access, typed models, hooks, components, page composition, and academy-local time utilities.
+- [X] T003 [P] Add isolated business-audit test seams in `backend/tests/conftest.py`, `backend/tests/unit/`, `backend/tests/integration/`, `frontend/src/features/audit/`, and `frontend/e2e/` without changing security-audit fixtures or tests.
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
