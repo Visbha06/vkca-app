@@ -92,11 +92,11 @@ description: "Implementation tasks for the Business Audit Log and Recent Academy
 
 ### Tests for User Story 3 (write first and make fail before implementation)
 
-- [ ] T030 [P] [US3] Add dashboard tests in `frontend/src/pages/home/HomePage.test.tsx` and the applicable `frontend/src/pages/home/HomeSchedule.test.tsx` for Head Coach visibility, Assistant Coach/Player absence, no recent-activity endpoint call for unauthorized roles, latest-four rendering, concise descriptions, relative timestamps, empty state, retryable compact failure isolation, performance-event exclusion, and navigation to `/audit-log`.
+- [X] T030 [P] [US3] Add dashboard tests in `frontend/src/pages/home/HomePage.test.tsx` and the applicable `frontend/src/pages/home/HomeSchedule.test.tsx` for Head Coach visibility, Assistant Coach/Player absence, no recent-activity endpoint call for unauthorized roles, latest-four rendering, concise descriptions, relative timestamps, empty state, retryable compact failure isolation, performance-event exclusion, and navigation to `/audit-log`.
 
 ### Implementation for User Story 3
 
-- [ ] T031 [US3] Replace static activity entries in `frontend/src/pages/home/HomeSchedule.tsx` with the shared bounded recent query from `frontend/src/features/audit/hooks/useBusinessAudit.ts`, rendering Recent academy activity only for authenticated Head Coaches so Assistant Coaches and Players neither issue the request nor receive placeholder UI; preserve the current visual composition, add category icons/text, relative time, empty/error/retry states, and the View all activity link; update `frontend/src/pages/home/HomePage.tsx` only as needed for Head Coach composition.
+- [X] T031 [US3] Replace static activity entries in `frontend/src/pages/home/HomeSchedule.tsx` with the shared bounded recent query from `frontend/src/features/audit/hooks/useBusinessAudit.ts`, rendering Recent academy activity only for authenticated Head Coaches so Assistant Coaches and Players neither issue the request nor receive placeholder UI; preserve the current visual composition, add category icons/text, relative time, empty/error/retry states, and the View all activity link; update `frontend/src/pages/home/HomePage.tsx` only as needed for Head Coach composition.
 
 **Checkpoint**: Head Coach dashboard activity is dynamic, bounded to four records, sourced from the same business-audit retrieval path, and failure-isolated from the rest of the dashboard.
 
