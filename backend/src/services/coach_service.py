@@ -11,7 +11,7 @@ from sqlalchemy.engine import Row
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.enums import UserRole
+from src.enums import AuditActionType, AuditEntityType, UserRole
 from src.models.team import Team
 from src.models.team_coach import TeamCoach
 from src.models.user import User
@@ -23,6 +23,11 @@ from src.schemas.coach import (
     PaginatedCoachResponse,
 )
 from src.services.auth_service import AuthService
+from src.services.business_audit_service import (
+    AuditActorContext,
+    AuditTargetContext,
+    BusinessAuditService,
+)
 from src.services.occ import check_and_increment_version
 from src.services.password_service import PasswordService
 
@@ -92,6 +97,8 @@ class CoachService:
     async def create_coach(
         self,
         payload: CoachCreate,
+        *,
+        actor: AuditActorContext | None = None,
     ) -> tuple[CoachResponse, str]:
         """Atomically create an Assistant Coach and initial assignments."""
 
@@ -128,6 +135,20 @@ class CoachService:
             self.session.add_all(
                 [TeamCoach(team_id=team.id, user_id=coach.id) for team in teams]
             )
+            if actor is not None:
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=AuditActionType.COACH_CREATED,
+                    target=AuditTargetContext(
+                        entity_type=AuditEntityType.COACH,
+                        entity_id=coach.id,
+                        label=f"{coach.first_name} {coach.last_name}".strip(),
+                    ),
+                    metadata={
+                        "assigned_team_ids": [team.id for team in teams],
+                        "assigned_team_count": len(teams),
+                    },
+                )
             await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()
@@ -280,6 +301,8 @@ class CoachService:
         self,
         coach_id: UUID,
         payload: CoachTeamUpdate,
+        *,
+        actor: AuditActorContext | None = None,
     ) -> CoachResponse:
         """Atomically replace an active coach's complete assignment set."""
 
@@ -306,6 +329,16 @@ class CoachService:
             if {team.id for team in teams} != set(payload.team_ids):
                 raise CoachTeamValidationError
 
+        previous_team_ids: list[UUID] = []
+        if actor is not None:
+            previous_team_ids = list(
+                (
+                    await self.session.scalars(
+                        select(TeamCoach.team_id).where(TeamCoach.user_id == coach_id)
+                    )
+                ).all()
+            )
+
         try:
             coach.version_number = await check_and_increment_version(
                 self.session,
@@ -322,6 +355,24 @@ class CoachService:
                     for team_id in payload.team_ids
                 ]
             )
+            if actor is not None:
+                previous_ids = set(previous_team_ids)
+                next_ids = set(payload.team_ids)
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=AuditActionType.COACH_TEAM_ASSIGNMENTS_UPDATED,
+                    target=AuditTargetContext(
+                        entity_type=AuditEntityType.COACH,
+                        entity_id=coach.id,
+                        label=f"{coach.first_name} {coach.last_name}".strip(),
+                    ),
+                    metadata={
+                        "added_team_ids": sorted(next_ids - previous_ids),
+                        "removed_team_ids": sorted(previous_ids - next_ids),
+                        "added_count": len(next_ids - previous_ids),
+                        "removed_count": len(previous_ids - next_ids),
+                    },
+                )
             await self.session.commit()
         except Exception:
             await self.session.rollback()

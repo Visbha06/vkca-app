@@ -10,7 +10,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.enums import AgeGroup, ScopeKind
+from src.enums import (
+    AgeGroup,
+    AuditActionType,
+    AuditEntityType,
+    EventType,
+    ScopeKind,
+)
 from src.models.calendar import (
     CalendarEvent,
     CalendarEventScope,
@@ -34,6 +40,11 @@ from src.schemas.calendar import (
     CalendarStandaloneUpdate,
     CalendarTodayResponse,
     RecurrenceSeriesResponse,
+)
+from src.services.business_audit_service import (
+    AuditActorContext,
+    AuditTargetContext,
+    BusinessAuditService,
 )
 from src.services.calendar_recurrence import (
     ACADEMY_TIMEZONE,
@@ -155,6 +166,8 @@ class CalendarService:
     async def create_event(
         self,
         payload: CalendarEventCreate,
+        *,
+        actor: AuditActorContext | None = None,
     ) -> CalendarEventDefinitionResponse:
         """Create one standalone event or recurring definition atomically."""
 
@@ -184,6 +197,49 @@ class CalendarService:
                 event.recurrence_series = None
             self.session.add(event)
             await self.session.flush()
+            if actor is not None:
+                series = event.recurrence_series
+                if series is None:
+                    action_type = AuditActionType.CALENDAR_STANDALONE_CREATED
+                    target = AuditTargetContext(
+                        AuditEntityType.CALENDAR_EVENT,
+                        event.id,
+                        event.name,
+                    )
+                    metadata = {
+                        "event_type": event.event_type,
+                        "scope": self._scope_label(payload.scope),
+                        "schedule_label": self._schedule_label(
+                            event.first_date,
+                            event.is_all_day,
+                            event.start_time,
+                            event.end_time,
+                        ),
+                    }
+                else:
+                    action_type = AuditActionType.CALENDAR_SERIES_CREATED
+                    target = AuditTargetContext(
+                        AuditEntityType.RECURRENCE_SERIES,
+                        series.id,
+                        event.name,
+                    )
+                    metadata = {
+                        "event_type": event.event_type,
+                        "frequency": series.frequency,
+                        "scope": self._scope_label(payload.scope),
+                        "schedule_label": self._schedule_label(
+                            event.first_date,
+                            event.is_all_day,
+                            event.start_time,
+                            event.end_time,
+                        ),
+                    }
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=action_type,
+                    target=target,
+                    metadata=metadata,
+                )
             response = self._definition_response(event)
             await self.session.commit()
             return response
@@ -195,6 +251,8 @@ class CalendarService:
         self,
         event_id: UUID,
         payload: CalendarStandaloneUpdate,
+        *,
+        actor: AuditActorContext | None = None,
     ) -> CalendarEventDefinitionResponse:
         """Replace a standalone event when its canonical version is current."""
 
@@ -207,11 +265,32 @@ class CalendarService:
                 payload,
                 previous=self._event_schedule(event),
             )
+            changed_fields = self._event_changed_fields(event, payload)
             await self._replace_event_values(event, payload)
             event.version_number += 1
             await self.session.flush()
             await self._refresh_definition_timestamps(event)
             response = self._definition_response(event)
+            if actor is not None:
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=AuditActionType.CALENDAR_STANDALONE_UPDATED,
+                    target=AuditTargetContext(
+                        AuditEntityType.CALENDAR_EVENT,
+                        event.id,
+                        event.name,
+                    ),
+                    metadata={
+                        "changed_fields": changed_fields,
+                        "scope": self._scope_label(payload.scope),
+                        "schedule_label": self._schedule_label(
+                            event.first_date,
+                            event.is_all_day,
+                            event.start_time,
+                            event.end_time,
+                        ),
+                    },
+                )
             await self.session.commit()
             return response
         except Exception:
@@ -222,6 +301,8 @@ class CalendarService:
         self,
         event_id: UUID,
         payload: CalendarEventDelete,
+        *,
+        actor: AuditActorContext | None = None,
     ) -> None:
         """Hard-delete one standalone event and its scope rows atomically."""
 
@@ -230,7 +311,29 @@ class CalendarService:
             if event is None or event.recurrence_series is not None:
                 raise CalendarEventNotFoundError
             self._check_version(event.version_number, payload.version_number)
+            target = AuditTargetContext(
+                AuditEntityType.CALENDAR_EVENT,
+                event.id,
+                event.name,
+            )
+            metadata = {
+                "event_type": event.event_type,
+                "scope": self._scope_label_from_rows(event.scopes),
+                "schedule_label": self._schedule_label(
+                    event.first_date,
+                    event.is_all_day,
+                    event.start_time,
+                    event.end_time,
+                ),
+            }
             await self.session.delete(event)
+            if actor is not None:
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=AuditActionType.CALENDAR_STANDALONE_DELETED,
+                    target=target,
+                    metadata=metadata,
+                )
             await self.session.commit()
         except Exception:
             await self.session.rollback()
@@ -240,6 +343,8 @@ class CalendarService:
         self,
         occurrence_id: str,
         payload: CalendarOccurrenceUpdate,
+        *,
+        actor: AuditActorContext | None = None,
     ) -> CalendarEventInstance:
         """Create or replace one complete occurrence-exception snapshot."""
 
@@ -255,14 +360,22 @@ class CalendarService:
                 exception,
                 payload.exception_version_number,
             )
+            previous_schedule = self._occurrence_schedule(
+                event,
+                original_date,
+                exception,
+            )
             self._validate_mutation_schedule(
                 payload,
-                previous=self._occurrence_schedule(
-                    event,
-                    original_date,
-                    exception,
-                ),
+                previous=previous_schedule,
             )
+            changed_fields = self._occurrence_changed_fields(
+                event,
+                original_date,
+                exception,
+                payload,
+            )
+            was_moved = previous_schedule[0] != payload.event_date
 
             is_new_exception = exception is None
             if exception is None:
@@ -289,6 +402,35 @@ class CalendarService:
                 payload.event_date,
                 exception,
             )
+            if actor is not None:
+                action_type = (
+                    AuditActionType.CALENDAR_OCCURRENCE_MOVED
+                    if was_moved
+                    else AuditActionType.CALENDAR_OCCURRENCE_UPDATED
+                )
+                metadata: dict[str, object] = {
+                    "original_date": original_date,
+                    "schedule_label": self._schedule_label(
+                        payload.event_date,
+                        payload.is_all_day,
+                        payload.start_time,
+                        payload.end_time,
+                    ),
+                }
+                if was_moved:
+                    metadata["replacement_date"] = payload.event_date
+                else:
+                    metadata["changed_fields"] = changed_fields
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=action_type,
+                    target=AuditTargetContext(
+                        AuditEntityType.RECURRENCE_SERIES,
+                        series.id,
+                        event.name,
+                    ),
+                    metadata=metadata,
+                )
             await self.session.commit()
             return instance
         except Exception:
@@ -299,6 +441,8 @@ class CalendarService:
         self,
         occurrence_id: str,
         payload: CalendarOccurrenceDelete,
+        *,
+        actor: AuditActorContext | None = None,
     ) -> None:
         """Persist a deletion exception while leaving its series untouched."""
 
@@ -335,6 +479,17 @@ class CalendarService:
             exception.is_deleted = True
             exception.scopes = []
             await self.session.flush()
+            if actor is not None:
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=AuditActionType.CALENDAR_OCCURRENCE_DELETED,
+                    target=AuditTargetContext(
+                        AuditEntityType.RECURRENCE_SERIES,
+                        series.id,
+                        event.name,
+                    ),
+                    metadata={"original_date": original_date},
+                )
             await self.session.commit()
         except Exception:
             await self.session.rollback()
@@ -344,6 +499,8 @@ class CalendarService:
         self,
         series_id: UUID,
         payload: CalendarSeriesUpdate,
+        *,
+        actor: AuditActorContext | None = None,
     ) -> CalendarEventDefinitionResponse:
         """Replace a series and confirmation-gate invalid exception cleanup."""
 
@@ -364,6 +521,7 @@ class CalendarService:
                     [exception.original_date for exception in invalid_exceptions]
                 )
 
+            changed_fields = self._series_changed_fields(event, series, payload)
             for exception in invalid_exceptions:
                 await self.session.delete(exception)
                 series.exceptions.remove(exception)
@@ -378,6 +536,22 @@ class CalendarService:
             await self.session.flush()
             await self._refresh_definition_timestamps(event)
             response = self._definition_response(event)
+            if actor is not None:
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=AuditActionType.CALENDAR_SERIES_UPDATED,
+                    target=AuditTargetContext(
+                        AuditEntityType.RECURRENCE_SERIES,
+                        series.id,
+                        event.name,
+                    ),
+                    metadata={
+                        "changed_fields": changed_fields,
+                        "frequency": series.frequency,
+                        "exception_count": len(series.exceptions or []),
+                        "scope": self._scope_label(payload.scope),
+                    },
+                )
             await self.session.commit()
             return response
         except Exception:
@@ -388,13 +562,38 @@ class CalendarService:
         self,
         series_id: UUID,
         payload: CalendarEventDelete,
+        *,
+        actor: AuditActorContext | None = None,
     ) -> None:
         """Delete the owning event so database cascades remove all series data."""
 
         try:
-            event, _series = await self._load_series_for_update(series_id)
+            event, series = await self._load_series_for_update(series_id)
             self._check_version(event.version_number, payload.version_number)
+            target = AuditTargetContext(
+                AuditEntityType.RECURRENCE_SERIES,
+                series.id,
+                event.name,
+            )
+            metadata = {
+                "event_type": event.event_type,
+                "frequency": series.frequency,
+                "scope": self._scope_label_from_rows(event.scopes),
+                "schedule_label": self._schedule_label(
+                    event.first_date,
+                    event.is_all_day,
+                    event.start_time,
+                    event.end_time,
+                ),
+            }
             await self.session.delete(event)
+            if actor is not None:
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=AuditActionType.CALENDAR_SERIES_DELETED,
+                    target=target,
+                    metadata=metadata,
+                )
             await self.session.commit()
         except Exception:
             await self.session.rollback()
@@ -447,6 +646,128 @@ class CalendarService:
             exception.start_time,
             exception.end_time,
         )
+
+    @classmethod
+    def _event_changed_fields(
+        cls,
+        event: CalendarEvent,
+        payload: CalendarEventValues,
+    ) -> list[str]:
+        """Return safe field names whose persisted values are being replaced."""
+
+        scope_kind, age_groups = cls._scope_values(event.scopes)
+        comparisons = {
+            "event_type": event.event_type != payload.event_type,
+            "name": event.name != payload.name,
+            "event_date": event.first_date != payload.event_date,
+            "is_all_day": event.is_all_day != payload.is_all_day,
+            "start_time": event.start_time != payload.start_time,
+            "end_time": event.end_time != payload.end_time,
+            "scope": (
+                scope_kind != payload.scope.scope_kind
+                or set(age_groups) != set(payload.scope.age_groups)
+            ),
+        }
+        return [field for field, changed in comparisons.items() if changed]
+
+    @classmethod
+    def _occurrence_changed_fields(
+        cls,
+        event: CalendarEvent,
+        original_date: date,
+        exception: OccurrenceException | None,
+        payload: CalendarEventValues,
+    ) -> list[str]:
+        """Compare a replacement payload with the effective prior occurrence."""
+
+        prior_event_type: EventType | None
+        prior_name: str | None
+        prior_is_all_day: bool | None
+        prior_start_time: time | None
+        prior_end_time: time | None
+        prior_scopes: Sequence[CalendarEventScope | OccurrenceExceptionScope]
+        if exception is None or exception.is_deleted:
+            prior_event_type = event.event_type
+            prior_name = event.name
+            prior_is_all_day = event.is_all_day
+            prior_start_time = event.start_time
+            prior_end_time = event.end_time
+            prior_scopes = event.scopes
+        else:
+            prior_event_type = exception.event_type
+            prior_name = exception.name
+            prior_is_all_day = exception.is_all_day
+            prior_start_time = exception.start_time
+            prior_end_time = exception.end_time
+            prior_scopes = exception.scopes
+        prior_scope_kind, prior_age_groups = cls._scope_values(prior_scopes)
+        prior_date = cls._occurrence_schedule(event, original_date, exception)[0]
+        comparisons = {
+            "event_type": prior_event_type != payload.event_type,
+            "name": prior_name != payload.name,
+            "event_date": prior_date != payload.event_date,
+            "is_all_day": prior_is_all_day != payload.is_all_day,
+            "start_time": prior_start_time != payload.start_time,
+            "end_time": prior_end_time != payload.end_time,
+            "scope": (
+                prior_scope_kind != payload.scope.scope_kind
+                or set(prior_age_groups) != set(payload.scope.age_groups)
+            ),
+        }
+        return [field for field, changed in comparisons.items() if changed]
+
+    @classmethod
+    def _series_changed_fields(
+        cls,
+        event: CalendarEvent,
+        series: RecurrenceSeries,
+        payload: CalendarSeriesUpdate,
+    ) -> list[str]:
+        """Return event and recurrence field names changed by a series replacement."""
+
+        changed_fields = cls._event_changed_fields(event, payload)
+        recurrence_comparisons = {
+            "frequency": series.frequency != payload.recurrence.frequency,
+            "termination": series.termination != payload.recurrence.termination,
+            "end_date": series.end_date != payload.recurrence.end_date,
+            "occurrence_count": (
+                series.occurrence_count != payload.recurrence.occurrence_count
+            ),
+        }
+        changed_fields.extend(
+            field for field, changed in recurrence_comparisons.items() if changed
+        )
+        return changed_fields
+
+    @staticmethod
+    def _scope_label(scope: CalendarScope) -> str:
+        if scope.scope_kind is ScopeKind.ALL_ACADEMY:
+            return ScopeKind.ALL_ACADEMY.value
+        age_groups = ",".join(sorted(group.value for group in scope.age_groups))
+        return f"{ScopeKind.AGE_GROUP.value}:{age_groups}"
+
+    @classmethod
+    def _scope_label_from_rows(
+        cls,
+        scopes: Sequence[CalendarEventScope | OccurrenceExceptionScope] | None,
+    ) -> str:
+        scope_kind, age_groups = cls._scope_values(scopes)
+        return cls._scope_label(
+            CalendarScope(scope_kind=scope_kind, age_groups=age_groups)
+        )
+
+    @staticmethod
+    def _schedule_label(
+        event_date: date,
+        is_all_day: bool,
+        start_time: time | None,
+        end_time: time | None,
+    ) -> str:
+        if is_all_day:
+            return f"{event_date.isoformat()} all day"
+        start_label = start_time.isoformat(timespec="minutes") if start_time else ""
+        end_label = end_time.isoformat(timespec="minutes") if end_time else ""
+        return f"{event_date.isoformat()} {start_label}-{end_label}".strip()
 
     def _validate_mutation_schedule(
         self,

@@ -1,7 +1,7 @@
 """Unit tests for coach-directory authorization and responses."""
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import ANY, AsyncMock, Mock
 from uuid import UUID, uuid4
 
 import httpx
@@ -257,19 +257,16 @@ async def test_disable_user_is_atomic_and_blocks_self_deactivation(
         last_name="Patel",
         email="asha@vkca.test",
         role=UserRole.ASSISTANT_COACH,
-        is_active=True,
-        version_number=4,
+        is_active=False,
+        version_number=5,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
-    db_session.scalar.return_value = target
-    auth_service = mocker.Mock()
-    auth_service.revoke_user_sessions = AsyncMock(return_value=[])
-    mocker.patch("src.routes.users.AuthService", return_value=auth_service)
-    mocker.patch(
-        "src.routes.users.check_and_increment_version",
-        new=AsyncMock(return_value=5),
+    user_service = mocker.Mock()
+    user_service.disable_user = AsyncMock(
+        return_value=target,
     )
+    mocker.patch("src.routes.users.UserService", return_value=user_service)
 
     result = await client.post(
         f"/api/v1/users/{target.id}/disable",
@@ -278,24 +275,23 @@ async def test_disable_user_is_atomic_and_blocks_self_deactivation(
 
     assert result.status_code == 200
     assert result.json()["is_active"] is False
-    auth_service.revoke_user_sessions.assert_awaited_once_with(
+    user_service.disable_user.assert_awaited_once_with(
         target.id,
-        reason="user_disabled",
-        target_resource=f"/api/v1/users/{target.id}/disable",
+        4,
+        actor=ANY,
     )
-    db_session.commit.assert_awaited_once()
 
     async def target_as_actor():
         return Mock(id=target.id, role=UserRole.HEAD_COACH), Mock()
 
     app.dependency_overrides[get_current_user] = target_as_actor
-    db_session.commit.reset_mock()
+    user_service.disable_user.reset_mock()
     self_result = await client.post(
         f"/api/v1/users/{target.id}/disable",
         json={"version_number": 5},
     )
     assert self_result.status_code == 403
-    db_session.commit.assert_not_awaited()
+    user_service.disable_user.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -326,7 +322,7 @@ async def test_reactivate_user_does_not_restore_sessions(
 
     assert result.status_code == 200
     assert result.json()["is_active"] is True
-    user_service.reactivate_user.assert_awaited_once_with(user.id, 4)
+    user_service.reactivate_user.assert_awaited_once_with(user.id, 4, actor=ANY)
     auth_service.assert_not_called()
 
 

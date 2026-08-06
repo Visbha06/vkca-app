@@ -1,10 +1,12 @@
 """Shared fixtures for authenticated integration API requests."""
 
+from collections.abc import AsyncIterator
 from uuid import uuid4
 
 import httpx
 import pytest_asyncio
 from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import AsyncSessionFactory
 from src.enums import UserRole
@@ -14,8 +16,23 @@ from src.models.user import User
 from src.services.password_service import PasswordService
 
 
+@pytest_asyncio.fixture
+async def business_audit_transaction_session() -> AsyncIterator[AsyncSession]:
+    """Yield a caller-owned transaction for flush/rollback audit assertions."""
+
+    async with AsyncSessionFactory() as session:
+        transaction = await session.begin()
+        try:
+            yield session
+        finally:
+            if transaction.is_active:
+                await transaction.rollback()
+
+
 @pytest_asyncio.fixture(loop_scope="session")
-async def authenticated_client(client: httpx.AsyncClient) -> None:
+async def authenticated_client(
+    client: httpx.AsyncClient,
+) -> AsyncIterator[None]:
     """Authenticate the module's API client as a temporary Head Coach."""
 
     user_id = uuid4()

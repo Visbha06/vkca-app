@@ -11,4 +11,3 @@ def business_audit_ids() -> tuple[UUID, UUID]:
     """Return independent actor and target IDs for a test case."""
 
     return uuid4(), uuid4()
-

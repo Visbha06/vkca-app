@@ -11,6 +11,52 @@ class UserRole(StrEnum):
     PLAYER = "player"
 
 
+class AuditActionCategory(StrEnum):
+    """Business domains represented in the academy activity history."""
+
+    COACH = "coach"
+    PLAYER = "player"
+    TEAM = "team"
+    ROSTER = "roster"
+    CALENDAR = "calendar"
+
+
+class AuditEntityType(StrEnum):
+    """Historical target kinds supported by the business-audit feed."""
+
+    COACH = "coach"
+    PLAYER = "player"
+    TEAM = "team"
+    ROSTER = "roster"
+    CALENDAR_EVENT = "calendar_event"
+    RECURRENCE_SERIES = "recurrence_series"
+
+
+class AuditActionType(StrEnum):
+    """Stable identifiers for the initial business-audit action catalogue."""
+
+    COACH_CREATED = "coach.created"
+    COACH_ACTIVATED = "coach.activated"
+    COACH_DEACTIVATED = "coach.deactivated"
+    COACH_TEAM_ASSIGNMENTS_UPDATED = "coach.team_assignments_updated"
+    PLAYER_CREATED = "player.created"
+    PLAYER_UPDATED = "player.updated"
+    TEAM_CREATED = "team.created"
+    TEAM_UPDATED = "team.updated"
+    ROSTER_ADDED = "roster.added"
+    ROSTER_REMOVED = "roster.removed"
+    ROSTER_REORDERED = "roster.reordered"
+    CALENDAR_STANDALONE_CREATED = "calendar.standalone_created"
+    CALENDAR_STANDALONE_UPDATED = "calendar.standalone_updated"
+    CALENDAR_STANDALONE_DELETED = "calendar.standalone_deleted"
+    CALENDAR_SERIES_CREATED = "calendar.series_created"
+    CALENDAR_SERIES_UPDATED = "calendar.series_updated"
+    CALENDAR_SERIES_DELETED = "calendar.series_deleted"
+    CALENDAR_OCCURRENCE_UPDATED = "calendar.occurrence_updated"
+    CALENDAR_OCCURRENCE_MOVED = "calendar.occurrence_moved"
+    CALENDAR_OCCURRENCE_DELETED = "calendar.occurrence_deleted"
+
+
 class BattingStyle(StrEnum):
     """Supported batting orientations."""
 

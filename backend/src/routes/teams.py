@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
@@ -17,6 +17,7 @@ from src.schemas.team import (
     TeamRosterResponse,
     TeamUpdate,
 )
+from src.services.business_audit_service import AuditActorContext
 from src.services.occ import StaleVersionError
 from src.services.team_service import (
     PlayerNotFoundError,
@@ -39,11 +40,16 @@ async def create_team(
         None,
         Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
     ],
+    x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
 ) -> TeamResponse:
     """Create a team and its complete ordered roster atomically."""
 
     try:
-        return await TeamService(session).create_team(payload)
+        actor, _auth_session = current_user
+        return await TeamService(session).create_team(
+            payload,
+            actor=AuditActorContext.from_user(actor, request_id=x_request_id),
+        )
     except TeamValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -71,11 +77,17 @@ async def update_team(
         None,
         Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
     ],
+    x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
 ) -> TeamResponse:
     """Atomically replace team details and roster when its version is current."""
 
     try:
-        return await TeamService(session).update_team(team_id, payload)
+        actor, _auth_session = current_user
+        return await TeamService(session).update_team(
+            team_id,
+            payload,
+            actor=AuditActorContext.from_user(actor, request_id=x_request_id),
+        )
     except TeamValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -136,11 +148,17 @@ async def add_player_to_team(
         None,
         Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
     ],
+    x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
 ) -> TeamPlayerResponse:
     """Add a player to a team roster (legacy endpoint)."""
 
     try:
-        membership = await TeamService(session).add_player_to_team(team_id, player_id)
+        actor, _auth_session = current_user
+        membership = await TeamService(session).add_player_to_team(
+            team_id,
+            player_id,
+            actor=AuditActorContext.from_user(actor, request_id=x_request_id),
+        )
     except (TeamNotFoundError, PlayerNotFoundError) as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)

@@ -3,6 +3,7 @@
 from src.models.auth_audit_log import AuthAuditLog
 from src.models.auth_session import AuthSession
 from src.models.base import Base, TimestampMixin, UUIDMixin, VersionMixin
+from src.models.business_audit_event import BusinessAuditEvent
 from src.models.calendar import (
     CalendarEvent,
     CalendarEventScope,
@@ -27,6 +28,7 @@ __all__ = [
     "AuthAuditLog",
     "AuthSession",
     "Base",
+    "BusinessAuditEvent",
     "CalendarEvent",
     "CalendarEventScope",
     "DataSyncLog",

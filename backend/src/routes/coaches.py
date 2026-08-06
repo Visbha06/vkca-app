@@ -3,7 +3,7 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
@@ -16,6 +16,7 @@ from src.schemas.coach import (
     CoachTeamUpdate,
     PaginatedCoachResponse,
 )
+from src.services.business_audit_service import AuditActorContext
 from src.services.coach_service import (
     CoachAlreadyExistsError,
     CoachInactiveError,
@@ -39,11 +40,17 @@ async def create_coach(
         None,
         Depends(require_role(UserRole.HEAD_COACH)),
     ],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
 ) -> CoachCreateResponse:
     """Create an Assistant Coach and return its password exactly once."""
 
     try:
-        coach, temporary_password = await CoachService(session).create_coach(payload)
+        actor, _auth_session = current_user
+        coach, temporary_password = await CoachService(session).create_coach(
+            payload,
+            actor=AuditActorContext.from_user(actor, request_id=x_request_id),
+        )
     except CoachTeamValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -120,13 +127,17 @@ async def update_coach_team_assignments(
         None,
         Depends(require_role(UserRole.HEAD_COACH)),
     ],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
 ) -> CoachResponse:
     """Replace an active coach's complete team assignment set."""
 
     try:
+        actor, _auth_session = current_user
         return await CoachService(session).update_team_assignments(
             coach_id,
             payload,
+            actor=AuditActorContext.from_user(actor, request_id=x_request_id),
         )
     except CoachInactiveError as exc:
         raise HTTPException(

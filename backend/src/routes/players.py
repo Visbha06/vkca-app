@@ -3,7 +3,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import get_db
@@ -15,6 +15,7 @@ from src.schemas.player import (
     PlayerResponse,
     PlayerUpdate,
 )
+from src.services.business_audit_service import AuditActorContext
 from src.services.player_service import (
     PlayerAlreadyExistsError,
     PlayerNotFoundError,
@@ -33,11 +34,16 @@ async def create_player(
         None,
         Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
     ],
+    x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
 ) -> PlayerResponse:
     """Create a player profile unless its identity is already registered."""
 
     try:
-        player = await PlayerService(session).create_player(payload)
+        actor, _auth_session = current_user
+        player = await PlayerService(session).create_player(
+            payload,
+            actor=AuditActorContext.from_user(actor, request_id=x_request_id),
+        )
     except PlayerAlreadyExistsError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -101,11 +107,17 @@ async def update_player(
         None,
         Depends(require_role(UserRole.HEAD_COACH, UserRole.ASSISTANT_COACH)),
     ],
+    x_request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
 ) -> PlayerResponse:
     """Update a player profile when its OCC version is current."""
 
     try:
-        player = await PlayerService(session).update_player(player_id, payload)
+        actor, _auth_session = current_user
+        player = await PlayerService(session).update_player(
+            player_id,
+            payload,
+            actor=AuditActorContext.from_user(actor, request_id=x_request_id),
+        )
     except PlayerNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
