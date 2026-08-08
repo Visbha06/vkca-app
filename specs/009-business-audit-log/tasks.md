@@ -108,14 +108,14 @@ description: "Implementation tasks for the Business Audit Log and Recent Academy
 
 ### Tests for User Story 4 (write first and make fail before implementation)
 
-- [ ] T032 [P] [US4] Add role-protection tests in `frontend/src/layouts/AppLayout.test.tsx`, `frontend/src/app/router.test.tsx`, and `frontend/src/pages/ForbiddenPage.test.tsx` for Head Coach visibility, hidden unauthorized navigation, direct unauthorized navigation, preserved existing forbidden behavior, no unauthorized event rendering, and backend 403 behavior for direct business-audit requests.
-- [ ] T033 [P] [US4] Add responsive/accessibility assertions under `frontend/src/features/audit/` for 320px layout, no page overflow, visible focus, touch targets, keyboard disclosures, filter/pagination labels, live status/error announcements, and category identification without icon-only meaning.
+- [X] T032 [P] [US4] Add role-protection tests in `frontend/src/layouts/AppLayout.test.tsx`, `frontend/src/app/router.test.tsx`, and `frontend/src/pages/ForbiddenPage.test.tsx` for Head Coach visibility, hidden unauthorized navigation, direct unauthorized navigation, preserved existing forbidden behavior, no unauthorized event rendering, and backend 403 behavior for direct business-audit requests.
+- [X] T033 [P] [US4] Add responsive/accessibility assertions under `frontend/src/features/audit/` for 320px layout, no page overflow, visible focus, touch targets, keyboard disclosures, filter/pagination labels, live status/error announcements, and category identification without icon-only meaning.
 
 ### Implementation for User Story 4
 
-- [ ] T034 [US4] Add a reusable Head Coach route guard and feature-specific forbidden behavior in `frontend/src/app/router.tsx` and `frontend/src/pages/ForbiddenPage.tsx`, preserving existing authenticated route and Coaches Portal semantics.
-- [ ] T035 [US4] Add the `Audit Log` navigation item immediately beneath Calendar and render it only for Head Coaches in `frontend/src/layouts/AppLayout.tsx`, extending `frontend/src/shared/components/icons/NavIcons.tsx` only if an established icon is unavailable.
-- [ ] T036 [US4] Harden responsive and accessible behavior in `frontend/src/features/audit/` and `frontend/src/layouts/AppLayout.tsx`, including stacked/wrapping controls, focus retention, disclosure announcements, safe retry/clear-filter actions, and no horizontal page overflow.
+- [X] T034 [US4] Add a reusable Head Coach route guard and feature-specific forbidden behavior in `frontend/src/app/router.tsx` and `frontend/src/pages/ForbiddenPage.tsx`, preserving existing authenticated route and Coaches Portal semantics.
+- [X] T035 [US4] Add the `Audit Log` navigation item immediately beneath Calendar and render it only for Head Coaches in `frontend/src/layouts/AppLayout.tsx`, extending `frontend/src/shared/components/icons/NavIcons.tsx` only if an established icon is unavailable.
+- [X] T036 [US4] Harden responsive and accessible behavior in `frontend/src/features/audit/` and `frontend/src/layouts/AppLayout.tsx`, including stacked/wrapping controls, focus retention, disclosure announcements, safe retry/clear-filter actions, and no horizontal page overflow.
 
 **Checkpoint**: Backend and frontend independently enforce Head Coach-only access, unauthorized users see no business audit data, and the page remains operable and understandable across required widths and assistive technologies.
 

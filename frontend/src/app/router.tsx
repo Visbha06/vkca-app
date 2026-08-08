@@ -4,6 +4,7 @@ import {
   type RouteObject,
 } from 'react-router'
 import { GuestRoute, LoginPage, ProtectedRoute } from '@features/auth'
+import { BusinessAuditLogPage } from '@features/audit'
 import AppLayout from '@/layouts/AppLayout'
 import CalendarPage from '@/pages/CalendarPage'
 import CoachesPage from '@/pages/CoachesPage'
@@ -13,6 +14,7 @@ import { PlayersPage } from '@features/players'
 import RouteErrorPage from '@/pages/RouteErrorPage'
 import { SettingsPage } from '@features/settings'
 import { TeamsPage } from '@features/teams'
+import HeadCoachRoute from './HeadCoachRoute'
 
 export const appRoutes: RouteObject[] = [
   {
@@ -52,6 +54,14 @@ export const appRoutes: RouteObject[] = [
       {
         path: 'calendar',
         element: <CalendarPage />,
+      },
+      {
+        path: 'audit-log',
+        element: (
+          <HeadCoachRoute>
+            <BusinessAuditLogPage />
+          </HeadCoachRoute>
+        ),
       },
       {
         path: 'settings',

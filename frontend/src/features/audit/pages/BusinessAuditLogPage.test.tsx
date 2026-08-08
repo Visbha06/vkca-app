@@ -60,4 +60,20 @@ describe('BusinessAuditLogPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     await waitFor(() => expect(fetchBusinessAuditEvents).toHaveBeenCalledTimes(2))
   })
+
+  it('keeps audit controls operable and announced on narrow screens', async () => {
+    vi.mocked(fetchBusinessAuditActors).mockResolvedValue({ actors: [] })
+    vi.mocked(fetchBusinessAuditEvents).mockResolvedValue({ events: [event], page: 1, page_size: 20, total_events: 1, total_pages: 1, has_previous: false, has_next: false })
+    renderPage()
+
+    expect(await screen.findByText('Alex added Aarav')).toBeVisible()
+    expect(screen.getByRole('region', { name: 'Business audit events' })).toHaveAttribute('aria-busy', 'false')
+    expect(screen.getByText('1 event found')).toHaveAttribute('aria-live', 'polite')
+    expect(screen.getByRole('button', { name: 'Show safe details' }).className).toContain('min-h-11')
+    expect(screen.getByLabelText('Actor').className).toContain('min-h-11')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show safe details' }))
+    expect(screen.getByRole('button', { name: 'Hide safe details' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Event details expanded')).toHaveAttribute('aria-live', 'polite')
+  })
 })

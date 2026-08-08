@@ -87,4 +87,41 @@ describe('AppLayout', () => {
 
     expect(screen.queryByRole('link', { name: 'Coaches Portal' })).not.toBeInTheDocument()
   })
+
+  it('shows Audit Log immediately after Calendar for Head Coaches only', () => {
+    renderLayout(<h1>Head Coach dashboard</h1>, {
+      id: 'head-coach-1',
+      first_name: 'Asha',
+      last_name: 'Coach',
+      email: 'asha@vkca.test',
+      role: 'head coach',
+      is_active: true,
+      created_at: '',
+      updated_at: '',
+      session: { session_id: '', created_at: '', last_used_at: '', expires_at: '' },
+    })
+
+    const links = screen.getAllByRole('link').map((link) => link.textContent)
+
+    expect(links.indexOf('Audit Log')).toBe(links.indexOf('Calendar') + 1)
+  })
+
+  it.each(['assistant coach', 'player'] as const)(
+    'hides Audit Log navigation from %s users',
+    (role) => {
+      renderLayout(<h1>Restricted dashboard</h1>, {
+        id: `${role}-1`,
+        first_name: 'Asha',
+        last_name: 'Patel',
+        email: 'asha@vkca.test',
+        role,
+        is_active: true,
+        created_at: '',
+        updated_at: '',
+        session: { session_id: '', created_at: '', last_used_at: '', expires_at: '' },
+      })
+
+      expect(screen.queryByRole('link', { name: 'Audit Log' })).not.toBeInTheDocument()
+    },
+  )
 })

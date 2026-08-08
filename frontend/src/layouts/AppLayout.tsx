@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router'
 import LogoutButton from '@features/auth/components/LogoutButton'
 import { useAuth } from '@features/auth'
 import {
+  AuditLogIcon,
   CalendarIcon,
   CoachesIcon,
   HomeIcon,
@@ -35,6 +36,12 @@ const navigationItems = [
     to: '/calendar',
     label: 'Calendar',
     icon: <CalendarIcon className="size-6" />,
+  },
+  {
+    to: '/audit-log',
+    label: 'Audit Log',
+    icon: <AuditLogIcon className="size-6" />,
+    headCoachOnly: true,
   },
 ]
 
@@ -78,9 +85,10 @@ function AppLayoutShell() {
         </div>
         <nav aria-label="Primary navigation" className="flex-1 space-y-1">
           {navigationItems
-            .filter(
-              (item) => item.to !== '/coaches' || user?.role !== 'player',
-            )
+            .filter((item) => {
+              if (item.to === '/coaches' && user?.role === 'player') return false
+              return !item.headCoachOnly || user?.role === 'head coach'
+            })
             .map((item) => (
             <SidebarNavLink key={item.to} {...item} />
             ))}
