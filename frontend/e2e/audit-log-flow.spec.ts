@@ -61,6 +61,15 @@ test.describe('business audit log journey', () => {
     await page.getByRole('link', { name: 'View all activity' }).click()
     await expect(page).toHaveURL(new RegExp(`${BUSINESS_AUDIT_E2E_PATH}$`))
     await expect(page.getByRole('heading', { name: 'Audit Log' })).toBeVisible()
+    await expect(page).toHaveTitle('Audit Log | VK Cricket Academy')
+    await expect(page.getByRole('option', { name: 'All categories' })).toHaveCount(1)
+    await expect(page.getByRole('option', { name: 'All entities' })).toHaveCount(1)
+    await expect(page.locator('input[type="date"]')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Start date' }).click()
+    await expect(
+      page.getByRole('dialog', { name: /Choose start date,/ }),
+    ).toBeVisible()
+    await page.keyboard.press('Escape')
 
     const auditItems = page
       .getByRole('region', { name: 'Business audit events' })

@@ -6,6 +6,7 @@ const pageTitles: Record<string, string> = {
   '/teams': 'Teams',
   '/coaches': 'Coaches Portal',
   '/calendar': 'Calendar',
+  '/audit-log': 'Audit Log',
   '/settings': 'User Settings',
 }
 

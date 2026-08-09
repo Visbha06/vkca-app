@@ -45,7 +45,7 @@ function dayClass(
   outsideMonth: boolean,
 ) {
   return [
-    'flex h-11 w-11 justify-self-center items-center justify-center rounded-lg border text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-inset',
+    'flex h-11 w-full min-w-0 justify-self-center items-center justify-center rounded-lg border text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-inset',
     selected
       ? 'border-academy bg-academy font-bold text-slate-950 focus-visible:ring-slate-900'
       : `border-transparent bg-transparent ${

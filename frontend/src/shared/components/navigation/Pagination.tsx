@@ -6,8 +6,14 @@ interface PaginationProps {
   onPageChange: (page: number) => void
 }
 
-const buttonClass =
-  'inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-800 transition-colors hover:border-academy hover:bg-academy/10 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400'
+const PAGE_WINDOW_SIZE = 10
+
+const buttonBaseClass =
+  'inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border px-3 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed'
+const inactiveButtonClass =
+  'border-slate-300 bg-white text-slate-800 hover:border-academy hover:bg-academy/10 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400'
+const activeButtonClass =
+  'border-slate-900 bg-slate-900 text-white hover:border-slate-900 hover:bg-slate-800'
 
 export default function Pagination({
   ariaLabel,
@@ -16,50 +22,58 @@ export default function Pagination({
   isLoading,
   onPageChange,
 }: PaginationProps) {
-  const pages = Array.from({ length: totalPages }, (_, index) => index + 1)
+  const windowStart = Math.floor((page - 1) / PAGE_WINDOW_SIZE) * PAGE_WINDOW_SIZE + 1
+  const windowEnd = Math.min(windowStart + PAGE_WINDOW_SIZE - 1, totalPages)
+  const pages = Array.from(
+    { length: Math.max(0, windowEnd - windowStart + 1) },
+    (_, index) => windowStart + index,
+  )
+  const hasMultipleWindows = totalPages > PAGE_WINDOW_SIZE
+  const previousLabel = hasMultipleWindows ? 'Previous page range' : 'Previous page'
+  const nextLabel = hasMultipleWindows ? 'Next page range' : 'Next page'
 
   return (
     <nav
       aria-label={ariaLabel}
       aria-busy={isLoading}
-      className="flex flex-wrap items-center justify-center gap-2"
+      className="mx-auto grid w-fit max-w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2"
     >
       <button
         type="button"
-        aria-label="Previous page"
-        className={buttonClass}
-        disabled={isLoading || page <= 1}
-        onClick={() => onPageChange(page - 1)}
+        aria-label={previousLabel}
+        className={`${buttonBaseClass} ${inactiveButtonClass}`}
+        disabled={isLoading || (hasMultipleWindows ? windowStart <= 1 : page <= 1)}
+        onClick={() => onPageChange(hasMultipleWindows ? windowStart - 1 : page - 1)}
       >
         <span aria-hidden="true">←</span>
-        <span className="sr-only">Previous</span>
+        <span className="sr-only">{previousLabel}</span>
       </button>
-      {pages.map((pageNumber) => (
-        <button
-          key={pageNumber}
-          type="button"
-          aria-label={`Page ${pageNumber}`}
-          aria-current={pageNumber === page ? 'page' : undefined}
-          className={`${buttonClass} ${
-            pageNumber === page
-              ? 'border-slate-900 bg-slate-900 text-white hover:border-slate-900 hover:bg-slate-800'
-              : ''
-          }`}
-          disabled={isLoading}
-          onClick={() => onPageChange(pageNumber)}
-        >
-          {pageNumber}
-        </button>
-      ))}
+      <div role="group" aria-label="Page numbers" data-pagination-pages className="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain pb-1">
+        {pages.map((pageNumber) => (
+          <button
+            key={pageNumber}
+            type="button"
+            aria-label={`Page ${pageNumber}`}
+            aria-current={pageNumber === page ? 'page' : undefined}
+            className={`${buttonBaseClass} ${
+              pageNumber === page ? activeButtonClass : inactiveButtonClass
+            }`}
+            disabled={isLoading}
+            onClick={() => onPageChange(pageNumber)}
+          >
+            {pageNumber}
+          </button>
+        ))}
+      </div>
       <button
         type="button"
-        aria-label="Next page"
-        className={buttonClass}
-        disabled={isLoading || totalPages === 0 || page >= totalPages}
-        onClick={() => onPageChange(page + 1)}
+        aria-label={nextLabel}
+        className={`${buttonBaseClass} ${inactiveButtonClass}`}
+        disabled={isLoading || totalPages === 0 || (hasMultipleWindows ? windowEnd >= totalPages : page >= totalPages)}
+        onClick={() => onPageChange(hasMultipleWindows ? windowEnd + 1 : page + 1)}
       >
         <span aria-hidden="true">→</span>
-        <span className="sr-only">Next</span>
+        <span className="sr-only">{nextLabel}</span>
       </button>
     </nav>
   )
