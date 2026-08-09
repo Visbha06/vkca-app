@@ -5,6 +5,7 @@ import {
 } from 'react-router'
 import { GuestRoute, LoginPage, ProtectedRoute } from '@features/auth'
 import { BusinessAuditLogPage } from '@features/audit'
+import { DataQualityPage } from '@features/data-quality'
 import AppLayout from '@/layouts/AppLayout'
 import CalendarPage from '@/pages/CalendarPage'
 import CoachesPage from '@/pages/CoachesPage'
@@ -60,6 +61,14 @@ export const appRoutes: RouteObject[] = [
         element: (
           <HeadCoachRoute>
             <BusinessAuditLogPage />
+          </HeadCoachRoute>
+        ),
+      },
+      {
+        path: 'data-quality',
+        element: (
+          <HeadCoachRoute>
+            <DataQualityPage />
           </HeadCoachRoute>
         ),
       },

@@ -12,3 +12,11 @@ export type DataQualityWorkflowPath =
   | '/teams'
   | '/coaches'
   | '/calendar'
+
+/** UI-owned filter state; API values remain derived from generated contracts. */
+export interface DataQualityFiltersState {
+  severity?: 'critical' | 'warning' | 'info'
+  domain?: 'players' | 'teams' | 'rosters' | 'coaches' | 'calendar'
+  ruleId?: components['schemas']['QualityRuleId']
+}
+import type { components } from '../api/generated'
