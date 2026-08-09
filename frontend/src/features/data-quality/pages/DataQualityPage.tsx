@@ -8,6 +8,7 @@ import DataQualityRemediationDialog from '../components/DataQualityRemediationDi
 import DataQualitySummary from '../components/DataQualitySummary'
 import {
   DataQualityEmptyState,
+  DataQualityErrorState,
   DataQualityLoadingState,
 } from '../components/DataQualityStates'
 import useDataQuality from '../hooks/useDataQuality'
@@ -17,6 +18,32 @@ import type { DataQualityWorkflowPath } from '../types/dataQuality'
 
 function resultStatus(totalFindings: number) {
   return `${totalFindings} ${totalFindings === 1 ? 'finding' : 'findings'} shown`
+}
+
+function liveStatus({
+  errorMessage,
+  navigationStatus,
+  totalFindings,
+  requestState,
+}: {
+  errorMessage: string | null
+  navigationStatus: string
+  totalFindings: number | null
+  requestState: 'idle' | 'loading' | 'refreshing' | 'success' | 'error'
+}) {
+  if (navigationStatus !== '') return navigationStatus
+  if (requestState === 'loading') return 'Loading current academy health'
+  if (requestState === 'refreshing') {
+    return 'Updating current academy health. Previous results remain available.'
+  }
+  if (errorMessage !== null) {
+    return totalFindings === null
+      ? 'Unable to load current academy health. Select Retry to try again.'
+      : 'Unable to refresh current academy health. Previous results remain available.'
+  }
+  return totalFindings === null
+    ? 'Loading current academy health'
+    : resultStatus(totalFindings)
 }
 
 export default function DataQualityPage() {
@@ -37,6 +64,7 @@ export default function DataQualityPage() {
     remediationState,
     resetRemediation,
     result,
+    requestState,
     retry,
   } = useDataQuality()
   const showLoading = result === null && isFetching
@@ -70,7 +98,7 @@ export default function DataQualityPage() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-7xl">
+    <section className="data-quality-page mx-auto min-w-0 w-full max-w-7xl">
       <header className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
           Data Quality
@@ -108,30 +136,25 @@ export default function DataQualityPage() {
         onChange={handleFilterChange}
         onClear={clearFilters}
       />
-      <p role="status" aria-live="polite" className="sr-only">
-        {navigationStatus ||
-          (result === null
-            ? 'Loading current academy health'
-            : resultStatus(result.total_findings))}
+      <p role="status" aria-atomic="true" aria-live="polite" className="sr-only">
+        {liveStatus({
+          errorMessage,
+          navigationStatus,
+          totalFindings: result?.total_findings ?? null,
+          requestState,
+        })}
       </p>
-      <div aria-busy={isFetching && result !== null} className="mt-6">
+      <div
+        aria-busy={isFetching}
+        aria-label="Data quality results"
+        className="mt-6 min-w-0"
+      >
         {errorMessage ? (
-          <div
-            role="alert"
-            className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-950"
-          >
-            <span>
-              {errorMessage}
-              {result !== null ? ' Previous results are still shown.' : ''}
-            </span>
-            <button
-              type="button"
-              className="min-h-11 rounded-lg border border-rose-300 bg-white px-4 font-semibold focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2"
-              onClick={retry}
-            >
-              Retry
-            </button>
-          </div>
+          <DataQualityErrorState
+            hasRetainedResults={result !== null}
+            message={errorMessage}
+            onRetry={retry}
+          />
         ) : null}
         {showLoading ? <DataQualityLoadingState /> : null}
         {result !== null && result.findings.length === 0 ? (

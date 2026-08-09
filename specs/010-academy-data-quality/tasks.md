@@ -156,12 +156,12 @@ and desktop rendering.
 
 ### Tests for User Story 5 (write first)
 
-- [ ] T035 [P] [US5] Add state and accessibility tests for loading, background refresh, initial error, retry, background error with retained data, healthy/filtered empty states, remediation status, and visible focus at 320px mobile, 768px tablet, and desktop widths in `frontend/src/features/data-quality/components/DataQualityStates.test.tsx`, `frontend/src/features/data-quality/pages/DataQualityPage.test.tsx`, and `frontend/src/features/data-quality/hooks/useDataQuality.test.ts`.
+- [X] T035 [P] [US5] Add state and accessibility tests for loading, background refresh, initial error, retry, background error with retained data, healthy/filtered empty states, remediation status, and visible focus at 320px mobile, 768px tablet, and desktop widths in `frontend/src/features/data-quality/components/DataQualityStates.test.tsx`, `frontend/src/features/data-quality/pages/DataQualityPage.test.tsx`, and `frontend/src/features/data-quality/hooks/useDataQuality.test.ts`.
 
 ### Implementation for User Story 5
 
-- [ ] T036 [US5] Implement abort-safe request sequencing, retained-result refresh/error behavior, retry transitions, live status text, and stale-data recovery in `frontend/src/features/data-quality/hooks/useDataQuality.ts` and `frontend/src/features/data-quality/pages/DataQualityPage.tsx`.
-- [ ] T037 [US5] Finalize responsive filter/finding/dialog layout, semantic status regions, visible focus, reduced-motion-safe loading, 44px-class controls, and no page-level horizontal overflow at 320px mobile, 768px tablet, and desktop widths in `frontend/src/features/data-quality/components/`, `frontend/src/features/data-quality/pages/DataQualityPage.tsx`, and `frontend/src/styles/index.css` only where existing tokens require an additive rule.
+- [X] T036 [US5] Implement abort-safe request sequencing, retained-result refresh/error behavior, retry transitions, live status text, and stale-data recovery in `frontend/src/features/data-quality/hooks/useDataQuality.ts` and `frontend/src/features/data-quality/pages/DataQualityPage.tsx`.
+- [X] T037 [US5] Finalize responsive filter/finding/dialog layout, semantic status regions, visible focus, reduced-motion-safe loading, 44px-class controls, and no page-level horizontal overflow at 320px mobile, 768px tablet, and desktop widths in `frontend/src/features/data-quality/components/`, `frontend/src/features/data-quality/pages/DataQualityPage.tsx`, and `frontend/src/styles/index.css` only where existing tokens require an additive rule.
 
 **Checkpoint**: All five user stories have automated frontend state/accessibility
 coverage and the page remains usable at the supported narrow viewport.

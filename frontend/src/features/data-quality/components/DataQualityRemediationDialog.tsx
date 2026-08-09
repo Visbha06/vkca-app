@@ -85,7 +85,7 @@ export default function DataQualityRemediationDialog({
             type="button"
             data-modal-initial-focus
             disabled={isSubmitting}
-            className="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-400"
+            className="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-400 sm:w-auto"
             onClick={handleClose}
           >
             Cancel
@@ -95,8 +95,8 @@ export default function DataQualityRemediationDialog({
             disabled={isSubmitting}
             className={
               isRemoval
-                ? 'min-h-11 rounded-lg bg-red-800 px-4 text-sm font-semibold text-white hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-800 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-red-300'
-                : 'min-h-11 rounded-lg border border-academy bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-academy/10 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400'
+                ? 'min-h-11 w-full rounded-lg bg-red-800 px-4 text-sm font-semibold text-white hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-800 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-red-300 sm:w-auto'
+                : 'min-h-11 w-full rounded-lg border border-academy bg-white px-4 text-sm font-semibold text-slate-800 hover:bg-academy/10 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 sm:w-auto'
             }
             onClick={onConfirm}
           >

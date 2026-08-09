@@ -78,9 +78,12 @@ export default function useDataQuality() {
     useState<DataQualityRemediationState>('idle')
   const [remediationMessage, setRemediationMessage] = useState<string | null>(null)
   const latestRequest = useRef(0)
+  const activeController = useRef<AbortController | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
+    activeController.current?.abort()
+    activeController.current = controller
     const requestId = ++latestRequest.current
     void fetchDataQuality(
       { page, pageSize: DEFAULT_PAGE_SIZE, ...filters },
@@ -88,6 +91,7 @@ export default function useDataQuality() {
     )
       .then((nextResult) => {
         if (requestId !== latestRequest.current) return
+        setErrorMessage(null)
         setResult(nextResult)
         setRequestState('success')
       })
@@ -97,7 +101,12 @@ export default function useDataQuality() {
         setRequestState('error')
       })
 
-    return () => controller.abort()
+    return () => {
+      controller.abort()
+      if (activeController.current === controller) {
+        activeController.current = null
+      }
+    }
   }, [filters, page, retryKey])
 
   const handlePageChange = useCallback((nextPage: number) => {
@@ -145,6 +154,7 @@ export default function useDataQuality() {
       setRemediationState('submitting')
       try {
         const remediationResult = await applyDataQualityRemediation(command)
+        setErrorMessage(null)
         setRemediationState('idle')
         setRequestState(result === null ? 'loading' : 'refreshing')
         setRetryKey((value) => value + 1)
