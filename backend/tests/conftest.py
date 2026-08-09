@@ -1,38 +1,66 @@
 """Shared pytest environment configuration."""
 
+from __future__ import annotations
+
 import os
 from collections.abc import Callable
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, Mock
 from uuid import UUID, uuid4
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.enums import (
-    AuditActionCategory,
-    AuditActionType,
-    AuditEntityType,
-    UserRole,
-)
-from src.models.business_audit_event import BusinessAuditEvent
-from src.services.business_audit_service import (
-    AuditActorContext,
-    AuditTargetContext,
-)
+# Pytest loads parent conftests before child conftests and test modules. Select the
+# test environment here so their application imports cannot initialize .env.
+os.environ["VKCA_ENV"] = "test"
 
-# Settings are loaded while route and integration test modules are imported.
-# Keep the production secret mandatory while giving tests an isolated signing key.
-os.environ.setdefault("JWT_SECRET", "pytest-only-jwt-secret-never-use-in-production")
+if TYPE_CHECKING:
+    from src.models.business_audit_event import BusinessAuditEvent
+    from src.services.business_audit_service import (
+        AuditActorContext,
+        AuditTargetContext,
+    )
 
 # Business-audit fixtures live in feature-specific modules. This marker keeps
 # future feature tests discoverable without altering security-audit fixtures.
 BUSINESS_AUDIT_FEATURE = "business-audit"
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    """Select and validate test settings before pytest imports application code."""
+
+    from src.config import TEST_ENV_FILE, get_settings, get_settings_env_file
+    from tests.database_safety import (
+        UnsafeTestDatabaseError,
+        assert_safe_test_database_url,
+    )
+
+    if get_settings_env_file() != TEST_ENV_FILE:
+        raise pytest.UsageError(
+            "Backend tests must load the project-root .env.test settings file."
+        )
+    try:
+        settings = get_settings()
+    except ValidationError:
+        raise pytest.UsageError(
+            "Unable to load required backend test settings from the project-root "
+            ".env.test file."
+        ) from None
+    try:
+        assert_safe_test_database_url(str(settings.database_url))
+    except UnsafeTestDatabaseError as exc:
+        raise pytest.UsageError(str(exc)) from None
+
+
 @pytest.fixture
 def business_audit_actor_factory() -> Callable[..., AuditActorContext]:
     """Build immutable actor snapshots without using security-audit fixtures."""
+
+    from src.enums import UserRole
+    from src.services.business_audit_service import AuditActorContext
 
     def build(
         *,
@@ -55,6 +83,9 @@ def business_audit_actor_factory() -> Callable[..., AuditActorContext]:
 def business_audit_target_factory() -> Callable[..., AuditTargetContext]:
     """Build historical polymorphic target snapshots for isolated tests."""
 
+    from src.enums import AuditEntityType
+    from src.services.business_audit_service import AuditTargetContext
+
     def build(
         *,
         entity_type: AuditEntityType = AuditEntityType.PLAYER,
@@ -73,6 +104,14 @@ def business_audit_target_factory() -> Callable[..., AuditTargetContext]:
 @pytest.fixture
 def business_audit_event_factory() -> Callable[..., BusinessAuditEvent]:
     """Build persisted-shape snapshots for filters and equal-time ordering."""
+
+    from src.enums import (
+        AuditActionCategory,
+        AuditActionType,
+        AuditEntityType,
+        UserRole,
+    )
+    from src.models.business_audit_event import BusinessAuditEvent
 
     def build(
         *,

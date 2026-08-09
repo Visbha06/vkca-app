@@ -8,12 +8,52 @@ import pytest_asyncio
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.database import AsyncSessionFactory
+from src.database import AsyncSessionFactory, engine, get_db
 from src.enums import UserRole
+from src.main import app
 from src.models.auth_audit_log import AuthAuditLog
 from src.models.auth_session import AuthSession
 from src.models.user import User
 from src.services.password_service import PasswordService
+from tests.database_safety import assert_safe_test_database_url
+
+
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def isolated_test_database() -> AsyncIterator[None]:
+    """Contain every integration test inside one rollback-only transaction."""
+
+    assert_safe_test_database_url(str(engine.url))
+    async with engine.connect() as connection:
+        outer_transaction = await connection.begin()
+        AsyncSessionFactory.configure(
+            bind=connection,
+            join_transaction_mode="create_savepoint",
+        )
+
+        async def override_get_db() -> AsyncIterator[AsyncSession]:
+            async with AsyncSessionFactory() as request_session:
+                yield request_session
+
+        app.dependency_overrides.clear()
+        app.dependency_overrides[get_db] = override_get_db
+        try:
+            yield
+        finally:
+            app.dependency_overrides.clear()
+            transaction_was_active = outer_transaction.is_active
+            try:
+                if transaction_was_active:
+                    await outer_transaction.rollback()
+            finally:
+                AsyncSessionFactory.configure(
+                    bind=engine,
+                    join_transaction_mode="conditional_savepoint",
+                )
+            if not transaction_was_active:
+                raise RuntimeError(
+                    "Integration test code escaped the rollback-only outer "
+                    "database transaction."
+                )
 
 
 @pytest_asyncio.fixture

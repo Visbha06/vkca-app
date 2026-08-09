@@ -1,8 +1,8 @@
 """Executable quickstart coverage for business audit capture and retrieval."""
 
-from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock, patch
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
@@ -130,10 +130,18 @@ async def test_business_audit_quickstart_flow() -> None:
                     ).all()
                 )
             assert len(composite_events) == before_composite + 1
-            composite_event = composite_events[-1]
+            composite_event = next(
+                event
+                for event in composite_events
+                if event.action_type == AuditActionType.TEAM_UPDATED.value
+                and event.target_entity_id == team_id
+            )
             assert composite_event.action_type == AuditActionType.TEAM_UPDATED.value
             assert composite_event.event_metadata["roster_replaced"] is True
             assert "password" not in str(composite_event.event_metadata).lower()
+            composite_academy_date = composite_event.created_at.astimezone(
+                ZoneInfo("America/Los_Angeles")
+            ).date()
 
             failed_payload = player_payload(run_id, 8)
             with patch(
@@ -185,8 +193,8 @@ async def test_business_audit_quickstart_flow() -> None:
                     "action_type": "team.updated",
                     "entity_type": "team",
                     "target_entity_id": str(team_id),
-                    "start_date": datetime.now(UTC).date().isoformat(),
-                    "end_date": datetime.now(UTC).date().isoformat(),
+                    "start_date": composite_academy_date.isoformat(),
+                    "end_date": composite_academy_date.isoformat(),
                 },
             )
             assert filtered.status_code == 200, filtered.text

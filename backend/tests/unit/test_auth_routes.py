@@ -1072,11 +1072,11 @@ async def test_role_from_jwt_not_trusted(
 ) -> None:
     user = make_user(role=UserRole.PLAYER)
     auth_session = make_auth_session(user)
-    token = TokenService(
-        jwt_secret=TEST_JWT_SECRET,
-        jwt_algorithm="HS256",
-        access_token_expire_minutes=30,
-    ).create_access_token(user.id, auth_session.id, UserRole.HEAD_COACH)
+    token = TokenService().create_access_token(
+        user.id,
+        auth_session.id,
+        UserRole.HEAD_COACH,
+    )
     db_session.scalar.side_effect = [auth_session, user]
 
     response = await client.post(
