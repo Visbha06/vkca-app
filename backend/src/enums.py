@@ -11,6 +11,77 @@ class UserRole(StrEnum):
     PLAYER = "player"
 
 
+class QualitySeverity(StrEnum):
+    """Operational impact levels exposed by Data Quality findings."""
+
+    CRITICAL = "critical"
+    WARNING = "warning"
+    INFO = "info"
+
+
+class QualityDomain(StrEnum):
+    """Allowlisted academy domains evaluated by Data Quality."""
+
+    PLAYERS = "players"
+    TEAMS = "teams"
+    ROSTERS = "rosters"
+    COACHES = "coaches"
+    CALENDAR = "calendar"
+
+
+class QualityAction(StrEnum):
+    """Direct corrections supported by the initial quality contract."""
+
+    NORMALIZE_ROSTER_ORDER = "normalize_roster_order"
+    REMOVE_INACTIVE_PLAYER = "remove_inactive_player"
+    REMOVE_INACTIVE_ASSISTANT_ASSIGNMENT = (
+        "remove_inactive_assistant_assignment"
+    )
+
+
+class QualityRuleId(StrEnum):
+    """Stable identifiers for the initial Data Quality rule catalogue."""
+
+    PLAYER_ACTIVE_UNASSIGNED = "player.active_unassigned"
+    PLAYER_INACTIVE_ROSTERED = "player.inactive_rostered"
+    PLAYER_NORMALIZED_IDENTITY_DUPLICATE = (
+        "player.normalized_identity_duplicate"
+    )
+    TEAM_ROSTER_BELOW_MINIMUM = "team.roster_below_minimum"
+    TEAM_ROSTER_ABOVE_MAXIMUM = "team.roster_above_maximum"
+    ROSTER_ORDER_NON_POSITIVE = "roster.order_non_positive"
+    ROSTER_ORDER_DUPLICATE = "roster.order_duplicate"
+    ROSTER_ORDER_GAP = "roster.order_gap"
+    ROSTER_ORDER_NON_CONTIGUOUS = "roster.order_non_contiguous"
+    TEAM_NORMALIZED_NAME_CONFLICT = "team.normalized_name_conflict"
+    TEAM_NO_ASSIGNED_COACH = "team.no_assigned_coach"
+    COACH_SOLE_HEAD_COACH_INTEGRITY = "coach.sole_head_coach_integrity"
+    COACH_INACTIVE_ASSIGNED = "coach.inactive_assigned"
+    COACH_ACTIVE_ASSISTANT_UNASSIGNED = "coach.active_assistant_unassigned"
+    COACH_ASSIGNMENT_INVALID_ROLE = "coach.assignment_invalid_role"
+    CALENDAR_RECURRENCE_END_BEFORE_START = (
+        "calendar.recurrence_end_before_start"
+    )
+    CALENDAR_STALE_OCCURRENCE_EXCEPTION = (
+        "calendar.stale_occurrence_exception"
+    )
+
+
+class QualityEntityType(StrEnum):
+    """Entity labels permitted in current-state quality findings."""
+
+    PLAYER = "player"
+    TEAM = "team"
+    ROSTER = "roster"
+    ROSTER_MEMBERSHIP = "roster_membership"
+    COACH = "coach"
+    COACH_ASSIGNMENT = "coach_assignment"
+    CALENDAR_EVENT = "calendar_event"
+    RECURRENCE_SERIES = "recurrence_series"
+    OCCURRENCE_EXCEPTION = "occurrence_exception"
+    ACADEMY = "academy"
+
+
 class AuditActionCategory(StrEnum):
     """Business domains represented in the academy activity history."""
 

@@ -1,11 +1,30 @@
-"""Reusable calendar unit-test builders and fixed academy-time values."""
+"""Reusable unit-test builders and fixed academy-time values."""
 
 from collections.abc import Callable
 from datetime import date, time
 from typing import Any
+from unittest.mock import AsyncMock
 from zoneinfo import ZoneInfo
 
 import pytest
+
+from src.models.calendar import OccurrenceException, RecurrenceSeries
+from src.models.player import Player
+from src.models.team import Team
+from src.models.team_coach import TeamCoach
+from src.models.team_player import TeamPlayer
+from src.models.user import User
+from tests.data_quality_builders import (
+    assert_projection_query_count,
+    build_quality_calendar_exception,
+    build_quality_calendar_series,
+    build_quality_coach,
+    build_quality_coach_assignment,
+    build_quality_player,
+    build_quality_projection_session,
+    build_quality_roster_membership,
+    build_quality_team,
+)
 
 ACADEMY_TIMEZONE_NAME = "America/Los_Angeles"
 ACADEMY_TIMEZONE = ZoneInfo(ACADEMY_TIMEZONE_NAME)
@@ -78,3 +97,66 @@ def calendar_event_builder() -> Callable[..., dict[str, Any]]:
     """Expose the standard event builder to calendar unit tests."""
 
     return build_calendar_event_payload
+
+
+@pytest.fixture
+def quality_player_builder() -> Callable[..., Player]:
+    """Expose isolated player records for rule and projection tests."""
+
+    return build_quality_player
+
+
+@pytest.fixture
+def quality_team_builder() -> Callable[..., Team]:
+    """Expose isolated team records for rule and projection tests."""
+
+    return build_quality_team
+
+
+@pytest.fixture
+def quality_roster_membership_builder() -> Callable[..., TeamPlayer]:
+    """Expose exact roster relationship records with controllable positions."""
+
+    return build_quality_roster_membership
+
+
+@pytest.fixture
+def quality_coach_builder() -> Callable[..., User]:
+    """Expose coach and invalid-role account records."""
+
+    return build_quality_coach
+
+
+@pytest.fixture
+def quality_coach_assignment_builder() -> Callable[..., TeamCoach]:
+    """Expose exact account/team assignment records."""
+
+    return build_quality_coach_assignment
+
+
+@pytest.fixture
+def quality_calendar_series_builder() -> Callable[..., RecurrenceSeries]:
+    """Expose recurrence series with complete owning events."""
+
+    return build_quality_calendar_series
+
+
+@pytest.fixture
+def quality_calendar_exception_builder() -> Callable[..., OccurrenceException]:
+    """Expose complete occurrence exception snapshots."""
+
+    return build_quality_calendar_exception
+
+
+@pytest.fixture
+def quality_projection_session_builder() -> Callable[..., AsyncMock]:
+    """Expose fixed row sets for the five projection loader queries."""
+
+    return build_quality_projection_session
+
+
+@pytest.fixture
+def projection_query_count_assertion() -> Callable[[AsyncMock, int], None]:
+    """Expose the fixed-query regression assertion."""
+
+    return assert_projection_query_count
