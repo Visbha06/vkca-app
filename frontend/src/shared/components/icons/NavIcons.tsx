@@ -57,6 +57,15 @@ export function CalendarIcon(props: NavIconProps) {
   )
 }
 
+export function AuditLogIcon(props: NavIconProps) {
+  return (
+    <svg {...sharedProps} {...props}>
+      <rect x="5" y="3" width="14" height="18" rx="2" />
+      <path d="M8.5 8h7M8.5 12h7M8.5 16h4" />
+    </svg>
+  )
+}
+
 export function SettingsIcon(props: NavIconProps) {
   return (
     <svg {...sharedProps} {...props}>

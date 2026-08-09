@@ -78,6 +78,7 @@ pgdata/
 .env.*.local
 .env*
 !.env.example
+!.env.test.example
 
 # ==========================================
 # 6. Agents and skills

@@ -1,5 +1,6 @@
 """Cross-module coverage for the complete coach calendar mutation lifecycle."""
 
+from datetime import timedelta
 from uuid import UUID, uuid4
 
 import httpx
@@ -17,6 +18,9 @@ from src.models.calendar import (
     RecurrenceSeries,
 )
 from src.models.user import User
+from src.services.calendar_recurrence import academy_today
+
+CALENDAR_START_DATE = academy_today() + timedelta(days=30)
 
 
 @pytest_asyncio.fixture
@@ -41,7 +45,7 @@ def series_payload(name: str) -> dict[str, object]:
     return {
         "event_type": "practice",
         "name": name,
-        "event_date": "2026-08-05",
+        "event_date": CALENDAR_START_DATE.isoformat(),
         "is_all_day": False,
         "start_time": "17:00:00",
         "end_time": "18:30:00",
@@ -114,20 +118,23 @@ async def test_calendar_series_lifecycle_is_atomic_authorized_and_versioned(
 
         initial_range = await client.get(
             "/api/v1/calendar/events",
-            params={"start_date": "2026-08-01", "end_date": "2026-08-31"},
+            params={
+                "start_date": (CALENDAR_START_DATE - timedelta(days=1)).isoformat(),
+                "end_date": (CALENDAR_START_DATE + timedelta(days=22)).isoformat(),
+            },
         )
         assert initial_range.status_code == 200, initial_range.text
         assert [item["original_date"] for item in initial_range.json()["events"]] == [
-            "2026-08-05",
-            "2026-08-12",
-            "2026-08-19",
-            "2026-08-26",
+            (CALENDAR_START_DATE + timedelta(days=offset)).isoformat()
+            for offset in (0, 7, 14, 21)
         ]
 
-        occurrence_id = f"{series_id}:2026-08-12"
+        occurrence_date = CALENDAR_START_DATE + timedelta(days=7)
+        moved_date = occurrence_date + timedelta(days=1)
+        occurrence_id = f"{series_id}:{occurrence_date.isoformat()}"
         moved_payload = {
             **series_payload(f"Moved calendar flow {run_id}"),
-            "event_date": "2026-08-13",
+            "event_date": moved_date.isoformat(),
             "version_number": 1,
             "exception_version_number": None,
         }
@@ -138,10 +145,13 @@ async def test_calendar_series_lifecycle_is_atomic_authorized_and_versioned(
         )
         assert moved.status_code == 200, moved.text
         assert moved.json()["occurrence_id"] == occurrence_id
-        assert moved.json()["original_date"] == "2026-08-12"
-        assert moved.json()["event_date"] == "2026-08-13"
+        assert moved.json()["original_date"] == occurrence_date.isoformat()
+        assert moved.json()["event_date"] == moved_date.isoformat()
         assert moved.json()["exception_version_number"] == 1
-        assert moved.json()["series_definition"]["event_date"] == "2026-08-05"
+        assert (
+            moved.json()["series_definition"]["event_date"]
+            == CALENDAR_START_DATE.isoformat()
+        )
         assert moved.json()["series_definition"]["name"] == f"Calendar flow {run_id}"
 
         second_edit_payload = {
@@ -173,13 +183,19 @@ async def test_calendar_series_lifecycle_is_atomic_authorized_and_versioned(
 
         after_occurrence_delete = await client.get(
             "/api/v1/calendar/events",
-            params={"start_date": "2026-08-01", "end_date": "2026-08-31"},
+            params={
+                "start_date": (CALENDAR_START_DATE - timedelta(days=1)).isoformat(),
+                "end_date": (CALENDAR_START_DATE + timedelta(days=22)).isoformat(),
+            },
         )
         remaining_dates = [
             item["original_date"] for item in after_occurrence_delete.json()["events"]
         ]
-        assert "2026-08-12" not in remaining_dates
-        assert remaining_dates == ["2026-08-05", "2026-08-19", "2026-08-26"]
+        assert occurrence_date.isoformat() not in remaining_dates
+        assert remaining_dates == [
+            (CALENDAR_START_DATE + timedelta(days=offset)).isoformat()
+            for offset in (0, 14, 21)
+        ]
 
         me = await client.get("/api/v1/auth/me")
         assert me.status_code == 200, me.text

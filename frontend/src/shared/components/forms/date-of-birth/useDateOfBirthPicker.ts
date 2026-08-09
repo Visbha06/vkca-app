@@ -24,21 +24,31 @@ import { useAnchoredPopoverPosition } from './useAnchoredPopoverPosition'
 const DATE_OF_BIRTH_YEAR_SPAN = 100
 
 interface UseDateOfBirthPickerOptions {
+  earliest?: string
+  latest?: string
   value: string
   onChange: (value: string) => void
 }
 
 export function useDateOfBirthPicker({
+  earliest,
+  latest,
   value,
   onChange,
 }: UseDateOfBirthPickerOptions) {
   const today = useMemo(() => calendarDateFromLocalDate(), [])
   const range = useMemo(
-    () => ({
-      earliest: addCalendarYears(today, -DATE_OF_BIRTH_YEAR_SPAN),
-      latest: today,
-    }),
-    [today],
+    () => {
+      const defaultEarliest = addCalendarYears(
+        today,
+        -DATE_OF_BIRTH_YEAR_SPAN,
+      )
+      return {
+        earliest: parseCalendarDate(earliest ?? '') ?? defaultEarliest,
+        latest: parseCalendarDate(latest ?? '') ?? today,
+      }
+    },
+    [earliest, latest, today],
   )
   const selectedDate = parseCalendarDate(value)
   const initialDate = clampCalendarDate(selectedDate ?? today, range)
@@ -57,9 +67,11 @@ export function useDateOfBirthPicker({
     triggerRef,
   })
 
-  const close = useCallback(() => {
+  const close = useCallback((restoreTriggerFocus = false) => {
     setIsOpen(false)
-    window.setTimeout(() => triggerRef.current?.focus(), 0)
+    if (restoreTriggerFocus) {
+      window.setTimeout(() => triggerRef.current?.focus(), 0)
+    }
   }, [])
 
   function open() {
@@ -72,7 +84,12 @@ export function useDateOfBirthPicker({
 
   function selectDate(date: CalendarDate) {
     onChange(calendarDateToIso(date))
-    close()
+    close(true)
+  }
+
+  function clearDate() {
+    onChange('')
+    close(true)
   }
 
   function focusByDays(days: number) {
@@ -147,17 +164,30 @@ export function useDateOfBirthPicker({
       }
     }
 
+    function handleFocusIn(event: FocusEvent) {
+      const target = event.target
+      if (
+        target instanceof Node &&
+        !popoverRef.current?.contains(target) &&
+        !triggerRef.current?.contains(target)
+      ) {
+        close()
+      }
+    }
+
     function handleEscape(event: KeyboardEvent) {
       if (event.key !== 'Escape') return
       event.preventDefault()
       event.stopImmediatePropagation()
-      close()
+      close(true)
     }
 
     document.addEventListener('pointerdown', handlePointerDown, true)
+    document.addEventListener('focusin', handleFocusIn, true)
     document.addEventListener('keydown', handleEscape, true)
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown, true)
+      document.removeEventListener('focusin', handleFocusIn, true)
       document.removeEventListener('keydown', handleEscape, true)
     }
   }, [close, isOpen])
@@ -166,6 +196,7 @@ export function useDateOfBirthPicker({
     changeByMonth,
     changeMonth,
     changeYear,
+    clearDate,
     close,
     focusedDate,
     focusByDays,

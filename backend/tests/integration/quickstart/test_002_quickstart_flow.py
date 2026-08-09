@@ -1,11 +1,10 @@
 """Executable coverage for the 002 authentication quickstart flow."""
 
-from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import httpx
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 
 from scripts.seed_dev_head_coach import seed_head_coach
 from src.database import AsyncSessionFactory, get_db
@@ -55,7 +54,12 @@ async def test_full_eight_scenario_authentication_quickstart_flow() -> None:
         raise_app_exceptions=False,
         client=(client_ip, 12345),
     )
-    started_at = datetime.now(UTC)
+    # All request commits are SAVEPOINT releases inside the test's outer
+    # transaction, so PostgreSQL's transaction timestamp is the stable lower
+    # bound for server-default audit timestamps.
+    async with AsyncSessionFactory() as timestamp_session:
+        started_at = await timestamp_session.scalar(select(func.now()))
+    assert started_at is not None
 
     try:
         async with httpx.AsyncClient(

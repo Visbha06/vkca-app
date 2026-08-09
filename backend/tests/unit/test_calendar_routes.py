@@ -148,7 +148,7 @@ def make_definition():
         id=uuid4(),
         event_type=EventType.PRACTICE,
         name="Practice",
-        event_date=date(2026, 8, 5),
+        event_date=date(2027, 8, 5),
         is_all_day=False,
         start_time=time(17),
         end_time=time(18),
@@ -164,7 +164,7 @@ def mutation_payload(**overrides):
     payload = {
         "event_type": "practice",
         "name": "Practice",
-        "event_date": "2026-08-05",
+        "event_date": "2027-08-05",
         "is_all_day": False,
         "start_time": "17:00:00",
         "end_time": "18:00:00",
@@ -185,14 +185,25 @@ async def test_coaches_can_create_update_and_delete_calendar_events(
         update={"version_number": 2}
     )
 
+    actor_id = uuid4()
+
     async def override_get_current_user():
-        return Mock(role=role), Mock()
+        return (
+            Mock(
+                id=actor_id,
+                first_name="Calendar",
+                last_name="Coach",
+                role=role,
+            ),
+            Mock(),
+        )
 
     app.dependency_overrides[get_current_user] = override_get_current_user
 
     created = await client.post(
         "/api/v1/calendar/events",
         json=mutation_payload(recurrence=None),
+        headers={"X-Request-ID": "calendar-create-request"},
     )
     updated = await client.patch(
         f"/api/v1/calendar/events/{definition.id}",
@@ -210,6 +221,11 @@ async def test_coaches_can_create_update_and_delete_calendar_events(
     service_mock.create_event.assert_awaited_once()
     service_mock.update_standalone.assert_awaited_once()
     service_mock.delete_standalone.assert_awaited_once()
+    create_actor = service_mock.create_event.await_args.kwargs["actor"]
+    assert create_actor.user_id == actor_id
+    assert create_actor.display_name == "Calendar Coach"
+    assert create_actor.role is role
+    assert create_actor.request_id == "calendar-create-request"
 
 
 @pytest.mark.asyncio

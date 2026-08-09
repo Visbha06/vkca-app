@@ -3,10 +3,10 @@
 from uuid import UUID
 
 from sqlalchemy import exists, func, or_, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
+from src.enums import AuditActionType, AuditEntityType
 from src.models.data_sync_log import DataSyncLog
 from src.models.player import Player
 from src.models.team import Team
@@ -17,6 +17,11 @@ from src.schemas.player import (
     PlayerResponse,
     PlayerUpdate,
     TeamSummary,
+)
+from src.services.business_audit_service import (
+    AuditActorContext,
+    AuditTargetContext,
+    BusinessAuditService,
 )
 from src.services.occ import StaleVersionError, check_and_increment_version
 
@@ -64,7 +69,12 @@ class PlayerService:
             for player in players
         ]
 
-    async def create_player(self, payload: PlayerCreate) -> Player:
+    async def create_player(
+        self,
+        payload: PlayerCreate,
+        *,
+        actor: AuditActorContext | None = None,
+    ) -> Player:
         """Create a unique player profile."""
 
         duplicate_statement = select(Player.id).where(
@@ -78,8 +88,20 @@ class PlayerService:
         player = Player(**payload.model_dump())
         self.session.add(player)
         try:
+            await self.session.flush()
+            if actor is not None:
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=AuditActionType.PLAYER_CREATED,
+                    target=AuditTargetContext(
+                        entity_type=AuditEntityType.PLAYER,
+                        entity_id=player.id,
+                        label=f"{player.first_name} {player.last_name}".strip(),
+                    ),
+                    metadata={"changed_fields": []},
+                )
             await self.session.commit()
-        except IntegrityError:
+        except Exception:
             await self.session.rollback()
             raise
         await self.session.refresh(player)
@@ -176,6 +198,8 @@ class PlayerService:
         self,
         player_id: UUID,
         payload: PlayerUpdate,
+        *,
+        actor: AuditActorContext | None = None,
     ) -> PlayerResponse:
         """Apply a partial player update using optimistic concurrency control."""
 
@@ -209,8 +233,19 @@ class PlayerService:
             setattr(player, field, value)
 
         try:
+            if actor is not None:
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=AuditActionType.PLAYER_UPDATED,
+                    target=AuditTargetContext(
+                        entity_type=AuditEntityType.PLAYER,
+                        entity_id=player.id,
+                        label=f"{player.first_name} {player.last_name}".strip(),
+                    ),
+                    metadata={"changed_fields": sorted(changes)},
+                )
             await self.session.commit()
-        except IntegrityError:
+        except Exception:
             await self.session.rollback()
             raise
         await self.session.refresh(player)

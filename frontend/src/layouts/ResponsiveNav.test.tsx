@@ -28,14 +28,31 @@ const authValue: AuthContextValue = {
   updateUser: () => undefined,
 }
 
-function renderResponsiveLayout() {
+const headCoach = {
+  id: 'head-coach-1',
+  first_name: 'Asha',
+  last_name: 'Coach',
+  email: 'asha@vkca.test',
+  role: 'head coach' as const,
+  is_active: true,
+  created_at: '',
+  updated_at: '',
+  session: { session_id: '', created_at: '', last_used_at: '', expires_at: '' },
+}
+
+function renderResponsiveLayout(
+  initialEntry = '/',
+  user: AuthContextValue['user'] = authValue.user,
+) {
   render(
-    <AuthContext.Provider value={authValue}>
-      <MemoryRouter initialEntries={['/']}>
+    <AuthContext.Provider value={{ ...authValue, user }}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route element={<AppLayout />}>
             <Route index element={<h1 tabIndex={-1}>Home page</h1>} />
             <Route path="teams" element={<h1 tabIndex={-1}>Teams page</h1>} />
+            <Route path="audit-log" element={<h1 tabIndex={-1}>Audit Log page</h1>} />
+            <Route path="*" element={<h1 tabIndex={-1}>Page Not Found</h1>} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -143,6 +160,25 @@ describe('responsive navigation', () => {
     const heading = await screen.findByRole('heading', { name: 'Teams page' })
     await waitFor(() => expect(heading).toHaveFocus())
     expect(document.title).toBe('Teams | VK Cricket Academy')
+  })
+
+  it('uses the Audit Log title on direct and sidebar navigation', async () => {
+    renderResponsiveLayout('/audit-log', headCoach)
+
+    expect(document.title).toBe('Audit Log | VK Cricket Academy')
+    fireEvent.click(screen.getByRole('link', { name: 'Teams' }))
+    await screen.findByRole('heading', { name: 'Teams page' })
+    expect(document.title).toBe('Teams | VK Cricket Academy')
+
+    fireEvent.click(screen.getByRole('link', { name: 'Audit Log' }))
+    await screen.findByRole('heading', { name: 'Audit Log page' })
+    expect(document.title).toBe('Audit Log | VK Cricket Academy')
+  })
+
+  it('preserves the Page Not Found title for unknown routes', () => {
+    renderResponsiveLayout('/not-a-real-page')
+
+    expect(document.title).toBe('Page Not Found | VK Cricket Academy')
   })
 
   it('exposes accessible navigation state and visible focus styles', () => {

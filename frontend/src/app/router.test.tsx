@@ -16,10 +16,22 @@ const routeCases = [
   ['/settings', 'User Settings'],
 ] as const
 
-function renderRoute(path: string) {
+const headCoach: NonNullable<AuthContextValue['user']> = {
+  id: 'head-coach-1',
+  first_name: 'Asha',
+  last_name: 'Coach',
+  email: 'asha@vkca.test',
+  role: 'head coach',
+  is_active: true,
+  created_at: '',
+  updated_at: '',
+  session: { session_id: '', created_at: '', last_used_at: '', expires_at: '' },
+}
+
+function renderRoute(path: string, user: AuthContextValue['user'] = null) {
   const router = createMemoryRouter(appRoutes, { initialEntries: [path] })
   const authValue: AuthContextValue = {
-    user: null,
+    user,
     accessToken: path === '/login' ? null : 'test-token',
     isAuthenticated: path !== '/login',
     isInitializing: false,
@@ -50,4 +62,22 @@ describe('application routes', () => {
 
     expect(markup).toContain('>Page Not Found</h1>')
   })
+
+  it('renders the Audit Log for a Head Coach', () => {
+    const markup = renderRoute('/audit-log', headCoach)
+
+    expect(markup).toContain('>Audit Log</h1>')
+    expect(markup).not.toContain('403 Forbidden')
+  })
+
+  it.each(['assistant coach', 'player'] as const)(
+    'keeps business audit data out of the direct Audit Log route for %s users',
+    (role) => {
+      const markup = renderRoute('/audit-log', { ...headCoach, role })
+
+      expect(markup).toContain('403 Forbidden')
+      expect(markup).toContain('Audit Log is available to Head Coaches only.')
+      expect(markup).not.toContain('Review safe, recorded academy activity')
+    },
+  )
 })

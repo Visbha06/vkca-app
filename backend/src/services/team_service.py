@@ -6,6 +6,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.enums import AuditActionType, AuditEntityType
 from src.models.player import Player
 from src.models.team import Team
 from src.models.team_player import TeamPlayer
@@ -16,6 +17,11 @@ from src.schemas.team import (
     TeamRosterPlayerResponse,
     TeamRosterResponse,
     TeamUpdate,
+)
+from src.services.business_audit_service import (
+    AuditActorContext,
+    AuditTargetContext,
+    BusinessAuditService,
 )
 from src.services.occ import check_and_increment_version
 
@@ -105,7 +111,12 @@ class TeamService:
             update={"player_count": player_count}
         )
 
-    async def create_team(self, payload: TeamCreate) -> TeamResponse:
+    async def create_team(
+        self,
+        payload: TeamCreate,
+        *,
+        actor: AuditActorContext | None = None,
+    ) -> TeamResponse:
         """Create team details and the complete ordered roster atomically."""
 
         try:
@@ -129,6 +140,20 @@ class TeamService:
                 ]
             )
             await self.session.flush()
+            if actor is not None:
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=AuditActionType.TEAM_CREATED,
+                    target=AuditTargetContext(
+                        entity_type=AuditEntityType.TEAM,
+                        entity_id=team.id,
+                        label=team.name,
+                    ),
+                    metadata={
+                        "age_group": team.age_group,
+                        "roster_count": len(payload.player_ids),
+                    },
+                )
             await self.session.refresh(team)
             response = self._team_response(team, len(payload.player_ids))
             await self.session.commit()
@@ -141,6 +166,8 @@ class TeamService:
         self,
         team_id: UUID,
         payload: TeamUpdate,
+        *,
+        actor: AuditActorContext | None = None,
     ) -> TeamResponse:
         """Replace team details and its ordered roster in one OCC transaction."""
 
@@ -148,6 +175,23 @@ class TeamService:
             team = await self.session.get(Team, team_id)
             if team is None:
                 raise TeamNotFoundError
+
+            previous_name = team.name
+            previous_age_group = team.age_group
+            previous_player_ids: list[UUID] = []
+            if actor is not None:
+                previous_player_ids = list(
+                    (
+                        await self.session.scalars(
+                            select(TeamPlayer.player_id)
+                            .where(TeamPlayer.team_id == team_id)
+                            .order_by(
+                                TeamPlayer.roster_order.asc(),
+                                TeamPlayer.player_id.asc(),
+                            )
+                        )
+                    ).all()
+                )
 
             next_version = await check_and_increment_version(
                 self.session,
@@ -179,6 +223,25 @@ class TeamService:
                 ]
             )
             await self.session.flush()
+            if actor is not None:
+                action_type, audit_metadata = self._classify_team_update(
+                    previous_name=previous_name,
+                    previous_age_group=previous_age_group,
+                    previous_player_ids=previous_player_ids,
+                    next_name=team.name,
+                    next_age_group=team.age_group,
+                    next_player_ids=payload.player_ids,
+                )
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=action_type,
+                    target=AuditTargetContext(
+                        entity_type=AuditEntityType.TEAM,
+                        entity_id=team.id,
+                        label=team.name,
+                    ),
+                    metadata=audit_metadata,
+                )
             await self.session.refresh(team)
             response = self._team_response(team, len(payload.player_ids))
             await self.session.commit()
@@ -260,10 +323,13 @@ class TeamService:
         self,
         team_id: UUID,
         player_id: UUID,
+        *,
+        actor: AuditActorContext | None = None,
     ) -> TeamPlayer:
         """Add an existing player to an existing team once."""
 
-        if await self.session.get(Team, team_id) is None:
+        team = await self.session.get(Team, team_id)
+        if team is None:
             raise TeamNotFoundError
         if await self.session.get(Player, player_id) is None:
             raise PlayerNotFoundError
@@ -272,12 +338,105 @@ class TeamService:
         if await self.session.get(TeamPlayer, membership_key) is not None:
             raise TeamMembershipAlreadyExistsError
 
-        membership = TeamPlayer(**membership_key)
+        last_position = int(
+            await self.session.scalar(
+                select(func.max(TeamPlayer.roster_order)).where(
+                    TeamPlayer.team_id == team_id
+                )
+            )
+            or 0
+        )
+        membership = TeamPlayer(
+            **membership_key,
+            roster_order=last_position + 1,
+        )
         self.session.add(membership)
         try:
+            await self.session.flush()
+            if actor is not None:
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=AuditActionType.ROSTER_ADDED,
+                    target=AuditTargetContext(
+                        entity_type=AuditEntityType.TEAM,
+                        entity_id=team.id,
+                        label=team.name,
+                    ),
+                    metadata={
+                        "player_id": player_id,
+                        "new_roster_position": membership.roster_order,
+                    },
+                )
             await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()
             raise TeamMembershipAlreadyExistsError from exc
+        except Exception:
+            await self.session.rollback()
+            raise
         await self.session.refresh(membership)
         return membership
+
+    @staticmethod
+    def _classify_team_update(
+        *,
+        previous_name: str,
+        previous_age_group: str,
+        previous_player_ids: list[UUID],
+        next_name: str,
+        next_age_group: str,
+        next_player_ids: list[UUID],
+    ) -> tuple[AuditActionType, dict[str, object]]:
+        """Choose one external action and compact metadata for a replacement."""
+
+        changed_fields = []
+        if previous_name != next_name:
+            changed_fields.append("name")
+        if previous_age_group != next_age_group:
+            changed_fields.append("age_group")
+
+        previous_set = set(previous_player_ids)
+        next_set = set(next_player_ids)
+        added = [
+            player_id for player_id in next_player_ids if player_id not in previous_set
+        ]
+        removed = [
+            player_id for player_id in previous_player_ids if player_id not in next_set
+        ]
+        reordered = [
+            player_id
+            for player_id in next_player_ids
+            if player_id in previous_set
+            and previous_player_ids.index(player_id) != next_player_ids.index(player_id)
+        ]
+        roster_changed = previous_player_ids != next_player_ids
+
+        if not changed_fields and len(added) == 1 and not removed:
+            added_id = added[0]
+            return AuditActionType.ROSTER_ADDED, {
+                "player_id": added_id,
+                "new_roster_position": next_player_ids.index(added_id) + 1,
+            }
+        if not changed_fields and len(removed) == 1 and not added:
+            removed_id = removed[0]
+            return AuditActionType.ROSTER_REMOVED, {
+                "player_id": removed_id,
+                "prior_roster_position": previous_player_ids.index(removed_id) + 1,
+            }
+        if not changed_fields and not added and not removed and reordered:
+            return AuditActionType.ROSTER_REORDERED, {
+                "affected_player_ids": reordered,
+                "affected_count": len(reordered),
+                "changed_positions": reordered,
+            }
+
+        if roster_changed:
+            changed_fields.append("roster")
+        return AuditActionType.TEAM_UPDATED, {
+            "changed_fields": changed_fields,
+            "roster_replaced": roster_changed,
+            "roster_count": len(next_player_ids),
+            "added_player_ids": added,
+            "removed_player_ids": removed,
+            "reordered_player_ids": reordered,
+        }

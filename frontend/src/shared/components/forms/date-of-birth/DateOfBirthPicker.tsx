@@ -13,6 +13,12 @@ export interface DateOfBirthPickerProps {
   disabled?: boolean
   error?: string
   errorId?: string
+  label?: string
+  placeholder?: string
+  earliest?: string
+  latest?: string
+  clearable?: boolean
+  triggerTextSize?: 'sm' | 'base'
   onChange: (value: string) => void
 }
 
@@ -22,9 +28,15 @@ export default function DateOfBirthPicker({
   disabled = false,
   error,
   errorId,
+  label = 'date of birth',
+  placeholder,
+  earliest,
+  latest,
+  clearable = false,
+  triggerTextSize = 'base',
   onChange,
 }: DateOfBirthPickerProps) {
-  const popoverId = `${useId()}-date-of-birth-calendar`
+  const popoverId = `${useId()}-calendar`
   const headingId = `${popoverId}-heading`
   const valueId = `${popoverId}-value`
   const [portalHost, setPortalHost] = useState<HTMLSpanElement | null>(null)
@@ -32,6 +44,7 @@ export default function DateOfBirthPicker({
     changeByMonth,
     changeMonth,
     changeYear,
+    clearDate,
     close,
     focusedDate,
     focusByDays,
@@ -45,10 +58,10 @@ export default function DateOfBirthPicker({
     today,
     triggerRef,
     viewMonth,
-  } = useDateOfBirthPicker({ value, onChange })
+  } = useDateOfBirthPicker({ earliest, latest, value, onChange })
   const displayValue =
     selectedDate === null
-      ? 'Select date of birth'
+      ? (placeholder ?? `Select ${label}`)
       : toLongDisplayDate(value)
 
   const popover =
@@ -59,11 +72,11 @@ export default function DateOfBirthPicker({
             id={popoverId}
             role="dialog"
             aria-labelledby={headingId}
-            className="date-of-birth-popover fixed z-dropdown w-80 max-w-full overflow-y-auto rounded-lg border border-slate-300 bg-white p-0.5 text-slate-900 sm:p-2"
+            className="date-of-birth-popover fixed z-dropdown w-80 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-lg border border-slate-300 bg-white p-0.5 text-slate-900 sm:p-2"
             style={position}
           >
             <p id={headingId} className="sr-only" aria-live="polite">
-              Choose date of birth, {CALENDAR_MONTH_NAMES[viewMonth.month - 1]}{' '}
+              Choose {label}, {CALENDAR_MONTH_NAMES[viewMonth.month - 1]}{' '}
               {viewMonth.year}
             </p>
             <DateOfBirthCalendarHeader
@@ -84,6 +97,18 @@ export default function DateOfBirthPicker({
               onFocusMove={focusByDays}
               onSelect={selectDate}
             />
+            {clearable && selectedDate !== null ? (
+              <div className="mt-2 border-t border-slate-200 pt-1 sm:pt-2">
+                <button
+                  type="button"
+                  aria-label={`Clear ${label}`}
+                  className="flex min-h-11 w-full items-center justify-center rounded-lg px-3 text-sm font-semibold text-slate-800 hover:bg-academy/10 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-1"
+                  onClick={clearDate}
+                >
+                  Clear date
+                </button>
+              </div>
+            ) : null}
           </div>,
           portalHost,
         )
@@ -105,8 +130,11 @@ export default function DateOfBirthPicker({
         aria-haspopup="dialog"
         aria-invalid={error !== undefined}
         disabled={disabled}
-        className="mt-2 flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-slate-300 bg-white px-3 text-left text-base text-slate-900 hover:border-slate-400 focus:border-academy focus:outline-none focus:ring-2 focus:ring-academy/40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-        onClick={isOpen ? close : open}
+        className={`mt-2 flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-slate-300 bg-white px-3 text-left font-normal text-slate-900 hover:border-slate-400 focus:border-academy focus:outline-none focus:ring-2 focus:ring-academy/40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 ${triggerTextSize === 'sm' ? 'text-sm' : 'text-base'}`}
+        onClick={() => {
+          if (isOpen) close()
+          else open()
+        }}
       >
         <span
           id={valueId}

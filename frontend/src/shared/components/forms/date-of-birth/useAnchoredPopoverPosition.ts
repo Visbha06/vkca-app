@@ -36,12 +36,13 @@ export function useAnchoredPopoverPosition({
       if (trigger === null || popover === null) return
       const triggerBounds = trigger.getBoundingClientRect()
       const popoverBounds = popover.getBoundingClientRect()
-      const measuredSpacing = Number.parseFloat(
-        getComputedStyle(document.documentElement)
-          .getPropertyValue('--spacing'),
+      const measuredMargin = Number.parseFloat(
+        getComputedStyle(trigger).paddingInlineStart,
       )
-      const spacing = Number.isFinite(measuredSpacing) ? measuredSpacing : 0
-      const preferredMargin = spacing * 3
+      const preferredMargin = Number.isFinite(measuredMargin)
+        ? measuredMargin
+        : 0
+      const spacing = preferredMargin / 3
       const availableMargin = Math.max(
         0,
         (window.innerWidth - popoverBounds.width) / 2,
