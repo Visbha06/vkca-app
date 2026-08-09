@@ -67,7 +67,10 @@ export const appRoutes: RouteObject[] = [
       {
         path: 'data-quality',
         element: (
-          <HeadCoachRoute>
+          <HeadCoachRoute
+            forbiddenTitle="Data Quality is available to Head Coaches only."
+            forbiddenDescription="Your account does not have access to current academy health checks or remediation tools."
+          >
             <DataQualityPage />
           </HeadCoachRoute>
         ),

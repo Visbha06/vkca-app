@@ -6,6 +6,7 @@ import {
   AuditLogIcon,
   CalendarIcon,
   CoachesIcon,
+  DataQualityIcon,
   HomeIcon,
   PlayersIcon,
   SettingsIcon,
@@ -41,6 +42,12 @@ const navigationItems = [
     to: '/audit-log',
     label: 'Audit Log',
     icon: <AuditLogIcon className="size-6" />,
+    headCoachOnly: true,
+  },
+  {
+    to: '/data-quality',
+    label: 'Data Quality',
+    icon: <DataQualityIcon className="size-6" />,
     headCoachOnly: true,
   },
 ]

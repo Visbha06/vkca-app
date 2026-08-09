@@ -66,6 +66,15 @@ export function AuditLogIcon(props: NavIconProps) {
   )
 }
 
+export function DataQualityIcon(props: NavIconProps) {
+  return (
+    <svg {...sharedProps} {...props}>
+      <path d="M12 3 4.5 6v5c0 4.6 3 8.7 7.5 10 4.5-1.3 7.5-5.4 7.5-10V6L12 3Z" />
+      <path d="m8.5 12 2.2 2.2 4.8-5" />
+    </svg>
+  )
+}
+
 export function SettingsIcon(props: NavIconProps) {
   return (
     <svg {...sharedProps} {...props}>

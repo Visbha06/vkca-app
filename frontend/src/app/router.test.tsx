@@ -70,6 +70,13 @@ describe('application routes', () => {
     expect(markup).not.toContain('403 Forbidden')
   })
 
+  it('renders Data Quality for a Head Coach', () => {
+    const markup = renderRoute('/data-quality', headCoach)
+
+    expect(markup).toContain('>Data Quality</h1>')
+    expect(markup).not.toContain('403 Forbidden')
+  })
+
   it.each(['assistant coach', 'player'] as const)(
     'keeps business audit data out of the direct Audit Log route for %s users',
     (role) => {
@@ -78,6 +85,17 @@ describe('application routes', () => {
       expect(markup).toContain('403 Forbidden')
       expect(markup).toContain('Audit Log is available to Head Coaches only.')
       expect(markup).not.toContain('Review safe, recorded academy activity')
+    },
+  )
+
+  it.each(['assistant coach', 'player'] as const)(
+    'protects the direct Data Quality route for %s users',
+    (role) => {
+      const markup = renderRoute('/data-quality', { ...headCoach, role })
+
+      expect(markup).toContain('403 Forbidden')
+      expect(markup).toContain('Data Quality is available to Head Coaches only.')
+      expect(markup).not.toContain('>Data Quality</h1>')
     },
   )
 })

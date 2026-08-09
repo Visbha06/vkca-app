@@ -132,14 +132,14 @@ API requests, and HTTP 403 for every read/remediation capability.
 
 ### Tests for User Story 4 (write first)
 
-- [ ] T030 [P] [US4] Add cross-endpoint authorization integration tests for Head Coach success, Assistant Coach/Player HTTP 403 across every Data Quality read/remediation endpoint, and separation of authorization-denial security audit from Business Audit in `backend/tests/integration/test_data_quality_authorization.py`.
-- [ ] T031 [P] [US4] Add frontend tests for Data Quality sidebar visibility/order, protected route rendering, unauthorized no-request behavior, and configurable Forbidden copy in `frontend/src/layouts/AppLayout.test.tsx`, `frontend/src/app/router.test.tsx`, and `frontend/src/app/HeadCoachRoute.test.tsx`.
+- [X] T030 [P] [US4] Add cross-endpoint authorization integration tests for Head Coach success, Assistant Coach/Player HTTP 403 across every Data Quality read/remediation endpoint, and separation of authorization-denial security audit from Business Audit in `backend/tests/integration/test_data_quality_authorization.py`.
+- [X] T031 [P] [US4] Add frontend tests for Data Quality sidebar visibility/order, protected route rendering, unauthorized no-request behavior, and configurable Forbidden copy in `frontend/src/layouts/AppLayout.test.tsx`, `frontend/src/app/router.test.tsx`, and `frontend/src/app/HeadCoachRoute.test.tsx`.
 
 ### Implementation for User Story 4
 
-- [ ] T032 [US4] Add or reuse a navigation icon and insert the Head Coach-only `Data Quality` item immediately after `Audit Log` in `frontend/src/shared/components/icons/NavIcons.tsx` and `frontend/src/layouts/AppLayout.tsx`.
-- [ ] T033 [US4] Make the existing HeadCoachRoute accept feature-specific forbidden title/description while preserving Audit Log behavior, and wrap `/data-quality` with it in `frontend/src/app/HeadCoachRoute.tsx` and `frontend/src/app/router.tsx`.
-- [ ] T034 [US4] Verify every backend Data Quality route uses `require_role(UserRole.HEAD_COACH)` before service evaluation or mutation and retains existing denial behavior in `backend/src/routes/data_quality.py` and `backend/src/main.py`.
+- [X] T032 [US4] Add or reuse a navigation icon and insert the Head Coach-only `Data Quality` item immediately after `Audit Log` in `frontend/src/shared/components/icons/NavIcons.tsx` and `frontend/src/layouts/AppLayout.tsx`.
+- [X] T033 [US4] Make the existing HeadCoachRoute accept feature-specific forbidden title/description while preserving Audit Log behavior, and wrap `/data-quality` with it in `frontend/src/app/HeadCoachRoute.tsx` and `frontend/src/app/router.tsx`.
+- [X] T034 [US4] Verify every backend Data Quality route uses `require_role(UserRole.HEAD_COACH)` before service evaluation or mutation and retains existing denial behavior in `backend/src/routes/data_quality.py` and `backend/src/main.py`.
 
 **Checkpoint**: User Stories 1–4 preserve the existing role boundary in both
 navigation and direct API access.
