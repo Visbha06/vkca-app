@@ -8,6 +8,7 @@ import {
 interface DataQualityFindingCardProps {
   finding: DataQualityFinding
   onNavigate?: (path: DataQualityWorkflowPath, label: string) => void
+  onRemediate?: (finding: DataQualityFinding) => void
 }
 
 const severityClasses = {
@@ -16,9 +17,16 @@ const severityClasses = {
   info: 'border-sky-300 bg-sky-50 text-sky-950',
 }
 
+const remediationLabels = {
+  normalize_roster_order: 'Normalize roster order',
+  remove_inactive_player: 'Remove inactive player',
+  remove_inactive_assistant_assignment: 'Remove assignment',
+}
+
 export default function DataQualityFindingCard({
   finding,
   onNavigate,
+  onRemediate,
 }: DataQualityFindingCardProps) {
   const isManualReview = requiresManualReview(finding.rule_id)
   return (
@@ -34,7 +42,15 @@ export default function DataQualityFindingCard({
       </div>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-700">{finding.explanation}</p>
       <p className="mt-3 text-sm font-semibold leading-6 text-slate-800">{finding.recommended_action}</p>
-      {isManualReview ? (
+      {finding.direct_remediation !== null ? (
+        <button
+          type="button"
+          className="mt-4 min-h-11 rounded-lg border border-academy bg-white px-4 text-sm font-semibold text-slate-800 transition-colors hover:bg-academy/10 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2"
+          onClick={() => onRemediate?.(finding)}
+        >
+          {remediationLabels[finding.direct_remediation.action]}
+        </button>
+      ) : isManualReview ? (
         <p className="mt-4 text-sm font-semibold text-slate-700">Manual review required</p>
       ) : (
         <button

@@ -60,6 +60,10 @@ class TeamMembershipAlreadyExistsError(Exception):
         super().__init__("Player is already a member of this team.")
 
 
+class TeamRemediationConflictError(Exception):
+    """Raised when a roster remediation target changed after evaluation."""
+
+
 class TeamService:
     """Query and mutate teams while preserving complete roster consistency."""
 
@@ -376,6 +380,159 @@ class TeamService:
             raise
         await self.session.refresh(membership)
         return membership
+
+    async def normalize_roster_order(
+        self,
+        team_id: UUID,
+        *,
+        expected_team_version: int,
+        actor: AuditActorContext | None = None,
+    ) -> None:
+        """Normalize one valid active roster without replacing memberships."""
+
+        try:
+            team = await self.session.get(Team, team_id)
+            if team is None:
+                raise TeamNotFoundError
+
+            result = await self.session.scalars(
+                select(TeamPlayer)
+                .where(TeamPlayer.team_id == team_id)
+                .order_by(
+                    TeamPlayer.roster_order.asc(),
+                    TeamPlayer.player_id.asc(),
+                )
+            )
+            memberships = list(result.all())
+            player_ids = [membership.player_id for membership in memberships]
+            await self._validate_roster_players(player_ids)
+
+            expected_positions = list(range(1, len(memberships) + 1))
+            if [membership.roster_order for membership in memberships] == (
+                expected_positions
+            ):
+                raise TeamRemediationConflictError(
+                    "The roster order is already normalized. Refresh the findings."
+                )
+
+            changed_player_ids = [
+                membership.player_id
+                for membership, position in zip(
+                    memberships,
+                    expected_positions,
+                    strict=True,
+                )
+                if membership.roster_order != position
+            ]
+            team.version_number = await check_and_increment_version(
+                self.session,
+                Team,
+                team_id,
+                expected_team_version,
+            )
+            for membership, position in zip(
+                memberships,
+                expected_positions,
+                strict=True,
+            ):
+                membership.roster_order = position
+            await self.session.flush()
+
+            if actor is not None:
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=AuditActionType.ROSTER_REORDERED,
+                    target=AuditTargetContext(
+                        entity_type=AuditEntityType.TEAM,
+                        entity_id=team.id,
+                        label=team.name,
+                    ),
+                    metadata={
+                        "affected_player_ids": changed_player_ids,
+                        "affected_count": len(changed_player_ids),
+                        "changed_positions": changed_player_ids,
+                    },
+                )
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
+
+    async def remove_inactive_player(
+        self,
+        team_id: UUID,
+        player_id: UUID,
+        *,
+        expected_team_version: int,
+        actor: AuditActorContext | None = None,
+    ) -> None:
+        """Remove exactly one current inactive roster membership."""
+
+        try:
+            team = await self.session.get(Team, team_id)
+            if team is None:
+                raise TeamNotFoundError
+            player = await self.session.get(Player, player_id)
+            if player is None:
+                raise PlayerNotFoundError
+            membership = await self.session.get(
+                TeamPlayer,
+                {"team_id": team_id, "player_id": player_id},
+            )
+            if membership is None:
+                raise TeamRemediationConflictError(
+                    "The selected roster membership changed. Refresh the findings."
+                )
+            if player.is_active:
+                raise TeamRemediationConflictError(
+                    "The selected player is no longer inactive. Refresh the findings."
+                )
+
+            remaining_result = await self.session.scalars(
+                select(TeamPlayer.player_id)
+                .where(
+                    TeamPlayer.team_id == team_id,
+                    TeamPlayer.player_id != player_id,
+                )
+                .order_by(
+                    TeamPlayer.roster_order.asc(),
+                    TeamPlayer.player_id.asc(),
+                )
+            )
+            remaining_player_ids = list(remaining_result.all())
+            await self._validate_roster_players(remaining_player_ids)
+
+            team.version_number = await check_and_increment_version(
+                self.session,
+                Team,
+                team_id,
+                expected_team_version,
+            )
+            await self.session.execute(
+                delete(TeamPlayer).where(
+                    TeamPlayer.team_id == team_id,
+                    TeamPlayer.player_id == player_id,
+                )
+            )
+            await self.session.flush()
+            if actor is not None:
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=AuditActionType.ROSTER_REMOVED,
+                    target=AuditTargetContext(
+                        entity_type=AuditEntityType.TEAM,
+                        entity_id=team.id,
+                        label=team.name,
+                    ),
+                    metadata={
+                        "player_id": player_id,
+                        "prior_roster_position": membership.roster_order,
+                    },
+                )
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
 
     @staticmethod
     def _classify_team_update(

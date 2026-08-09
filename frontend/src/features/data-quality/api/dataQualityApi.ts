@@ -4,6 +4,12 @@ import type { components } from './generated'
 export type DataQualityPageResponse =
   components['schemas']['DataQualityPageResponse']
 export type DataQualityFinding = components['schemas']['DataQualityFinding']
+export type DataQualityRemediationRequest =
+  | components['schemas']['NormalizeRosterOrderRequest']
+  | components['schemas']['RemoveInactivePlayerRequest']
+  | components['schemas']['RemoveInactiveAssistantAssignmentRequest']
+export type DataQualityRemediationResult =
+  components['schemas']['DataQualityRemediationResult']
 
 export interface DataQualityRequest {
   page?: number
@@ -14,6 +20,7 @@ export interface DataQualityRequest {
 }
 
 const DATA_QUALITY_PATH = '/api/v1/data-quality'
+const DATA_QUALITY_REMEDIATION_PATH = `${DATA_QUALITY_PATH}/remediations`
 
 export async function fetchDataQuality(
   request: DataQualityRequest = {},
@@ -32,5 +39,17 @@ export async function fetchDataQuality(
   return apiClient.request<DataQualityPageResponse>(
     query ? `${DATA_QUALITY_PATH}?${query}` : DATA_QUALITY_PATH,
     { signal },
+  )
+}
+
+export async function applyDataQualityRemediation(
+  request: DataQualityRemediationRequest,
+): Promise<DataQualityRemediationResult> {
+  return apiClient.request<DataQualityRemediationResult>(
+    DATA_QUALITY_REMEDIATION_PATH,
+    {
+      method: 'POST',
+      body: JSON.stringify(request),
+    },
   )
 }

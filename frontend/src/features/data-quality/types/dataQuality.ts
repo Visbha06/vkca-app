@@ -1,3 +1,5 @@
+import type { components } from '../api/generated'
+
 /** Request lifecycle state used only by the Data Quality interface. */
 export type DataQualityRequestState =
   | 'idle'
@@ -19,4 +21,16 @@ export interface DataQualityFiltersState {
   domain?: 'players' | 'teams' | 'rosters' | 'coaches' | 'calendar'
   ruleId?: components['schemas']['QualityRuleId']
 }
-import type { components } from '../api/generated'
+
+/** Mutation lifecycle owned by the Data Quality page. */
+export type DataQualityRemediationState =
+  | 'idle'
+  | 'submitting'
+  | 'error'
+  | 'conflict'
+
+/** Result used by the page to close or retain its confirmation dialog. */
+export type DataQualityRemediationOutcome =
+  | 'applied'
+  | 'conflict'
+  | 'failed'

@@ -3,7 +3,17 @@ export type {
   DataQualityRequestState,
   DataQualityFiltersState,
   DataQualityWorkflowPath,
+  DataQualityRemediationOutcome,
+  DataQualityRemediationState,
 } from './types/dataQuality'
 export { default as DataQualityPage } from './pages/DataQualityPage'
-export { fetchDataQuality } from './api/dataQualityApi'
-export type { DataQualityFinding, DataQualityPageResponse } from './api/dataQualityApi'
+export {
+  applyDataQualityRemediation,
+  fetchDataQuality,
+} from './api/dataQualityApi'
+export type {
+  DataQualityFinding,
+  DataQualityPageResponse,
+  DataQualityRemediationRequest,
+  DataQualityRemediationResult,
+} from './api/dataQualityApi'

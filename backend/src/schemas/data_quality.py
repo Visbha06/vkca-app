@@ -193,7 +193,7 @@ class NormalizeRosterOrderRequest(DataQualitySchema):
     )
     team_id: UUID
     expected_team_version: int = Field(ge=1)
-    confirmed: Literal[True]
+    confirmed: bool = False
 
 
 class RemoveInactivePlayerRequest(DataQualitySchema):
@@ -206,7 +206,7 @@ class RemoveInactivePlayerRequest(DataQualitySchema):
     team_id: UUID
     player_id: UUID
     expected_team_version: int = Field(ge=1)
-    confirmed: Literal[True]
+    confirmed: bool = False
 
 
 class RemoveInactiveAssistantAssignmentRequest(DataQualitySchema):
@@ -219,7 +219,7 @@ class RemoveInactiveAssistantAssignmentRequest(DataQualitySchema):
     coach_id: UUID
     team_id: UUID
     expected_coach_version: int = Field(ge=1)
-    confirmed: Literal[True]
+    confirmed: bool = False
 
 
 type DataQualityRemediationRequest = Annotated[

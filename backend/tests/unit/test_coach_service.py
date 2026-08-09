@@ -7,16 +7,19 @@ from uuid import uuid4
 
 import pytest
 
-from src.enums import UserRole
+from src.enums import AuditActionType, UserRole
 from src.models.team_coach import TeamCoach
 from src.models.user import User
 from src.schemas.coach import CoachCreate, CoachTeamUpdate
+from src.services.business_audit_service import AuditActorContext
 from src.services.coach_service import (
     CoachAlreadyExistsError,
     CoachInactiveError,
+    CoachRemediationConflictError,
     CoachService,
     CoachTeamValidationError,
 )
+from src.services.occ import StaleVersionError
 from src.services.password_service import PasswordService
 
 
@@ -375,3 +378,150 @@ async def test_update_team_assignments_rolls_back_failed_replacement(
 
     session.rollback.assert_awaited_once()
     session.commit.assert_not_awaited()
+
+
+def remediation_actor() -> AuditActorContext:
+    return AuditActorContext(
+        user_id=uuid4(),
+        display_name="Asha Head Coach",
+        role=UserRole.HEAD_COACH,
+    )
+
+
+@pytest.mark.asyncio
+async def test_remove_inactive_assistant_assignment_is_exact_and_audited(
+    mocker,
+) -> None:
+    coach = CoachEntity(role=UserRole.ASSISTANT_COACH)
+    coach.is_active = False
+    coach.version_number = 4
+    team_id = uuid4()
+    assignment = SimpleNamespace(team_id=team_id, user_id=coach.id)
+    session = Mock()
+
+    async def get_entity(model, key):
+        if model is User:
+            return coach
+        if model is TeamCoach:
+            return assignment
+        raise AssertionError(f"unexpected model {model}")
+
+    session.get = AsyncMock(side_effect=get_entity)
+    session.execute = AsyncMock()
+    session.flush = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    version_check = mocker.patch(
+        "src.services.coach_service.check_and_increment_version",
+        new=AsyncMock(return_value=5),
+    )
+    audit_service = Mock()
+    audit_service.record = AsyncMock()
+    mocker.patch(
+        "src.services.coach_service.BusinessAuditService",
+        return_value=audit_service,
+    )
+
+    await CoachService(session).remove_inactive_assistant_assignment(
+        coach.id,
+        team_id,
+        expected_coach_version=4,
+        actor=remediation_actor(),
+    )
+
+    version_check.assert_awaited_once_with(session, User, coach.id, 4)
+    delete_sql = str(session.execute.await_args.args[0])
+    assert "DELETE FROM team_coaches" in delete_sql
+    assert "team_coaches.user_id" in delete_sql
+    assert "team_coaches.team_id" in delete_sql
+    assert coach.version_number == 5
+    audit_call = audit_service.record.await_args.kwargs
+    assert audit_call["action_type"] is AuditActionType.COACH_TEAM_ASSIGNMENTS_UPDATED
+    assert audit_call["metadata"] == {
+        "added_team_ids": [],
+        "removed_team_ids": [team_id],
+        "added_count": 0,
+        "removed_count": 1,
+    }
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "role,is_active",
+    [
+        (UserRole.HEAD_COACH, False),
+        (UserRole.ASSISTANT_COACH, True),
+        (UserRole.PLAYER, False),
+    ],
+)
+async def test_remove_assignment_accepts_only_inactive_assistant_coaches(
+    mocker,
+    role,
+    is_active,
+) -> None:
+    coach = CoachEntity(role=role)
+    coach.is_active = is_active
+    session = Mock()
+    session.get = AsyncMock(return_value=coach)
+    session.execute = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    version_check = mocker.patch(
+        "src.services.coach_service.check_and_increment_version",
+        new=AsyncMock(),
+    )
+
+    with pytest.raises(CoachRemediationConflictError, match="inactive Assistant"):
+        await CoachService(session).remove_inactive_assistant_assignment(
+            coach.id,
+            uuid4(),
+            expected_coach_version=1,
+        )
+
+    version_check.assert_not_awaited()
+    session.execute.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_remove_assignment_preserves_relationships_on_occ_conflict(
+    mocker,
+) -> None:
+    coach = CoachEntity(role=UserRole.ASSISTANT_COACH)
+    coach.is_active = False
+    team_id = uuid4()
+    assignment = SimpleNamespace(team_id=team_id, user_id=coach.id)
+    session = Mock()
+
+    async def get_entity(model, key):
+        return coach if model is User else assignment
+
+    session.get = AsyncMock(side_effect=get_entity)
+    session.execute = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    mocker.patch(
+        "src.services.coach_service.check_and_increment_version",
+        new=AsyncMock(side_effect=StaleVersionError(User, coach.id, 1)),
+    )
+    audit_service = Mock()
+    audit_service.record = AsyncMock()
+    mocker.patch(
+        "src.services.coach_service.BusinessAuditService",
+        return_value=audit_service,
+    )
+
+    with pytest.raises(StaleVersionError):
+        await CoachService(session).remove_inactive_assistant_assignment(
+            coach.id,
+            team_id,
+            expected_coach_version=1,
+            actor=remediation_actor(),
+        )
+
+    session.execute.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
+    audit_service.record.assert_not_awaited()

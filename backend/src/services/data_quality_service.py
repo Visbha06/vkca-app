@@ -8,6 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.enums import (
+    AuditActionType,
+    QualityAction,
     QualityDomain,
     QualitySeverity,
     RecurrenceFrequency,
@@ -28,8 +30,18 @@ from src.schemas.data_quality import (
     DataQualityFinding,
     DataQualityPageResponse,
     DataQualityQuery,
+    DataQualityRemediationRequest,
+    DataQualityRemediationResult,
     DataQualitySummary,
+    NormalizeRosterOrderRemediation,
+    NormalizeRosterOrderRequest,
+    RemoveInactiveAssistantAssignmentRemediation,
+    RemoveInactiveAssistantAssignmentRequest,
+    RemoveInactivePlayerRemediation,
+    RemoveInactivePlayerRequest,
 )
+from src.services.business_audit_service import AuditActorContext
+from src.services.coach_service import CoachService
 from src.services.data_quality_rules import (
     CalendarExceptionProjection,
     CalendarSeriesProjection,
@@ -42,6 +54,7 @@ from src.services.data_quality_rules import (
     evaluate_registered_rules,
     normalize_player_name,
 )
+from src.services.team_service import TeamService
 
 SEVERITY_ORDER = {
     QualitySeverity.CRITICAL: 0,
@@ -55,6 +68,14 @@ DOMAIN_ORDER = {
     QualityDomain.COACHES: 3,
     QualityDomain.CALENDAR: 4,
 }
+
+
+class DataQualityRemediationValidationError(Exception):
+    """Raised when a typed command omits an explicit safety precondition."""
+
+
+class DataQualityRemediationConflictError(Exception):
+    """Raised when a referenced finding or target is no longer current."""
 
 
 class DataQualityService:
@@ -87,6 +108,123 @@ class DataQualityService:
         """Explicit scan name for non-route callers and regression tests."""
 
         return await self.list_findings(query)
+
+    async def remediate(
+        self,
+        command: DataQualityRemediationRequest,
+        *,
+        actor: AuditActorContext,
+    ) -> DataQualityRemediationResult:
+        """Re-evaluate and dispatch one exact, confirmation-gated correction."""
+
+        if not command.confirmed:
+            raise DataQualityRemediationValidationError(
+                "Explicit confirmation is required before remediation."
+            )
+
+        context = await self.load_context()
+        finding = next(
+            (
+                candidate
+                for candidate in evaluate_registered_rules(context)
+                if candidate.finding_id == command.finding_id
+            ),
+            None,
+        )
+        if finding is None:
+            raise DataQualityRemediationConflictError(
+                "The referenced finding is no longer current. Refresh the findings."
+            )
+        self._validate_exact_target(command, finding)
+
+        if isinstance(command, NormalizeRosterOrderRequest):
+            await TeamService(self.session).normalize_roster_order(
+                command.team_id,
+                expected_team_version=command.expected_team_version,
+                actor=actor,
+            )
+            return DataQualityRemediationResult(
+                action=command.action,
+                message="The roster order was normalized.",
+                affected_entity_id=command.team_id,
+                audit_action=AuditActionType.ROSTER_REORDERED,
+            )
+        if isinstance(command, RemoveInactivePlayerRequest):
+            await TeamService(self.session).remove_inactive_player(
+                command.team_id,
+                command.player_id,
+                expected_team_version=command.expected_team_version,
+                actor=actor,
+            )
+            return DataQualityRemediationResult(
+                action=command.action,
+                message="The inactive player was removed from the roster.",
+                affected_entity_id=command.player_id,
+                audit_action=AuditActionType.ROSTER_REMOVED,
+            )
+
+        await CoachService(self.session).remove_inactive_assistant_assignment(
+            command.coach_id,
+            command.team_id,
+            expected_coach_version=command.expected_coach_version,
+            actor=actor,
+        )
+        return DataQualityRemediationResult(
+            action=QualityAction.REMOVE_INACTIVE_ASSISTANT_ASSIGNMENT,
+            message="The inactive Assistant Coach assignment was removed.",
+            affected_entity_id=command.coach_id,
+            audit_action=AuditActionType.COACH_TEAM_ASSIGNMENTS_UPDATED,
+        )
+
+    @staticmethod
+    def _validate_exact_target(
+        command: DataQualityRemediationRequest,
+        finding: DataQualityFinding,
+    ) -> None:
+        """Require command identity and OCC metadata to match current output."""
+
+        remediation = finding.direct_remediation
+        matches = False
+        if isinstance(command, NormalizeRosterOrderRequest) and isinstance(
+            remediation,
+            NormalizeRosterOrderRemediation,
+        ):
+            matches = (
+                command.action == remediation.action
+                and command.team_id == remediation.team_id
+                and command.expected_team_version
+                == remediation.expected_team_version
+            )
+        elif isinstance(command, RemoveInactivePlayerRequest) and isinstance(
+            remediation,
+            RemoveInactivePlayerRemediation,
+        ):
+            matches = (
+                command.action == remediation.action
+                and command.team_id == remediation.team_id
+                and command.player_id == remediation.player_id
+                and command.expected_team_version
+                == remediation.expected_team_version
+            )
+        elif isinstance(
+            command,
+            RemoveInactiveAssistantAssignmentRequest,
+        ) and isinstance(
+            remediation,
+            RemoveInactiveAssistantAssignmentRemediation,
+        ):
+            matches = (
+                command.action == remediation.action
+                and command.coach_id == remediation.coach_id
+                and command.team_id == remediation.team_id
+                and command.expected_coach_version
+                == remediation.expected_coach_version
+            )
+
+        if not matches:
+            raise DataQualityRemediationConflictError(
+                "The finding target or version changed. Refresh the findings."
+            )
 
     async def load_context(self) -> EvaluationContext:
         """Load five fixed, narrow projections with no per-entity queries."""

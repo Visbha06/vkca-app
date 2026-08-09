@@ -33,7 +33,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Apply Data Quality Remediation */
+        /**
+         * Apply Data Quality Remediation
+         * @description Apply one exact correction through its normal domain transaction.
+         */
         post: operations["apply_data_quality_remediation"];
         delete?: never;
         options?: never;
@@ -1034,9 +1037,9 @@ export interface components {
             action: "normalize_roster_order";
             /**
              * Confirmed
-             * @constant
+             * @default false
              */
-            confirmed: true;
+            confirmed: boolean;
             /** Expected Team Version */
             expected_team_version: number;
             /** Finding Id */
@@ -1375,9 +1378,9 @@ export interface components {
             coach_id: string;
             /**
              * Confirmed
-             * @constant
+             * @default false
              */
-            confirmed: true;
+            confirmed: boolean;
             /** Expected Coach Version */
             expected_coach_version: number;
             /** Finding Id */
@@ -1429,9 +1432,9 @@ export interface components {
             action: "remove_inactive_player";
             /**
              * Confirmed
-             * @constant
+             * @default false
              */
-            confirmed: true;
+            confirmed: boolean;
             /** Expected Team Version */
             expected_team_version: number;
             /** Finding Id */
@@ -1716,7 +1719,9 @@ export interface operations {
     apply_data_quality_remediation: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: string | null;
+            };
             path?: never;
             cookie?: never;
         };

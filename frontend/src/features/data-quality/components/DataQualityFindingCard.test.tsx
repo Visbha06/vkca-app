@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import DataQualityFindingCard from './DataQualityFindingCard'
 import { getWorkflowTarget } from '../utils/dataQualityNavigation'
 
@@ -14,6 +14,8 @@ const ruleIds = [
   'coach.inactive_assigned', 'coach.active_assistant_unassigned', 'coach.assignment_invalid_role',
   'calendar.recurrence_end_before_start', 'calendar.stale_occurrence_exception',
 ] as const
+
+afterEach(() => cleanup())
 
 describe('DataQualityFindingCard', () => {
   it.each(ruleIds)('maps %s to its existing review workflow', (ruleId) => {
@@ -33,5 +35,45 @@ describe('DataQualityFindingCard', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Navigate to Fix' }))
     expect(onNavigate).toHaveBeenCalledWith('/players', 'Asha')
+  })
+
+  it('shows only the API-provided direct remediation action', () => {
+    const onRemediate = vi.fn()
+    render(
+      <DataQualityFindingCard
+        finding={{
+          finding_id: 'coach.inactive_assigned:coach:team',
+          rule_id: 'coach.inactive_assigned',
+          severity: 'warning',
+          domain: 'coaches',
+          entity_type: 'coach_assignment',
+          entity_id: 'coach',
+          entity_label: 'Alex Morgan — U13 Falcons',
+          title: 'Inactive Assistant Coach remains assigned',
+          explanation: 'The inactive assignment remains current.',
+          recommended_action: 'Remove this one assignment.',
+          direct_remediation: {
+            action: 'remove_inactive_assistant_assignment',
+            coach_id: 'coach',
+            team_id: 'team',
+            expected_coach_version: 4,
+            confirmation_required: true,
+          },
+          related_entities: [],
+        }}
+        onNavigate={vi.fn()}
+        onRemediate={onRemediate}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove assignment' }))
+    expect(onRemediate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        finding_id: 'coach.inactive_assigned:coach:team',
+      }),
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Navigate to Fix' }),
+    ).not.toBeInTheDocument()
   })
 })

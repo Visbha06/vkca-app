@@ -1,19 +1,24 @@
 """Unit tests for team list and atomic roster mutation behavior."""
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
 
-from src.enums import AgeGroup
+from src.enums import AgeGroup, AuditActionType, UserRole
+from src.models.player import Player
 from src.models.team import Team
+from src.models.team_player import TeamPlayer
 from src.schemas.team import TeamCreate, TeamUpdate
+from src.services.business_audit_service import AuditActorContext
 from src.services.occ import StaleVersionError
 from src.services.team_service import (
     PlayerNotFoundError,
     TeamNameConflictError,
     TeamNotFoundError,
+    TeamRemediationConflictError,
     TeamService,
     TeamValidationError,
 )
@@ -320,3 +325,231 @@ async def test_update_team_rejects_unknown_teams() -> None:
         await TeamService(session).update_team(uuid4(), payload)
 
     session.rollback.assert_awaited_once()
+
+
+def remediation_actor() -> AuditActorContext:
+    return AuditActorContext(
+        user_id=uuid4(),
+        display_name="Asha Head Coach",
+        role=UserRole.HEAD_COACH,
+    )
+
+
+@pytest.mark.asyncio
+async def test_normalize_roster_order_preserves_membership_and_reuses_audit_action(
+    mocker,
+) -> None:
+    team = make_team()
+    team.version_number = 3
+    positions = (1, 2, 4, 5, 6, 7, 8)
+    memberships = [
+        SimpleNamespace(player_id=uuid4(), roster_order=position)
+        for position in positions
+    ]
+    membership_result = Mock()
+    membership_result.all.return_value = memberships
+    session = Mock()
+    session.get = AsyncMock(return_value=team)
+    session.scalars = AsyncMock(return_value=membership_result)
+    session.flush = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    service = TeamService(session)
+    service._validate_roster_players = AsyncMock()
+    version_check = mocker.patch(
+        "src.services.team_service.check_and_increment_version",
+        new=AsyncMock(return_value=4),
+    )
+    audit_service = Mock()
+    audit_service.record = AsyncMock()
+    mocker.patch(
+        "src.services.team_service.BusinessAuditService",
+        return_value=audit_service,
+    )
+    original_player_ids = [membership.player_id for membership in memberships]
+
+    await service.normalize_roster_order(
+        team.id,
+        expected_team_version=3,
+        actor=remediation_actor(),
+    )
+
+    service._validate_roster_players.assert_awaited_once_with(original_player_ids)
+    version_check.assert_awaited_once_with(session, Team, team.id, 3)
+    assert [membership.player_id for membership in memberships] == original_player_ids
+    assert [membership.roster_order for membership in memberships] == list(range(1, 8))
+    assert team.version_number == 4
+    audit_call = audit_service.record.await_args.kwargs
+    assert audit_call["action_type"] is AuditActionType.ROSTER_REORDERED
+    assert audit_call["metadata"]["affected_count"] == 5
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_remove_inactive_player_deletes_only_the_selected_membership(
+    mocker,
+) -> None:
+    team = make_team()
+    team.version_number = 2
+    selected_player = SimpleNamespace(id=uuid4(), is_active=False)
+    membership = SimpleNamespace(roster_order=6)
+    remaining_player_ids = make_player_ids(7)
+    remaining_result = Mock()
+    remaining_result.all.return_value = remaining_player_ids
+    session = Mock()
+
+    async def get_entity(model, key):
+        if model is Team:
+            return team
+        if model is Player:
+            return selected_player
+        if model is TeamPlayer:
+            return membership
+        raise AssertionError(f"unexpected model {model}")
+
+    session.get = AsyncMock(side_effect=get_entity)
+    session.scalars = AsyncMock(return_value=remaining_result)
+    session.execute = AsyncMock()
+    session.flush = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    service = TeamService(session)
+    service._validate_roster_players = AsyncMock()
+    version_check = mocker.patch(
+        "src.services.team_service.check_and_increment_version",
+        new=AsyncMock(return_value=3),
+    )
+    audit_service = Mock()
+    audit_service.record = AsyncMock()
+    mocker.patch(
+        "src.services.team_service.BusinessAuditService",
+        return_value=audit_service,
+    )
+
+    await service.remove_inactive_player(
+        team.id,
+        selected_player.id,
+        expected_team_version=2,
+        actor=remediation_actor(),
+    )
+
+    service._validate_roster_players.assert_awaited_once_with(remaining_player_ids)
+    version_check.assert_awaited_once_with(session, Team, team.id, 2)
+    delete_sql = str(session.execute.await_args.args[0])
+    assert "DELETE FROM team_players" in delete_sql
+    assert "team_players.team_id" in delete_sql
+    assert "team_players.player_id" in delete_sql
+    audit_call = audit_service.record.await_args.kwargs
+    assert audit_call["action_type"] is AuditActionType.ROSTER_REMOVED
+    assert audit_call["metadata"] == {
+        "player_id": selected_player.id,
+        "prior_roster_position": 6,
+    }
+    session.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_roster_remediation_enforces_valid_active_roster_preconditions(
+    mocker,
+) -> None:
+    team = make_team()
+    selected_player = SimpleNamespace(id=uuid4(), is_active=False)
+    membership = SimpleNamespace(roster_order=1)
+    remaining_result = Mock()
+    remaining_result.all.return_value = make_player_ids(6)
+    session = Mock()
+
+    async def get_entity(model, key):
+        return {
+            Team: team,
+            Player: selected_player,
+            TeamPlayer: membership,
+        }[model]
+
+    session.get = AsyncMock(side_effect=get_entity)
+    session.scalars = AsyncMock(return_value=remaining_result)
+    session.execute = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    service = TeamService(session)
+    service._validate_roster_players = AsyncMock(
+        side_effect=TeamValidationError("A team roster must contain 7 to 15 players.")
+    )
+    version_check = mocker.patch(
+        "src.services.team_service.check_and_increment_version",
+        new=AsyncMock(),
+    )
+
+    with pytest.raises(TeamValidationError, match="7 to 15"):
+        await service.remove_inactive_player(
+            team.id,
+            selected_player.id,
+            expected_team_version=1,
+            actor=remediation_actor(),
+        )
+
+    version_check.assert_not_awaited()
+    session.execute.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_roster_remediation_rejects_changed_target_and_occ_conflict(
+    mocker,
+) -> None:
+    team = make_team()
+    active_player = SimpleNamespace(id=uuid4(), is_active=True)
+    membership = SimpleNamespace(roster_order=1)
+    session = Mock()
+
+    async def get_entity(model, key):
+        return {
+            Team: team,
+            Player: active_player,
+            TeamPlayer: membership,
+        }[model]
+
+    session.get = AsyncMock(side_effect=get_entity)
+    session.rollback = AsyncMock()
+
+    with pytest.raises(TeamRemediationConflictError, match="inactive"):
+        await TeamService(session).remove_inactive_player(
+            team.id,
+            active_player.id,
+            expected_team_version=1,
+        )
+    session.rollback.assert_awaited_once()
+
+    memberships = [
+        SimpleNamespace(player_id=uuid4(), roster_order=position)
+        for position in (1, 2, 4, 5, 6, 7, 8)
+    ]
+    membership_result = Mock()
+    membership_result.all.return_value = memberships
+    stale_session = Mock()
+    stale_session.get = AsyncMock(return_value=team)
+    stale_session.scalars = AsyncMock(return_value=membership_result)
+    stale_session.rollback = AsyncMock()
+    stale_service = TeamService(stale_session)
+    stale_service._validate_roster_players = AsyncMock()
+    mocker.patch(
+        "src.services.team_service.check_and_increment_version",
+        new=AsyncMock(side_effect=StaleVersionError(Team, team.id, 1)),
+    )
+    audit_service = Mock()
+    audit_service.record = AsyncMock()
+    mocker.patch(
+        "src.services.team_service.BusinessAuditService",
+        return_value=audit_service,
+    )
+
+    with pytest.raises(StaleVersionError):
+        await stale_service.normalize_roster_order(
+            team.id,
+            expected_team_version=1,
+            actor=remediation_actor(),
+        )
+
+    stale_session.rollback.assert_awaited_once()
+    audit_service.record.assert_not_awaited()
