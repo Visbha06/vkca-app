@@ -28,7 +28,10 @@ introduced.
 
 **Primary Dependencies**: Existing FastAPI, Pydantic 2, async SQLAlchemy 2,
 asyncpg, PostgreSQL/pgvector runtime, React Router, Vitest, Testing Library,
-pytest/pytest-asyncio/pytest-mock, and Playwright. No new dependency is needed.
+pytest/pytest-asyncio/pytest-mock, and Playwright. Add one pinned,
+development-only OpenAPI-to-TypeScript generator if the frontend has no
+equivalent existing tool; it is required to meet the API-boundary constitution
+rule and is not a runtime dependency.
 
 **Storage**: Existing PostgreSQL academy schema. No new tables, columns,
 indexes, or migrations in the initial release; findings and commands are
@@ -71,14 +74,14 @@ does not load full ORM graphs or issue per-entity queries.
 | --- | --- | --- |
 | I. Clean Code | PASS | Separate typed schemas, evaluator/rules, domain-service adapters, route, and small frontend components; no parallel generic editor. |
 | II. Simple UX | PASS | One Head Coach page, summary-first review, focused filters, direct action only for unambiguous corrections, and existing workflows for judgment. |
-| III. Responsive Design | PASS | Reuse existing layout/tokens, stack filters and findings at 320px, and automate mobile/desktop coverage. |
-| IV. Minimal Dependencies | PASS | Uses current dependencies; no `pyproject.toml` or package changes planned. |
+| III. Responsive Design | PASS | Reuse existing layout/tokens, stack filters and findings at 320px, and automate 320px, 768px, and desktop coverage. |
+| IV. Minimal Dependencies | PASS | Reuse current runtime dependencies. If necessary, add one pinned frontend development-only OpenAPI type generator, justified by Constitution X; no backend or runtime dependency changes are planned. |
 | V. Testing Discipline | PASS | Unit tests for new logic/components, required integration tests from the spec, quickstart test `test_010_quickstart_flow.py`, and Playwright primary journey. |
 | VI. MCP Server Priority | PASS | The repository review used codebase-memory and mcp-ripgrep patterns before design; implementation should continue using them for structure/literal searches. |
 | VII. Database Schema Migrations | PASS | No persistence/schema change is planned. If implementation discovers a required schema change, stop and add a versioned migration before proceeding. |
 | VIII. UX Completeness | PASS | UI contract references `PRODUCT.md` and `DESIGN.md` and defines layout, states, responsive behavior, focus, modal, and non-color severity behavior. |
 | IX. Optimistic Concurrency | PASS | Direct actions carry current team/user versions, re-check conditions in the domain transaction, and map conflicts to HTTP 409/recovery UI. |
-| X. Strongly-Typed API Boundaries | PASS | Pydantic schemas and mirrored TypeScript types use strict allowlists; no `any` or generic field maps. |
+| X. Strongly-Typed API Boundaries | PASS | FastAPI OpenAPI-generated frontend contract types are the source of truth for Data Quality request/response boundaries; generation and a drift check keep them synchronized with Pydantic models. UI-only state types remain separate; no `any` or generic field maps. |
 | XI. Frontend Component Discipline | PASS | Page logic is split into hook/API/container/presentational components and follows existing Tailwind spacing/size conventions. |
 | XII. Documentation | PASS | Plan artifacts are created now; implementation will add verified `docs/academy-data-quality.md` after the feature is complete. |
 
@@ -150,8 +153,13 @@ directly. No action is available for `coach.sole_head_coach_integrity`.
 
 ### Frontend strategy
 
-- Create a `data-quality` feature with API functions, strict types, a fetch hook,
-  page, summary, filter controls, finding list/card, state components, and a
+- Generate frontend API contract types from the FastAPI OpenAPI document. The
+  generated module is the source of truth for data-quality read and remediation
+  request/response boundaries; a reproducible generation command and CI drift
+  check verify it remains synchronized with the registered Pydantic models.
+  Keep only UI-local state and props in hand-authored feature types.
+- Create a `data-quality` feature with API functions, a fetch hook, page,
+  summary, filter controls, finding list/card, state components, and a
   confirmation dialog.
 - Add a Data Quality icon/navigation item directly after Audit Log and add a
   `HeadCoachRoute`-wrapped route.
@@ -161,7 +169,9 @@ directly. No action is available for `coach.sole_head_coach_integrity`.
   filtered no-results; refresh after successful remediation; show safe conflict
   recovery after HTTP 409.
 - Navigate to existing `/players`, `/teams`, `/coaches`, and `/calendar`
-  workflows for subjective fixes. Use textual severity and no color-only state.
+  workflows for subjective fixes. Verify the mapping for all 17 rule IDs,
+  including roster-to-Teams and manual-review-only findings. Use textual
+  severity and no color-only state.
 
 ## Project Structure
 
@@ -220,6 +230,7 @@ frontend/
 │   │   └── data-quality/
 │   │       ├── api/dataQualityApi.ts
 │   │       ├── api/dataQualityApi.test.ts
+│   │       ├── api/generated.ts        # generated from FastAPI OpenAPI; do not hand-edit
 │   │       ├── components/
 │   │       │   ├── DataQualitySummary.tsx
 │   │       │   ├── DataQualityFilters.tsx
@@ -253,11 +264,12 @@ docs/
 4. Add/reuse safe TeamService and CoachService remediation operations with OCC,
    rollback, and existing audit actions; add the remediation route and conflict
    mapping.
-5. Add frontend types/API/hook, route/nav, summary/filter/result/state
+5. Generate OpenAPI-derived frontend contract types as each Data Quality route
+   is registered, then add the API/hook, route/nav, summary/filter/result/state
    components, navigation controls, and confirmation-gated direct actions.
 6. Add backend route/remediation/quickstart tests, frontend tests, and the
-   Playwright journey; add query-count/regression evidence using realistic
-   seeded data where practical.
+   Playwright journey at 320px, 768px, and desktop; add query-count/regression
+   evidence using realistic seeded data where practical.
 7. Run repository quality gates, verify responsive/accessibility behavior, and
    write `docs/academy-data-quality.md` only after implementation is verified.
 
