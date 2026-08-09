@@ -1,101 +1,183 @@
 # VKCA App
 
-A full-stack cricket academy management platform for the **VK Cricket Academy**.
+A full-stack cricket academy management platform for **VK Cricket Academy**, built to centralize academy operations, player development, team administration, scheduling, and coaching workflows.
 
-VKCA App provides a central system for managing academy users, players, teams, matches, performances, and cricket statistics. It combines a FastAPI backend with a responsive React frontend and a PostgreSQL database.
+VKCA App combines a modern React frontend with a FastAPI backend and PostgreSQL database. The application is designed around role-aware workflows for Head Coaches, Assistant Coaches, and Players, with an emphasis on accessibility, security, responsive interaction, and reliable academy data.
 
-> **Project status:** Under active development.
+> **Project status:** 🚧 Under active development
+
+---
 
 ## Features
 
-### Authentication and security
+### Authentication & Security
 
-* Email and password authentication
-* JWT access tokens
-* Rotating refresh-token sessions
-* Role-based access control
-* Protected frontend routes
-* CSRF protection for authenticated mutations
-* Login rate limiting
-* Secure Argon2id password hashing
-* Configurable password and session policies
+- Email and password authentication
+- Short-lived JWT access tokens
+- Rotating refresh-token sessions
+- Role-based access control
+- Protected frontend routes
+- CSRF protection for authenticated mutations
+- Login rate limiting
+- Argon2id password hashing
+- Configurable password and session policies
+- Session revocation for deactivated users
+- Authentication and security audit handling
 
-### Player management
+### Player Management
 
-* Browse and search the player directory
-* View detailed player profiles
-* Add new players
-* Edit existing player information
-* Filter players by team
-* Role-aware management controls
+- Browse and search the player directory
+- View detailed player profiles
+- Add new players
+- Edit existing player information
+- Filter players by team
+- Role-aware management controls
+- Responsive player-management workflows
+- Accessible forms and modal interactions
 
-### Team management
+### Team Management
 
-* Browse academy teams
-* Create and update teams
-* View team details and rosters
-* Assign players to teams
-* Search, filter, and sort team records
+- Browse academy teams
+- Search, filter, and sort team records
+- Create and update teams
+- View team details and rosters
+- Assign and remove players from teams
+- Role-aware team administration
+- Optimistic concurrency protection for conflicting updates
 
-### Cricket data
+### Coaches Portal
 
-The backend contains API modules for:
+- Browse Head Coach and Assistant Coach accounts
+- Filter coaches by account status
+- View coach profiles and team assignments
+- Add new Assistant Coach accounts
+- Generate one-time temporary passwords for new coaches
+- Activate and deactivate coach accounts
+- Revoke sessions when a coach is deactivated
+- Assign coaches to academy teams
+- Role-based management controls
+- Responsive coach cards and accessible detail dialogs
 
-* Matches
-* Player performances
-* Player and team statistics
-* Users
-* Players
-* Teams
+### Academy Calendar
 
-### Frontend experience
+- Custom responsive monthly calendar
+- Current-day and Today schedule views
+- Practice, Game, and Miscellaneous event types
+- Age-group and All Academy event scopes
+- Create, edit, and delete events
+- Weekly and yearly recurring events
+- Edit or delete individual recurring occurrences
+- Manage entire recurring series
+- Recurrence exceptions for moved or deleted occurrences
+- Optimistic concurrency protection
+- Pacific-time academy date handling
+- Role-aware event management
+- Keyboard-accessible calendar navigation
+- Loading, empty, error, and conflict recovery states
 
-* Responsive application layout
-* Collapsible navigation sidebar
-* Authentication-aware routing
-* Dashboard and academy navigation
-* Player and team management interfaces
-* Calendar, coaches, and settings routes
-* Accessible forms, dialogs, tables, and navigation
-* Automatic session refresh and expiry handling
+### Business Audit Log
+
+- Append-only academy business activity history
+- Records successful administrative and domain changes
+- Tracks actor, action, entity, summary, and timestamp snapshots
+- Filter by:
+  - Actor
+  - Category
+  - Action
+  - Entity
+  - Date range
+- Paginated audit history
+- Expandable event details
+- Historical snapshots remain readable after entities change
+- Head Coach-only access
+- Recent academy activity integration
+- Separate from authentication/security audit data
+- Sanitized metadata with no secrets, credentials, or raw payloads
+
+### Cricket Data API
+
+The backend also contains domain foundations for:
+
+- Matches
+- Player performances
+- Player statistics
+- Team statistics
+- Users
+- Players
+- Teams
+
+These APIs provide the foundation for future match-management and performance-analysis interfaces.
+
+---
 
 ## Technology Stack
 
 ### Frontend
 
-* React 19
-* TypeScript
-* Vite
-* React Router
-* Tailwind CSS
-* Vitest
-* React Testing Library
-* Playwright
-* ESLint
+- **React 19**
+- **TypeScript 6**
+- **React Router 8**
+- **Vite 8**
+- **Tailwind CSS 4**
+- Vitest
+- React Testing Library
+- Playwright
+- ESLint
 
 ### Backend
 
-* Python 3.12+
-* FastAPI
-* SQLAlchemy
-* PostgreSQL
-* asyncpg
-* Alembic
-* Pydantic
-* Pydantic Settings
-* Argon2
-* JSON Web Tokens
-* pgvector
-* Pytest
-* Ruff
-* mypy
-* Bandit
+- **Python 3.12+**
+- **FastAPI**
+- **SQLAlchemy 2**
+- **PostgreSQL**
+- asyncpg
+- Alembic
+- Pydantic
+- Pydantic Settings
+- Argon2
+- JSON Web Tokens
+- pgvector
+- Pytest
+- Ruff
+- mypy
+- Bandit
 
-### Infrastructure
+### Infrastructure & Tooling
 
-* Docker Compose
-* PostgreSQL 16 with pgvector
-* Uvicorn
+- Docker Compose
+- PostgreSQL 16 with pgvector
+- Uvicorn
+- `uv` for Python dependency management
+- Spec-driven development with feature specifications under `specs/`
+
+---
+
+## Architecture
+
+VKCA App uses a feature-oriented full-stack architecture.
+
+```text
+Browser
+   │
+   ▼
+React + TypeScript
+   │
+   │ REST / JSON
+   ▼
+FastAPI
+   │
+   ├── Routes
+   ├── Services
+   ├── Repositories
+   └── SQLAlchemy
+          │
+          ▼
+      PostgreSQL
+```
+
+The frontend groups domain behavior into feature modules, while the backend separates routing, business logic, persistence, validation, and database models.
+
+---
 
 ## Repository Structure
 
@@ -103,46 +185,115 @@ The backend contains API modules for:
 vkca-app/
 ├── backend/
 │   ├── src/
-│   │   ├── middleware/       # API middleware and error handling
-│   │   ├── migrations/       # Alembic database migrations
-│   │   ├── models/           # SQLAlchemy database models
+│   │   ├── middleware/       # API middleware and request handling
+│   │   ├── migrations/       # Alembic migrations
+│   │   ├── models/           # SQLAlchemy models
 │   │   ├── repositories/     # Database access layer
 │   │   ├── routes/           # FastAPI route modules
-│   │   ├── schemas/          # Request and response schemas
-│   │   ├── services/         # Application and security services
-│   │   └── main.py           # FastAPI application entry point
-│   ├── tests/                # Backend test suite
+│   │   ├── schemas/          # Request/response schemas
+│   │   ├── services/         # Application and domain services
+│   │   └── main.py           # FastAPI application
+│   ├── tests/                # Backend tests
 │   ├── alembic.ini
 │   └── pyproject.toml
+│
 ├── frontend/
 │   ├── src/
-│   │   ├── app/              # Application setup and routing
-│   │   ├── features/         # Feature-oriented application modules
-│   │   │   ├── auth/
-│   │   │   ├── players/
-│   │   │   ├── settings/
-│   │   │   └── teams/
-│   │   ├── layouts/          # Shared page layouts
-│   │   ├── pages/            # Top-level application pages
-│   │   └── shared/           # Shared API, components, and utilities
+│   │   ├── app/              # Router and application setup
+│   │   ├── assets/           # Images and static assets
+│   │   ├── features/
+│   │   │   ├── audit/        # Business Audit Log
+│   │   │   ├── auth/         # Authentication
+│   │   │   ├── calendar/     # Academy calendar
+│   │   │   ├── coaches/      # Coaches Portal
+│   │   │   ├── players/      # Player management
+│   │   │   ├── settings/     # Account/settings features
+│   │   │   └── teams/        # Team management
+│   │   ├── layouts/          # Application layouts
+│   │   ├── pages/            # Top-level route wrappers/pages
+│   │   ├── shared/           # Shared APIs, components and utilities
+│   │   └── styles/           # Global styling
 │   ├── e2e/                  # Playwright end-to-end tests
-│   ├── package.json
-│   └── vite.config.ts
-├── specs/                    # Feature specifications and implementation plans
-├── .env.example              # Example local environment configuration
-├── docker-compose.yml        # Local PostgreSQL service
+│   └── package.json
+│
+├── specs/                    # Feature specifications and plans
+├── docs/                     # Supporting project documentation
+├── scripts/                  # Development scripts
+├── sast-reports/             # Security-analysis output
+├── DESIGN.md                 # Product design guidance
+├── PRODUCT.md                # Product principles and goals
+├── .env.example
+├── docker-compose.yml
 └── README.md
 ```
 
+---
+
+## Implemented Feature Specifications
+
+Development is organized around specification-driven feature increments.
+
+```text
+001  Cricket Backend API
+002  Authentication & API Security
+003  Frontend Application Shell
+004  Frontend Authentication & Accounts
+005  Players Interface
+006  Teams Interface
+007  Coaches Portal
+008  Calendar Interface
+009  Business Audit Log
+```
+
+Each feature directory under `specs/` contains planning and implementation artifacts used to guide development.
+
+---
+
+## Roles & Permissions
+
+### Head Coach
+
+Full academy-management access, including:
+
+- Players
+- Teams
+- Coaches
+- Calendar
+- Business Audit Log
+- Account and administrative workflows
+
+### Assistant Coach
+
+Operational coaching access, including:
+
+- Player and team workflows
+- Coaches Portal visibility
+- Calendar viewing and event management
+
+Administrative actions remain restricted where appropriate.
+
+### Player
+
+Primarily read-oriented access to academy information relevant to players.
+
+Sensitive administrative surfaces such as the Business Audit Log and coach administration are not exposed to Player accounts.
+
+Backend authorization remains authoritative even when controls are hidden in the frontend.
+
+---
+
 ## Prerequisites
 
-Install the following before running the application:
+Install:
 
-* Python 3.12 or newer
-* [uv](https://docs.astral.sh/uv/)
-* Node.js 24 or another version compatible with the locked frontend dependencies
-* npm
-* Docker and Docker Compose
+- Python **3.12+**
+- [`uv`](https://docs.astral.sh/uv/)
+- Node.js **24** or another version compatible with the locked frontend dependencies
+- npm
+- Docker
+- Docker Compose
+
+---
 
 ## Local Development
 
@@ -161,15 +312,15 @@ Copy the example environment file:
 cp .env.example .env
 ```
 
-Replace the placeholder values in `.env`, particularly the database password and JWT secret.
+Replace the placeholder database credentials and JWT secret.
 
-Generate a secure JWT secret with:
+Generate a secure JWT secret:
 
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-A local configuration can resemble:
+Example:
 
 ```env
 DATABASE_URL=postgresql+asyncpg://postgres:your-password@localhost:5455/academy_db
@@ -190,7 +341,7 @@ PASSWORD_MIN_LENGTH=12
 PASSWORD_MAX_LENGTH=128
 ```
 
-Do not commit your `.env` file.
+> Never commit `.env`.
 
 ### 3. Start PostgreSQL
 
@@ -200,13 +351,13 @@ From the repository root:
 docker compose up -d db
 ```
 
-The default development configuration exposes PostgreSQL on port `5455`.
-
-To verify that the container is running:
+Verify it is running:
 
 ```bash
 docker compose ps
 ```
+
+The default local configuration exposes PostgreSQL on port `5455`.
 
 ### 4. Install backend dependencies
 
@@ -216,8 +367,6 @@ uv sync --all-groups
 ```
 
 ### 5. Apply database migrations
-
-From the `backend` directory:
 
 ```bash
 uv run alembic upgrade head
@@ -229,23 +378,23 @@ uv run alembic upgrade head
 uv run uvicorn src.main:app --reload
 ```
 
-The backend will be available at:
+The API is available at:
 
 ```text
 http://localhost:8000
 ```
 
-Useful development endpoints:
+Useful endpoints:
 
 ```text
-API documentation: http://localhost:8000/docs
-OpenAPI schema:    http://localhost:8000/openapi.json
-Health check:      http://localhost:8000/api/v1/health
+Swagger UI:      http://localhost:8000/docs
+OpenAPI schema:  http://localhost:8000/openapi.json
+Health check:    http://localhost:8000/api/v1/health
 ```
 
 ### 7. Install frontend dependencies
 
-Open another terminal:
+In another terminal:
 
 ```bash
 cd frontend
@@ -258,21 +407,71 @@ npm install
 npm run dev
 ```
 
-The frontend will normally be available at:
+The application normally runs at:
 
 ```text
 http://localhost:5173
 ```
 
-During development, the frontend uses `http://localhost:8000` as its default API origin.
+The development frontend uses:
 
-To use another backend origin, set:
+```text
+http://localhost:8000
+```
+
+as its default backend API origin.
+
+To override it:
 
 ```env
 VITE_API_BASE_URL=https://your-api.example.com
 ```
 
-## Development Commands
+---
+
+## API Overview
+
+Application endpoints use the `/api/v1` prefix.
+
+Major API areas include:
+
+```text
+/api/v1/auth
+/api/v1/users
+/api/v1/players
+/api/v1/teams
+/api/v1/coaches
+/api/v1/calendar
+/api/v1/business-audit
+/api/v1/matches
+/api/v1/performances
+/api/v1/stats
+/api/v1/health
+```
+
+See the generated Swagger documentation at `/docs` for current schemas and operations.
+
+---
+
+## Authentication Model
+
+VKCA App uses a split-token session model:
+
+1. The user authenticates with email and password.
+2. The backend issues a short-lived access token.
+3. Refresh credentials maintain the longer-lived authenticated session.
+4. The frontend keeps the access token in application memory.
+5. Refresh credentials use secure cookie handling.
+6. Authenticated mutations include CSRF protection.
+7. Refresh sessions rotate during renewal.
+8. Expired or revoked sessions return users to authentication.
+9. Role authorization is enforced by the backend.
+
+Passwords are hashed with **Argon2id** and are never stored in plaintext.
+
+---
+
+## Testing & Quality
 
 ### Backend
 
@@ -283,7 +482,7 @@ cd backend
 uv run pytest
 ```
 
-Run lint checks:
+Lint:
 
 ```bash
 uv run ruff check .
@@ -301,58 +500,43 @@ Apply formatting:
 uv run ruff format .
 ```
 
-Run static type checking:
+Type checking:
 
 ```bash
 uv run mypy src
 ```
 
-Run the Bandit security scanner:
+Security scanning:
 
 ```bash
 uv run bandit -c pyproject.toml -r src
 ```
 
-Create a new database migration:
-
-```bash
-uv run alembic revision --autogenerate -m "describe the change"
-```
-
-Apply all migrations:
-
-```bash
-uv run alembic upgrade head
-```
-
 ### Frontend
-
-Run the development server:
 
 ```bash
 cd frontend
-npm run dev
 ```
 
-Create a production build:
-
-```bash
-npm run build
-```
-
-Run lint checks:
+Lint:
 
 ```bash
 npm run lint
 ```
 
-Run unit and component tests:
+Unit and component tests:
 
 ```bash
 npm test
 ```
 
-Run end-to-end tests:
+Production build:
+
+```bash
+npm run build
+```
+
+End-to-end tests:
 
 ```bash
 npm run test:e2e
@@ -364,105 +548,125 @@ Preview the production build:
 npm run preview
 ```
 
-## API Overview
+---
 
-All application endpoints use the `/api/v1` prefix.
+## Database Migrations
 
-Major API groups include:
-
-```text
-/api/v1/auth
-/api/v1/users
-/api/v1/players
-/api/v1/teams
-/api/v1/matches
-/api/v1/performances
-/api/v1/stats
-/api/v1/health
-```
-
-Refer to the generated Swagger documentation at `/docs` for the current request schemas, response models, and available operations.
-
-## Authentication Model
-
-The application uses a split-token authentication model:
-
-* Short-lived access tokens authorize API requests.
-* Refresh sessions allow access tokens to be renewed.
-* Refresh credentials are sent using secure cookies.
-* The frontend stores the access token in application memory.
-* Mutating requests include CSRF protection.
-* Expired sessions redirect users back to the login page.
-* Authorization rules restrict operations according to the authenticated user’s role.
-
-## Testing
-
-The repository includes several levels of automated testing:
-
-* Backend unit and API tests with Pytest
-* Frontend unit and component tests with Vitest
-* UI behavior tests with React Testing Library
-* End-to-end browser tests with Playwright
-* Backend linting and formatting with Ruff
-* Frontend linting with ESLint
-* Backend security checks with Bandit
-
-Before submitting changes, run the relevant backend and frontend checks:
+Create a migration:
 
 ```bash
 cd backend
-uv run pytest
-uv run ruff check .
-uv run ruff format --check .
+uv run alembic revision --autogenerate -m "describe the change"
 ```
+
+Apply migrations:
 
 ```bash
-cd frontend
-npm run lint
-npm test
-npm run build
-npm run test:e2e
+uv run alembic upgrade head
 ```
 
-## Database Management
+PostgreSQL data is persisted through the Docker volume:
 
-PostgreSQL data is persisted in the Docker volume named `postgres_data`.
+```text
+postgres_data
+```
 
-Stop the database without deleting its data:
+Stop services without deleting database data:
 
 ```bash
 docker compose down
 ```
 
-Stop the database and delete its local data:
+Delete the local database volume:
 
 ```bash
 docker compose down -v
 ```
 
-> Deleting the volume permanently removes the local development database.
+> **Warning:** `docker compose down -v` permanently deletes the local development database.
+
+---
+
+## Design & Accessibility
+
+The application targets **WCAG 2.1 AA** and emphasizes:
+
+- Complete keyboard operation
+- Visible focus states
+- Accessible dialogs and forms
+- Semantic page structure
+- Screen-reader-compatible status feedback
+- Reduced-motion support
+- Responsive mobile layouts
+- Touch-friendly controls
+- Readable contrast
+- Status communication that does not rely on color alone
+
+The interface intentionally avoids decorative dashboard patterns that interfere with common academy workflows. The goal is a direct, operational experience centered on player development and day-to-day coaching work.
+
+See:
+
+- `DESIGN.md`
+- `PRODUCT.md`
+
+for additional design and product guidance.
+
+---
+
+## Development Workflow
+
+Larger features follow a specification-driven workflow:
+
+```text
+Feature idea
+    ↓
+Specification
+    ↓
+Implementation plan
+    ↓
+Task breakdown
+    ↓
+Development
+    ↓
+Testing & validation
+    ↓
+UI/UX and security audit
+    ↓
+Pull request
+```
+
+Feature documentation is stored in `specs/`.
+
+---
+
+## Roadmap
+
+Upcoming areas include:
+
+- Match-management frontend workflows
+- Player performance entry and analysis
+- Rich player and team statistics
+- Expanded dashboard analytics
+- Training and development insights
+- Production deployment
+- CI/CD automation
+- Academy-data search
+- AI-assisted academy insights using the existing vector-capable data stack
+
+---
 
 ## Contributing
 
 1. Create a branch from `main`.
-2. Make a focused set of changes.
+2. Keep changes focused.
 3. Add or update relevant tests.
-4. Run the backend and frontend quality checks.
-5. Commit the changes with a descriptive message.
+4. Run applicable frontend and backend checks.
+5. Commit with a descriptive message.
 6. Open a pull request targeting `main`.
 
-The project uses feature specifications and implementation plans under `specs/` to guide larger changes.
+For substantial features, create or update the corresponding specification under `specs/`.
 
-## Roadmap
-
-Planned development areas include:
-
-* Expanded match and training-session workflows
-* Deeper player-performance analytics
-* Coach and staff management
-* Calendar integration
-* Production deployment and CI/CD
-* Academy-data search and AI-assisted insights
+---
 
 ## Author
 
