@@ -1,11 +1,16 @@
-"""Shared fixtures for authenticated integration API requests."""
+"""Shared fixtures for authenticated and Data Quality integration tests."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import httpx
+import pytest
 import pytest_asyncio
 from sqlalchemy import delete
+from sqlalchemy import event as sqlalchemy_event
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import AsyncSessionFactory, engine, get_db
@@ -13,9 +18,82 @@ from src.enums import UserRole
 from src.main import app
 from src.models.auth_audit_log import AuthAuditLog
 from src.models.auth_session import AuthSession
+from src.models.calendar import OccurrenceException, RecurrenceSeries
+from src.models.player import Player
+from src.models.team import Team
+from src.models.team_coach import TeamCoach
+from src.models.team_player import TeamPlayer
 from src.models.user import User
 from src.services.password_service import PasswordService
+from tests.data_quality_builders import (
+    PersistedQualityDataBuilder,
+    assert_projection_query_count,
+    build_quality_calendar_exception,
+    build_quality_calendar_series,
+    build_quality_coach,
+    build_quality_coach_assignment,
+    build_quality_player,
+    build_quality_projection_session,
+    build_quality_roster_membership,
+    build_quality_team,
+)
 from tests.database_safety import assert_safe_test_database_url
+
+
+@dataclass(slots=True)
+class SqlQueryCounter:
+    """Statements observed inside one explicitly bounded test block."""
+
+    statements: list[str] = field(default_factory=list)
+
+    @property
+    def total(self) -> int:
+        return len(self.statements)
+
+    @property
+    def select_count(self) -> int:
+        return sum(
+            statement.lstrip().upper().startswith("SELECT")
+            for statement in self.statements
+        )
+
+    def assert_at_most(self, maximum: int) -> None:
+        assert self.total <= maximum, (
+            f"expected at most {maximum} SQL statements, observed {self.total}"
+        )
+
+
+class DataQualityQueryCounter:
+    """Attach and safely remove a SQLAlchemy statement listener."""
+
+    @contextmanager
+    def count(self) -> Iterator[SqlQueryCounter]:
+        counter = SqlQueryCounter()
+
+        def record_statement(
+            connection,
+            cursor,
+            statement: str,
+            parameters,
+            execution_context,
+            executemany: bool,
+        ) -> None:
+            del connection, cursor, parameters, execution_context, executemany
+            counter.statements.append(statement)
+
+        sqlalchemy_event.listen(
+            engine.sync_engine,
+            "before_cursor_execute",
+            record_statement,
+        )
+        try:
+            yield counter
+        finally:
+            sqlalchemy_event.remove(
+                engine.sync_engine,
+                "before_cursor_execute",
+                record_statement,
+            )
 
 
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
@@ -112,3 +190,85 @@ async def authenticated_client(
             )
             await cleanup_session.execute(delete(User).where(User.id == user_id))
             await cleanup_session.commit()
+
+
+@pytest.fixture
+def quality_player_builder() -> Callable[..., Player]:
+    """Expose isolated player records for integration datasets."""
+
+    return build_quality_player
+
+
+@pytest.fixture
+def quality_team_builder() -> Callable[..., Team]:
+    """Expose isolated team records for integration datasets."""
+
+    return build_quality_team
+
+
+@pytest.fixture
+def quality_roster_membership_builder() -> Callable[..., TeamPlayer]:
+    """Expose exact roster relationship records."""
+
+    return build_quality_roster_membership
+
+
+@pytest.fixture
+def quality_coach_builder() -> Callable[..., User]:
+    """Expose coach and invalid-role account records."""
+
+    return build_quality_coach
+
+
+@pytest.fixture
+def quality_coach_assignment_builder() -> Callable[..., TeamCoach]:
+    """Expose exact account/team assignment records."""
+
+    return build_quality_coach_assignment
+
+
+@pytest.fixture
+def quality_calendar_series_builder() -> Callable[..., RecurrenceSeries]:
+    """Expose recurrence series with complete owning events."""
+
+    return build_quality_calendar_series
+
+
+@pytest.fixture
+def quality_calendar_exception_builder() -> Callable[..., OccurrenceException]:
+    """Expose complete occurrence exception snapshots."""
+
+    return build_quality_calendar_exception
+
+
+@pytest.fixture
+def quality_projection_session_builder() -> Callable[..., AsyncMock]:
+    """Expose fixed projection rows for service-level integration tests."""
+
+    return build_quality_projection_session
+
+
+@pytest.fixture
+def projection_query_count_assertion() -> Callable[[AsyncMock, int], None]:
+    """Expose the fixed projection-query assertion."""
+
+    return assert_projection_query_count
+
+
+@pytest.fixture
+def data_quality_query_counter() -> DataQualityQueryCounter:
+    """Expose an engine-level SQL counter for N+1 regression tests."""
+
+    return DataQualityQueryCounter()
+
+
+@pytest_asyncio.fixture
+async def quality_data_builder() -> AsyncIterator[PersistedQualityDataBuilder]:
+    """Stage quality records inside the suite's rollback-only connection."""
+
+    async with AsyncSessionFactory() as session:
+        builder = PersistedQualityDataBuilder(session)
+        try:
+            yield builder
+        finally:
+            await session.rollback()

@@ -72,7 +72,7 @@ export default function DateOfBirthPicker({
             id={popoverId}
             role="dialog"
             aria-labelledby={headingId}
-            className="date-of-birth-popover fixed z-dropdown w-80 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-lg border border-slate-300 bg-white p-0.5 text-slate-900 sm:p-2"
+            className="date-of-birth-popover fixed z-dropdown w-80 max-w-[calc(100vw-0.5rem)] overflow-y-auto rounded-lg border border-slate-300 bg-white py-2 text-slate-900"
             style={position}
           >
             <p id={headingId} className="sr-only" aria-live="polite">

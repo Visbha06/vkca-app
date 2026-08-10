@@ -106,7 +106,7 @@ describe('DateOfBirthPicker', () => {
       screen.getByRole('dialog', {
         name: 'Choose date of birth, July 2026',
       }),
-    ).toHaveClass('w-80', 'max-w-[calc(100vw-1.5rem)]')
+    ).toHaveClass('w-80', 'max-w-[calc(100vw-0.5rem)]')
     expect(screen.getByRole('combobox', { name: 'Month' })).toHaveValue('7')
     expect(screen.getByRole('combobox', { name: 'Year' })).toHaveValue('2026')
     expect(onChange).not.toHaveBeenCalled()

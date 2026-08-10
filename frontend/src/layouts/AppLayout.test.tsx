@@ -88,7 +88,7 @@ describe('AppLayout', () => {
     expect(screen.queryByRole('link', { name: 'Coaches Portal' })).not.toBeInTheDocument()
   })
 
-  it('shows Audit Log immediately after Calendar for Head Coaches only', () => {
+  it('shows Head Coach tools in the required order', () => {
     renderLayout(<h1>Head Coach dashboard</h1>, {
       id: 'head-coach-1',
       first_name: 'Asha',
@@ -104,10 +104,11 @@ describe('AppLayout', () => {
     const links = screen.getAllByRole('link').map((link) => link.textContent)
 
     expect(links.indexOf('Audit Log')).toBe(links.indexOf('Calendar') + 1)
+    expect(links.indexOf('Data Quality')).toBe(links.indexOf('Audit Log') + 1)
   })
 
   it.each(['assistant coach', 'player'] as const)(
-    'hides Audit Log navigation from %s users',
+    'hides Head Coach-only navigation from %s users',
     (role) => {
       renderLayout(<h1>Restricted dashboard</h1>, {
         id: `${role}-1`,
@@ -122,6 +123,7 @@ describe('AppLayout', () => {
       })
 
       expect(screen.queryByRole('link', { name: 'Audit Log' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: 'Data Quality' })).not.toBeInTheDocument()
     },
   )
 })

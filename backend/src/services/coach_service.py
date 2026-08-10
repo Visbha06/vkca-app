@@ -66,6 +66,10 @@ class CoachInactiveError(Exception):
         super().__init__("Not authorized")
 
 
+class CoachRemediationConflictError(Exception):
+    """Raised when an Assistant assignment target is no longer eligible."""
+
+
 class CoachService:
     """Query and manage coach accounts."""
 
@@ -379,3 +383,66 @@ class CoachService:
             raise
 
         return await self.get_coach(coach_id)
+
+    async def remove_inactive_assistant_assignment(
+        self,
+        coach_id: UUID,
+        team_id: UUID,
+        *,
+        expected_coach_version: int,
+        actor: AuditActorContext | None = None,
+    ) -> None:
+        """Remove one inactive Assistant Coach assignment and preserve all others."""
+
+        try:
+            coach = await self.session.get(User, coach_id)
+            if coach is None:
+                raise CoachNotFoundError
+            if coach.role != UserRole.ASSISTANT_COACH or coach.is_active:
+                raise CoachRemediationConflictError(
+                    "Only an inactive Assistant Coach assignment can be removed. "
+                    "Refresh the findings."
+                )
+
+            assignment = await self.session.get(
+                TeamCoach,
+                {"team_id": team_id, "user_id": coach_id},
+            )
+            if assignment is None:
+                raise CoachRemediationConflictError(
+                    "The selected coach assignment changed. Refresh the findings."
+                )
+
+            coach.version_number = await check_and_increment_version(
+                self.session,
+                User,
+                coach_id,
+                expected_coach_version,
+            )
+            await self.session.execute(
+                delete(TeamCoach).where(
+                    TeamCoach.user_id == coach_id,
+                    TeamCoach.team_id == team_id,
+                )
+            )
+            await self.session.flush()
+            if actor is not None:
+                await BusinessAuditService(self.session).record(
+                    actor=actor,
+                    action_type=AuditActionType.COACH_TEAM_ASSIGNMENTS_UPDATED,
+                    target=AuditTargetContext(
+                        entity_type=AuditEntityType.COACH,
+                        entity_id=coach.id,
+                        label=f"{coach.first_name} {coach.last_name}".strip(),
+                    ),
+                    metadata={
+                        "added_team_ids": [],
+                        "removed_team_ids": [team_id],
+                        "added_count": 0,
+                        "removed_count": 1,
+                    },
+                )
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
