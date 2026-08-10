@@ -171,11 +171,11 @@ coverage and the page remains usable at the supported narrow viewport.
 **Purpose**: Verify the complete feature, performance regressions, documentation,
 and repository quality gates.
 
-- [ ] T038 [P] Add the required end-to-end Playwright journey covering seeded/mocked multiple findings, Head Coach sidebar entry, summary, filters, entity review, inactive Assistant Coach remediation, resolved finding, underlying domain state, Business Audit Log event, and Assistant Coach/Player denial at 320px mobile, 768px tablet, and desktop viewport sizes in `frontend/e2e/data-quality-flow.spec.ts` and supporting `frontend/e2e/data-quality-fixtures.ts`.
-- [ ] T039 [P] Implement the required backend quickstart flow described in `specs/010-academy-data-quality/quickstart.md`, including isolated seed/cleanup and current findings/remediation/audit assertions, in `backend/tests/integration/quickstart/test_010_quickstart_flow.py`.
-- [ ] T040 [P] Add realistic seeded dataset query-count and scan-regression coverage for bounded projections, batching/joins/aggregates/grouping, deterministic repeated results, and no N+1 growth in `backend/tests/integration/test_data_quality_performance.py`.
-- [ ] T041 Write verified feature documentation covering purpose, Head Coach flows, API surface, remediation safety, audit behavior, and configuration in `docs/academy-data-quality.md` after implementation and tests pass.
-- [ ] T042 Run the documented focused tests, quickstart, generated-OpenAPI-type drift check, lint/build checks, and full repository gates from `specs/010-academy-data-quality/quickstart.md`; resolve failures without weakening the Head Coach, OCC, audit, boundedness, or accessibility requirements.
+- [X] T038 [P] Add the required end-to-end Playwright journey covering seeded/mocked multiple findings, Head Coach sidebar entry, summary, filters, entity review, inactive Assistant Coach remediation, resolved finding, underlying domain state, Business Audit Log event, and Assistant Coach/Player denial at 320px mobile, 768px tablet, and desktop viewport sizes in `frontend/e2e/data-quality-flow.spec.ts` and supporting `frontend/e2e/data-quality-fixtures.ts`.
+- [X] T039 [P] Implement the required backend quickstart flow described in `specs/010-academy-data-quality/quickstart.md`, including isolated seed/cleanup and current findings/remediation/audit assertions, in `backend/tests/integration/quickstart/test_010_quickstart_flow.py`.
+- [X] T040 [P] Add realistic seeded dataset query-count and scan-regression coverage for bounded projections, batching/joins/aggregates/grouping, deterministic repeated results, and no N+1 growth in `backend/tests/integration/test_data_quality_performance.py`.
+- [X] T041 Write verified feature documentation covering purpose, Head Coach flows, API surface, remediation safety, audit behavior, and configuration in `docs/academy-data-quality.md` after implementation and tests pass.
+- [X] T042 Run the documented focused tests, quickstart, generated-OpenAPI-type drift check, lint/build checks, and full repository gates from `specs/010-academy-data-quality/quickstart.md`; resolve failures without weakening the Head Coach, OCC, audit, boundedness, or accessibility requirements.
 
 ## Dependencies & Execution Order
 

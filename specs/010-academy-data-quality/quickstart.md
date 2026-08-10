@@ -29,9 +29,10 @@ From `backend/`:
 
 ```bash
 uv run pytest \
+  tests/unit/test_data_quality_rules.py \
   tests/unit/test_data_quality_service.py \
-  tests/unit/test_data_quality_schemas.py \
-  tests/unit/test_data_quality_routes.py
+  tests/unit/test_data_quality_routes.py \
+  tests/unit/test_data_quality_remediation.py
 ```
 
 These tests should demonstrate:
@@ -54,8 +55,10 @@ Run the feature integration tests from `backend/`:
 
 ```bash
 uv run pytest \
-  tests/integration/test_data_quality_flow.py \
+  tests/integration/test_data_quality_read.py \
   tests/integration/test_data_quality_remediation.py \
+  tests/integration/test_data_quality_authorization.py \
+  tests/integration/test_data_quality_performance.py \
   tests/integration/quickstart/test_010_quickstart_flow.py
 ```
 

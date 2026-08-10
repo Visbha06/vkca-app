@@ -95,7 +95,7 @@ export default function DateOfBirthDayGrid({
       aria-labelledby={labelledBy}
       className="mt-2"
     >
-      <div role="row" className="grid grid-cols-7 gap-px">
+      <div role="row" className="grid grid-cols-7">
         {WEEKDAYS.map(([shortName, fullName]) => (
           <div
             key={fullName}
@@ -112,7 +112,7 @@ export default function DateOfBirthDayGrid({
           key={weekIndex}
           role="row"
           data-calendar-week={weekIndex + 1}
-          className="grid grid-cols-7 gap-px"
+          className="grid grid-cols-7"
         >
           {days.slice(weekIndex * 7, weekIndex * 7 + 7).map((date) => {
             const isoDate = calendarDateToIso(date)
