@@ -42,11 +42,16 @@ from 320px through 2560px.
 **Project Type**: Full-stack web application with an authenticated API and
 React frontend.
 
-**Performance Goals**: At least 95% of normal dashboard opens in the documented
-local regression fixture reach a populated or explicit operational state within
-two seconds. Dashboard projections remain bounded to at most five Upcoming
-Events, twelve My Teams entries, and four Recent Academy Activity events, with
-query regression coverage proving no N+1 loading.
+**Performance Goals**: A deterministic local regression check uses an
+authenticated, populated Head Coach dashboard with three summary slots, a next
+Practice, a next Match, five Upcoming Events, and four Recent Academy Activity
+entries. After ten warm-up opens, measure 100 sequential dashboard navigations
+from immediately before navigation until the greeting, summaries, seeded events,
+and contextual panel are visible; sort durations ascending and require the 95th
+value (nearest-rank p95) to be at most 2.0 seconds. The check runs locally only
+and is not a production-network SLA. Dashboard projections remain bounded to at
+most five Upcoming Events, twelve My Teams entries, and four Recent Academy
+Activity events, with query regression coverage proving no N+1 loading.
 
 **Constraints**: Scope comes only from the database-loaded authenticated User;
 no client-supplied IDs or team sets. Calendar projection reuses the existing
@@ -233,7 +238,8 @@ derived from the existing usable workflows and never from a new permission.
 [`quickstart.md`](./quickstart.md) specifies the isolated backend quickstart,
 API checks for all roles, Match invariants, Player account mutations, inactive
 Player session enforcement, exact audit cardinality, migration validation, and
-the Playwright journey.
+the Playwright journey. The local dashboard performance regression uses the
+existing Playwright runner with `npm run test:e2e -- role-aware-dashboard-performance.spec.ts --project=chromium --workers=1`.
 
 ## Implementation Sequencing Notes
 

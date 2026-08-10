@@ -54,6 +54,15 @@ and role-specific panel without using any other page.
    the interface shows a clear retryable state, never restores the old hardcoded
    example data, and retains already usable sections where the failure is
    isolated.
+5. **Given** any supported dashboard role and content state, **When** the
+   dashboard renders, **Then** it shows exactly one designated primary action
+   that uses only an already permitted destination. If no permitted
+   administrative shortcut is available, the action is View Upcoming Events.
+   When there are no relevant Upcoming Events, it deterministically becomes
+   View Teams only when the user is already authorized for the existing Teams
+   workflow and has at least one scoped Team; otherwise View Upcoming Events
+   remains available and focuses its explicit empty state. No primary action
+   may expose an unauthorized destination.
 
 ### User Story 2 - Correctly represent upcoming Match participants (Priority: P1)
 
@@ -212,15 +221,21 @@ the right panel, bounds, navigation, empty states, and denied data separately.
 - **FR-003**: The greeting MUST use the authenticated user's current name from
   the existing current-user/authentication flow and use wording appropriate to
   the user's role. The general subtitle and visual hierarchy MUST remain intact.
-- **FR-004**: Quick actions MUST be role-aware and derived from capabilities
-  already exposed by the corresponding backend authorization and existing
-  workflow. Head Coaches MAY retain Add player and Schedule event; a Create
-  match action MUST be omitted or deferred unless an existing Match creation
-  workflow and route already exist. Assistant Coaches MUST see only suitable
-  actions they already have permission to perform, and MAY see no quick actions
-  if no suitable existing workflow exists. This feature MUST NOT add or expand
-  Assistant Coach or Match-management capabilities solely to populate the
-  dashboard. Players MUST see no administrative mutation shortcut.
+- **FR-004**: The dashboard MUST render exactly one designated primary action
+  for every permitted role and content state. The action MUST be chosen only
+  from destinations and capabilities already exposed by the corresponding
+  backend authorization and existing workflow; it MUST NOT grant or imply a
+  new permission. When an administrative quick action is already permitted,
+  select the first permitted action in this deterministic order: Schedule
+  event, then Add player. A Create match action MUST be omitted or deferred
+  unless an existing Match creation workflow and route already exist. When no
+  administrative quick action is permitted, use View Upcoming Events to focus
+  the existing dashboard section. If that section has no relevant events, use
+  View Teams only when the user is already authorized for the existing Teams
+  workflow and has at least one scoped Team; otherwise retain View Upcoming
+  Events and focus its explicit empty state. Assistant Coaches and Players
+  MUST NOT receive an administrative mutation shortcut solely to populate the
+  dashboard, and no primary action may expose an unauthorized destination.
 - **FR-005**: The backend MUST expose an authenticated current-user dashboard
   capability under the existing versioned API boundary. The server MUST derive
   the scope from the database-loaded authenticated User and MUST reject any
@@ -463,7 +478,18 @@ the right panel, bounds, navigation, empty states, and denied data separately.
   focus containment, initial focus, focus restoration, internal scrolling on
   narrow viewports, explicit confirmation for destructive or corrective changes,
   and unsaved/error/conflict handling consistent with Player, Teams, Coaches,
-  and Calendar workflows.
+  and Calendar workflows. The linking/correction dialog MUST track whether the
+  user has unsaved changes. A clean dialog MUST dismiss normally without an
+  additional warning. When dirty, a close-control click, Escape key, or a
+  backdrop interaction permitted by the existing dialog convention MUST open an
+  unsaved-changes confirmation instead of dismissing. Continue Editing MUST
+  preserve all entered values and keep the linking/correction dialog open;
+  Discard Changes MUST close the dialog, clear transient unsaved state, and
+  perform no link, unlink, reassignment, or other save operation. The
+  confirmation MUST preserve modal isolation and focus containment; Continue
+  Editing returns focus to the initiating dismissal control when focusable (or
+  the dialog's initial focus otherwise), and Discard Changes restores focus as a
+  normal dialog dismissal.
 
 #### Verification and documentation
 
@@ -483,9 +509,9 @@ the right panel, bounds, navigation, empty states, and denied data separately.
   current-user greeting, role-aware actions, dynamic summaries, all role-specific
   panels and empty states, event rows without location, unlinked Player state,
   loading/error/retry/partial-failure behavior, responsive layout, keyboard
-  accessibility, visible focus, account-linking modal confirmation/conflict
-  behavior, and consistency between rendered Assistant Coach actions and the
-  backend permissions of the existing workflows.
+  accessibility, visible focus, account-linking modal confirmation/conflict and
+  clean/dirty-dismissal behavior, and consistency between rendered Assistant
+  Coach actions and the backend permissions of the existing workflows.
 - **FR-055**: The feature MUST include at least one Playwright journey covering
   Head Coach, Assistant Coach, and Player dashboard behavior with representative
   training, external Match, internal Match, assignments, memberships, Calendar
@@ -546,10 +572,20 @@ the right panel, bounds, navigation, empty states, and denied data separately.
   behavior as the number of Teams, Players, memberships, Calendar records, and
   audit events grows; query regression tests show no N+1 loading and enforce the
   agreed event, team, and activity bounds.
-- **SC-006**: In the repository's documented local regression fixture, at least
-  95% of normal dashboard opens reach a populated or explicit operational state
-  within two seconds, without defining a production SLA or requiring background
-  aggregation.
+- **SC-006**: In the documented local regression fixture, the 95th percentile
+  of normal populated dashboard opens MUST be at most 2.0 seconds, without
+  defining a production SLA or requiring background aggregation. The fixed
+  fixture is an authenticated Head Coach with a current name, three populated
+  summary slots, a next Practice, a next Match, five Upcoming Events, and four
+  Recent Academy Activity entries. After fixture and authentication setup, run
+  ten unmeasured warm-up opens followed by 100 sequential measured opens. For
+  each measured open, start the timer immediately before navigating to the
+  dashboard and stop when the greeting, all three summary slots, seeded Upcoming
+  Events, and the populated contextual panel are visible. Sort the 100 measured
+  durations ascending and use the 95th value (nearest-rank p95) as the result;
+  the regression check MUST fail when that value exceeds 2.0 seconds. This is a
+  local deterministic regression check and does not represent production
+  network performance.
 - **SC-007**: Responsive and keyboard verification passes at 320px, tablet, and
   desktop widths with zero page-level horizontal overflow, visible focus for all
   interactive controls, and no status meaning conveyed by color alone.
