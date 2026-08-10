@@ -12,6 +12,10 @@ colors:
   cool-canvas: "#f8fafc"
   clubhouse-white: "#ffffff"
   boundary-line: "#e2e8f0"
+  danger-action: "#991b1b"
+  error-surface: "#fef2f2"
+  warning-surface: "#fffbeb"
+  success-marker: "#34d399"
 typography:
   headline:
     fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
@@ -50,6 +54,13 @@ spacing:
   xl: "24px"
   2xl: "32px"
 components:
+  button-primary:
+    backgroundColor: "{colors.practice-night}"
+    textColor: "{colors.clubhouse-white}"
+    typography: "{typography.label}"
+    rounded: "{rounded.md}"
+    padding: "8px 16px"
+    height: "44px"
   quick-action:
     backgroundColor: "{colors.clubhouse-white}"
     textColor: "{colors.practice-night}"
@@ -98,6 +109,25 @@ components:
     textColor: "{colors.practice-night}"
     rounded: "{rounded.lg}"
     padding: "0"
+  field:
+    backgroundColor: "{colors.clubhouse-white}"
+    textColor: "{colors.practice-night}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    padding: "8px 12px"
+    height: "44px"
+  error-notice:
+    backgroundColor: "{colors.error-surface}"
+    textColor: "{colors.practice-night}"
+    typography: "{typography.label}"
+    rounded: "{rounded.md}"
+    padding: "16px"
+  success-toast:
+    backgroundColor: "{colors.practice-night}"
+    textColor: "{colors.clubhouse-white}"
+    typography: "{typography.label}"
+    rounded: "{rounded.md}"
+    padding: "10px 16px"
 ---
 
 # Design System: VK Cricket Academy Portal
@@ -117,6 +147,7 @@ This is a product interface, not a sports campaign. It rejects generic corporate
 - Restrained academy teal used for wayfinding, focus, icons, and the inset boundary line.
 - Flat white surfaces, fine dividers, and useful density without nested cards.
 - Familiar system typography and 44px minimum interactive targets.
+- State-resilient workflows that retain useful results, announce changes, and restore focus deliberately.
 
 ## Colors
 
@@ -137,6 +168,10 @@ The palette pairs a cool, bright workspace with a deep practice-night sidebar an
 - **Cool Canvas** (`#f8fafc`): Main application background.
 - **Clubhouse White** (`#ffffff`): Summary bands, event lists, active navigation, and controls.
 - **Boundary Line** (`#e2e8f0`): Dividers and container outlines.
+- **Danger Action** (`#991b1b`): Destructive confirmation fills, destructive focus rings, and high-emphasis retry borders.
+- **Error Surface** (`#fef2f2`): Non-destructive error and recovery notices paired with dark red or slate copy.
+- **Warning Surface** (`#fffbeb`): Conflict, temporary-password, and caution states paired with explicit text.
+- **Success Marker** (`#34d399`): A small supporting marker inside the dark success toast; the visible message carries the meaning.
 
 **The Boundary Line Rule.** The sidebar brand line is always a complete 2px perimeter inset 3px from every edge. Never turn it into a one-sided accent stripe.
 
@@ -172,8 +207,17 @@ The system is flat by default. Depth comes from the contrast between cool canvas
 
 - **Shape:** Restrained rounding (`8px`) with a minimum `44px` height.
 - **Quick actions:** White surface, slate text, 1px Academy Teal border, and a teal line icon. Hover uses a light teal wash.
+- **Primary actions:** Practice Night fill, white text, and the same restrained `8px` shape. Reserve red fills for confirmed destructive actions.
 - **Focus:** A visible 2px Academy Teal ring with 2px offset.
 - **Copy:** Direct verb-object labels such as “Add player,” “Create match,” and “Schedule event.”
+
+### Inputs / Fields
+
+- **Style:** Clubhouse White, 1px slate-300 border, `8px` radius, readable slate-900 text, and a minimum `44px` height.
+- **Focus:** Shift the border to Academy Teal and add a visible 2px teal ring. Use the softer 40% ring only where the established form field pattern already does so.
+- **Labels:** Keep persistent visible labels programmatically associated with their native control. Placeholder copy never replaces a label.
+- **Error / Disabled:** Place specific error copy next to the field and connect it with `aria-describedby`. Disabled fields use a slate-100 surface and remain recognizable without color alone.
+- **Native controls:** Prefer native selects for short operational lists. Keep canonical values internal while presenting plain-language option labels.
 
 ### Cards / Containers
 
@@ -219,10 +263,30 @@ The system is flat by default. Depth comes from the contrast between cool canvas
 
 ### Result Collections
 
-- **Initial fetch:** When no prior result set exists, show skeletons that preserve the collection's expected structure.
+- **Initial fetch:** When no prior result set exists, show reduced-motion-safe skeletons that preserve both the summary and collection footprints.
 - **Background fetch:** Keep populated results visible, mark the results region `aria-busy="true"`, and update quiet count copy without moving focus.
-- **Background error:** Retain the previous results and place a non-destructive error with Retry before them. Use a full error state only when no prior results exist.
+- **Background error:** Retain the previous results and place a non-destructive error with Retry before them. Name the failed operation as a refresh; reserve load wording for failures with no retained results.
 - **Replacement:** Commit only the latest completed request. Never flash an empty state or replace useful content with skeletons during debounce, filtering, pagination refresh, or mutation refresh.
+
+### Operational Filters
+
+- **Structure:** Group filters inside one white, bordered surface. Use native controls, visible labels, equal `44px` heights, and one explicit Clear action.
+- **Responsive behavior:** Stack at narrow mobile widths, use a predictable two-column tablet grid, and move to one aligned desktop row only when the content area can support it.
+- **Values and labels:** API identifiers remain canonical filter values, but concise academy-facing labels are the visible copy. Presentation metadata stays typed and feature-local.
+- **Clear state:** Disable Clear when no filter is active, using cursor, surface, border, and text changes together.
+
+### Status, Error, and Success Feedback
+
+- **Errors:** Use `role="alert"`, plain-language recovery copy, and an explicit Retry action. Initial failures replace unavailable content; refresh failures retain prior content.
+- **Severity:** Pair rose, amber, and sky treatments with visible “Critical,” “Warning,” and “Info” text. Color supports scanning but never carries severity alone.
+- **Success toast:** Use a compact Practice Night surface, white copy, a visible Dismiss action, and the semantic toast layer (`60`). Automatic dismissal pauses while hovered or while keyboard focus is within the toast, then resumes with the remaining delay.
+- **Conflicts:** Close stale confirmations, refresh the underlying result, and move focus to a stable recovery control or the refreshed results region.
+
+### Pagination
+
+- **Targets:** Every arrow and page button is at least `44px` square with visible Academy Teal focus.
+- **Current page:** Practice Night fill, white text, and `aria-current="page"`.
+- **Narrow screens:** Keep previous and next controls fixed while the page-number strip scrolls horizontally inside its own bounds. Never create document-level horizontal overflow.
 
 ### Navigation
 
@@ -232,6 +296,7 @@ The system is flat by default. Depth comes from the contrast between cool canvas
 - **Active:** Clubhouse White surface, Practice Night text, and an inset Academy Teal ring.
 - **Footer controls:** Icon-only User Settings and collapse/expand controls share one bottom row while expanded. In the collapsed desktop rail, Settings stacks above the chevron so the expand control remains visible at the bottom. Both retain accessible names and tooltips.
 - **Mobile:** A modal drawer with focus containment, background isolation, Escape support, and a dedicated close control.
+- **Route focus:** On client-side navigation, update the document title and move programmatic focus to the newly rendered route `h1`. Route headings use `tabindex="-1"` so they remain outside the normal Tab sequence.
 
 ### Event List
 
@@ -257,6 +322,9 @@ The system is flat by default. Depth comes from the contrast between cool canvas
 - **Do** preserve a player's identity hierarchy as a compact card expands into a detail modal.
 - **Do** retain useful content during background fetches and expose progress with `aria-busy`.
 - **Do** use the semantic overlay scale and restore focus to the originating trigger when a modal closes.
+- **Do** give primary route headings `tabindex="-1"` so shared SPA navigation can announce new content without adding a Tab stop.
+- **Do** pause automatically dismissed feedback while it is hovered or contains keyboard focus.
+- **Do** expose academy-facing labels while keeping canonical API identifiers in typed internal values.
 
 ### Don't:
 
@@ -271,3 +339,5 @@ The system is flat by default. Depth comes from the contrast between cool canvas
 - **Don't** replace populated collections with skeletons during background work.
 - **Don't** add nested actions to a profile card; the card is one details trigger.
 - **Don't** create modal-specific heading systems, arbitrary z-index values, or a generic eyebrow above the actual dialog title.
+- **Don't** expose backend identifiers as primary interface copy when a concise staff-facing label is available.
+- **Don't** move focus during ordinary filtering or background refresh; reserve focus movement for route changes, dialogs, conflicts, and terminal remediation outcomes.
