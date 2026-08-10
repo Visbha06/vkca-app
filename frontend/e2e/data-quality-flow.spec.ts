@@ -42,7 +42,10 @@ test.describe('Data Quality', () => {
       await navigation.getByRole('link', { name: 'Data Quality' }).click()
 
       await expect(page).toHaveURL(/\/data-quality$/)
-      await expect(page.getByRole('heading', { name: 'Data Quality' })).toBeVisible()
+      const pageHeading = page.getByRole('heading', { name: 'Data Quality' })
+      await expect(pageHeading).toBeVisible()
+      await expect(pageHeading).toBeFocused()
+      await expect(pageHeading).toHaveAttribute('tabindex', '-1')
       await expect(
         page.getByRole('region', { name: 'Academy health summary' }),
       ).toContainText('4')
@@ -54,6 +57,65 @@ test.describe('Data Quality', () => {
       await expect(
         headCoachFinding.getByRole('button', { name: /remove/i }),
       ).toHaveCount(0)
+
+      const ruleFilter = page.getByRole('combobox', { name: 'Rule' })
+      await expect(
+        ruleFilter.locator('option[value="coach.inactive_assigned"]'),
+      ).toHaveText('Inactive Assistant Coach still assigned')
+      await expect(ruleFilter).not.toContainText('coach.inactive_assigned')
+
+      const canonicalRuleRequest = page.waitForRequest((request) => {
+        const url = new URL(request.url())
+        return url.pathname === '/api/v1/data-quality'
+          && url.searchParams.get('rule_id') === 'coach.inactive_assigned'
+      })
+      await ruleFilter.selectOption({ label: 'Inactive Assistant Coach still assigned' })
+      await canonicalRuleRequest
+      await expect(page.getByRole('article')).toHaveCount(1)
+      await expect(page.getByRole('article')).toContainText('Alex Morgan')
+
+      const allRulesRequest = page.waitForRequest((request) => {
+        const url = new URL(request.url())
+        return url.pathname === '/api/v1/data-quality'
+          && !url.searchParams.has('rule_id')
+      })
+      await ruleFilter.selectOption({ label: 'All rules' })
+      await allRulesRequest
+      await expect(page.getByRole('article')).toHaveCount(4)
+
+      const filtersHaveHorizontalOverflow = await page
+        .getByRole('region', { name: 'Finding filters' })
+        .evaluate((filters) => filters.scrollWidth > filters.clientWidth)
+      expect(filtersHaveHorizontalOverflow).toBe(false)
+
+      const filterPositions = await page
+        .getByRole('region', { name: 'Finding filters' })
+        .evaluate((filters) => {
+          const controls = ['Severity', 'Domain', 'Rule', 'Clear filters'].map(
+            (label) => {
+              const control = filters.querySelector<HTMLElement>(
+                `[aria-label="${label}"]`,
+              )
+                ?? Array.from(filters.querySelectorAll<HTMLElement>('button'))
+                  .find((button) => button.textContent === label)
+              if (!control) throw new Error(`Missing ${label} filter control`)
+              const bounds = control.getBoundingClientRect()
+              return { left: bounds.left, top: bounds.top }
+            },
+          )
+          return controls
+        })
+
+      if (viewport.width === 320) {
+        expect(new Set(filterPositions.map(({ top }) => top)).size).toBe(4)
+      } else if (viewport.width === 768) {
+        expect(filterPositions[0]?.top).toBe(filterPositions[1]?.top)
+        expect(filterPositions[2]?.top).toBe(filterPositions[3]?.top)
+        expect(filterPositions[0]?.left).toBe(filterPositions[2]?.left)
+        expect(filterPositions[1]?.left).toBe(filterPositions[3]?.left)
+      } else {
+        expect(new Set(filterPositions.map(({ top }) => top)).size).toBe(1)
+      }
 
       await page.getByRole('combobox', { name: 'Severity' }).selectOption('warning')
       await expect(page.getByRole('region', { name: 'Current findings' })).toContainText(

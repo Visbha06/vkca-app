@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const DEFAULT_DISMISS_DELAY = 4500
 
@@ -13,10 +13,27 @@ export default function SuccessToast({
   onDismiss,
   dismissDelay = DEFAULT_DISMISS_DELAY,
 }: SuccessToastProps) {
+  const remainingDelayRef = useRef(dismissDelay)
+  const [hasFocusWithin, setHasFocusWithin] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
+
   useEffect(() => {
-    const timeoutId = window.setTimeout(onDismiss, dismissDelay)
-    return () => window.clearTimeout(timeoutId)
-  }, [dismissDelay, message, onDismiss])
+    remainingDelayRef.current = dismissDelay
+  }, [dismissDelay, message])
+
+  useEffect(() => {
+    if (hasFocusWithin || isHovered) return
+
+    const startedAt = Date.now()
+    const timeoutId = window.setTimeout(onDismiss, remainingDelayRef.current)
+    return () => {
+      window.clearTimeout(timeoutId)
+      remainingDelayRef.current = Math.max(
+        0,
+        remainingDelayRef.current - (Date.now() - startedAt),
+      )
+    }
+  }, [dismissDelay, hasFocusWithin, isHovered, message, onDismiss])
 
   return (
     <div className="pointer-events-none fixed right-4 top-4 z-toast flex max-w-[calc(100vw-2rem)] justify-end sm:right-6 sm:top-6">
@@ -24,6 +41,14 @@ export default function SuccessToast({
         role="status"
         aria-atomic="true"
         className="pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-lg bg-slate-900 px-4 py-2.5 text-sm text-white"
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            setHasFocusWithin(false)
+          }
+        }}
+        onFocus={() => setHasFocusWithin(true)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         <span
           aria-hidden="true"

@@ -128,6 +128,9 @@ describe('Data Quality remediation', () => {
       ),
     ).toBeVisible()
     expect(await screen.findByText('No data quality issues found')).toBeVisible()
+    await waitFor(() =>
+      expect(screen.getByLabelText('Data quality results')).toHaveFocus(),
+    )
     expect(fetchDataQuality).toHaveBeenCalledTimes(2)
   })
 
@@ -166,6 +169,9 @@ describe('Data Quality remediation', () => {
     )
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(await screen.findByText('No data quality issues found')).toBeVisible()
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Dismiss' })).toHaveFocus(),
+    )
     expect(fetchDataQuality).toHaveBeenCalledTimes(2)
   })
 })

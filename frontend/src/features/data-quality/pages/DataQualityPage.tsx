@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import SuccessToast from '@shared/components/feedback/SuccessToast'
 import Pagination from '@shared/components/navigation/Pagination'
@@ -10,11 +10,15 @@ import {
   DataQualityEmptyState,
   DataQualityErrorState,
   DataQualityLoadingState,
+  DataQualitySummaryLoadingState,
 } from '../components/DataQualityStates'
 import useDataQuality from '../hooks/useDataQuality'
 import useSuccessToast from '@shared/hooks/useSuccessToast'
 import type { DataQualityFinding } from '../api/dataQualityApi'
 import type { DataQualityWorkflowPath } from '../types/dataQuality'
+
+const REFRESH_ERROR_MESSAGE =
+  'Unable to refresh data quality. Please try again.'
 
 function resultStatus(totalFindings: number) {
   return `${totalFindings} ${totalFindings === 1 ? 'finding' : 'findings'} shown`
@@ -48,6 +52,9 @@ function liveStatus({
 
 export default function DataQualityPage() {
   const navigate = useNavigate()
+  const conflictDismissRef = useRef<HTMLButtonElement>(null)
+  const resultsRegionRef = useRef<HTMLDivElement>(null)
+  const shouldFocusRefreshedResults = useRef(false)
   const [navigationStatus, setNavigationStatus] = useState('')
   const [selectedFinding, setSelectedFinding] =
     useState<DataQualityFinding | null>(null)
@@ -70,6 +77,23 @@ export default function DataQualityPage() {
   const showLoading = result === null && isFetching
   const filtered = Object.values(filters).some((value) => value !== undefined)
 
+  useEffect(() => {
+    if (
+      remediationState !== 'conflict'
+      || selectedFinding !== null
+    ) return
+    conflictDismissRef.current?.focus()
+  }, [remediationState, selectedFinding])
+
+  useEffect(() => {
+    if (
+      requestState !== 'success'
+      || !shouldFocusRefreshedResults.current
+    ) return
+    shouldFocusRefreshedResults.current = false
+    resultsRegionRef.current?.focus()
+  }, [requestState])
+
   function handleNavigate(path: DataQualityWorkflowPath, label: string) {
     setNavigationStatus(`Opening ${label} in the current workflow.`)
     navigate(path)
@@ -90,6 +114,7 @@ export default function DataQualityPage() {
     if (selectedFinding === null) return
     const attempt = await remediate(selectedFinding)
     if (attempt.outcome === 'applied' && attempt.result !== undefined) {
+      shouldFocusRefreshedResults.current = true
       showSuccessToast(attempt.result.message)
       setSelectedFinding(null)
     } else if (attempt.outcome === 'conflict') {
@@ -100,7 +125,10 @@ export default function DataQualityPage() {
   return (
     <section className="data-quality-page mx-auto min-w-0 w-full max-w-7xl">
       <header className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+        <h1
+          className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl"
+          tabIndex={-1}
+        >
           Data Quality
         </h1>
         <p className="mt-2 max-w-2xl text-base leading-6 text-slate-600">
@@ -122,6 +150,7 @@ export default function DataQualityPage() {
         >
           <span>{remediationMessage}</span>
           <button
+            ref={conflictDismissRef}
             type="button"
             className="min-h-11 shrink-0 rounded-lg border border-amber-700 bg-white px-4 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2"
             onClick={resetRemediation}
@@ -130,7 +159,11 @@ export default function DataQualityPage() {
           </button>
         </div>
       ) : null}
-      {result !== null ? <DataQualitySummary summary={result.summary} /> : null}
+      {result !== null ? (
+        <DataQualitySummary summary={result.summary} />
+      ) : showLoading ? (
+        <DataQualitySummaryLoadingState />
+      ) : null}
       <DataQualityFilters
         filters={filters}
         onChange={handleFilterChange}
@@ -145,14 +178,16 @@ export default function DataQualityPage() {
         })}
       </p>
       <div
+        ref={resultsRegionRef}
         aria-busy={isFetching}
         aria-label="Data quality results"
-        className="mt-6 min-w-0"
+        className="mt-6 min-w-0 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2"
+        tabIndex={-1}
       >
         {errorMessage ? (
           <DataQualityErrorState
             hasRetainedResults={result !== null}
-            message={errorMessage}
+            message={result !== null ? REFRESH_ERROR_MESSAGE : errorMessage}
             onRetry={retry}
           />
         ) : null}

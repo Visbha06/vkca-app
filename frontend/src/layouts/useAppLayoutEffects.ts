@@ -8,6 +8,7 @@ const pageTitles: Record<string, string> = {
   '/calendar': 'Calendar',
   '/audit-log': 'Audit Log',
   '/settings': 'User Settings',
+  '/data-quality': 'Data Quality'
 }
 
 const mobileViewportQuery = '(max-width: 47.999rem)'

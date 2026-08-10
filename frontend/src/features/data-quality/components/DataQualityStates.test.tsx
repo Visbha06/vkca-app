@@ -7,13 +7,25 @@ import {
   DataQualityEmptyState,
   DataQualityErrorState,
   DataQualityLoadingState,
+  DataQualitySummaryLoadingState,
 } from './DataQualityStates'
 
 describe('DataQuality states', () => {
   it('uses accessible loading and healthy status messages', () => {
-    render(<><DataQualityLoadingState /><DataQualityEmptyState /></>)
+    render(
+      <>
+        <DataQualitySummaryLoadingState />
+        <DataQualityLoadingState />
+        <DataQualityEmptyState />
+      </>,
+    )
 
     expect(screen.getByText('Loading current academy health…')).toBeVisible()
+    expect(screen.getByTestId('data-quality-summary-skeleton')).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    )
+    expect(screen.getAllByTestId('data-quality-finding-skeleton')).toHaveLength(2)
     expect(screen.getByText('No data quality issues found')).toBeVisible()
   })
 
@@ -23,7 +35,7 @@ describe('DataQuality states', () => {
         <DataQualityEmptyState filtered />
         <DataQualityErrorState
           hasRetainedResults
-          message="Unable to load data quality. Please try again."
+          message="Unable to refresh data quality. Please try again."
           onRetry={() => undefined}
         />
       </>,
@@ -31,7 +43,7 @@ describe('DataQuality states', () => {
 
     expect(screen.getByText('No findings match these filters')).toBeVisible()
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Previous results are still shown.',
+      'Unable to refresh data quality. Please try again. Previous results are still shown.',
     )
     expect(screen.getByRole('button', { name: 'Retry' })).toHaveClass(
       'min-h-11',
