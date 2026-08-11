@@ -17,10 +17,10 @@ description: "Implementation tasks for the dynamic role-aware dashboard and oper
 
 **Purpose**: Establish focused module boundaries, contract-generation tooling, and reusable feature fixtures without adding dependencies.
 
-- [ ] T001 [P] Create the dashboard module entry points in `backend/src/routes/dashboard.py`, `backend/src/schemas/dashboard.py`, `backend/src/services/dashboard_service.py`, `frontend/src/features/dashboard/api/index.ts`, `frontend/src/features/dashboard/components/index.ts`, `frontend/src/features/dashboard/hooks/index.ts`, and `frontend/src/features/dashboard/types/index.ts` while preserving the existing backend and frontend directory conventions.
-- [ ] T002 [P] Implement the contract-only OpenAPI exporter scaffold in `backend/scripts/export_role_aware_dashboard_openapi.py` and the frontend generator scaffold in `frontend/scripts/generate-role-aware-dashboard-types.mjs` using the existing Data Quality export/generation workflow.
-- [ ] T003 [P] Add `generate:role-aware-dashboard-types` and `check:role-aware-dashboard-types` scripts to `frontend/package.json` without adding a runtime dependency.
-- [ ] T004 [P] Add deterministic role-aware seed builders and SQL statement-count helpers in `backend/tests/integration/role_aware_dashboard_fixtures.py` and `backend/tests/integration/conftest.py` for teams, memberships, Calendar occurrences, Matches, audit events, linked accounts, and isolated sessions.
+- [X] T001 [P] Create the dashboard module entry points in `backend/src/routes/dashboard.py`, `backend/src/schemas/dashboard.py`, `backend/src/services/dashboard_service.py`, `frontend/src/features/dashboard/api/index.ts`, `frontend/src/features/dashboard/components/index.ts`, `frontend/src/features/dashboard/hooks/index.ts`, and `frontend/src/features/dashboard/types/index.ts` while preserving the existing backend and frontend directory conventions.
+- [X] T002 [P] Implement the contract-only OpenAPI exporter scaffold in `backend/scripts/export_role_aware_dashboard_openapi.py` and the frontend generator scaffold in `frontend/scripts/generate-role-aware-dashboard-types.mjs` using the existing Data Quality export/generation workflow.
+- [X] T003 [P] Add `generate:role-aware-dashboard-types` and `check:role-aware-dashboard-types` scripts to `frontend/package.json` without adding a runtime dependency.
+- [X] T004 [P] Add deterministic role-aware seed builders and SQL statement-count helpers in `backend/tests/integration/role_aware_dashboard_fixtures.py` and `backend/tests/integration/conftest.py` for teams, memberships, Calendar occurrences, Matches, audit events, linked accounts, and isolated sessions.
 
 ---
 
@@ -28,10 +28,10 @@ description: "Implementation tasks for the dynamic role-aware dashboard and oper
 
 **Purpose**: Add the reversible schema and shared typed boundaries required by every story. No story implementation should begin until this phase is complete.
 
-- [ ] T005 Create `backend/src/migrations/versions/013_role_aware_dashboard_domain.py` as the Alembic revision after `012_create_business_audit_events`, adding nullable unique `players.user_id`, final external/internal Match participant columns, foreign keys, checks, and date/team indexes with a safe downgrade path.
-- [ ] T006 Map the migration contract into `backend/src/models/player.py`, `backend/src/models/match.py`, and `backend/src/models/user.py`, including the nullable Player-to-User relationship, participant discriminator, participant-side foreign keys, nonblank/exclusive constraints, and Match version-aware fields.
-- [ ] T007 Define the shared Pydantic contract boundaries in `backend/src/schemas/match.py`, `backend/src/schemas/player_account.py`, and `backend/src/schemas/dashboard.py`, including discriminated participant unions, safe account snapshots, bounded pagination, and `ready`/`empty`/`unlinked`/`unavailable` section states.
-- [ ] T008 Generate the initial API artifact at `frontend/src/features/dashboard/api/generated.ts` from the contract exporter and wire the generated `components` types into the feature barrel exports in `frontend/src/features/dashboard/api/index.ts`.
+- [X] T005 Create `backend/src/migrations/versions/013_role_aware_dashboard_domain.py` as the Alembic revision after `012_create_business_audit_events`, adding nullable unique `players.user_id`, final external/internal Match participant columns, foreign keys, checks, and date/team indexes with a safe downgrade path.
+- [X] T006 Map the migration contract into `backend/src/models/player.py`, `backend/src/models/match.py`, and `backend/src/models/user.py`, including the nullable Player-to-User relationship, participant discriminator, participant-side foreign keys, nonblank/exclusive constraints, and Match version-aware fields.
+- [X] T007 Define the shared Pydantic contract boundaries in `backend/src/schemas/match.py`, `backend/src/schemas/player_account.py`, and `backend/src/schemas/dashboard.py`, including discriminated participant unions, safe account snapshots, bounded pagination, and `ready`/`empty`/`unlinked`/`unavailable` section states.
+- [X] T008 Generate the initial API artifact at `frontend/src/features/dashboard/api/generated.ts` from the contract exporter and wire the generated `components` types into the feature barrel exports in `frontend/src/features/dashboard/api/index.ts`.
 
 **Checkpoint**: Revision `013`, ORM mappings, shared API unions, and local query/test fixtures are ready for story work.
 

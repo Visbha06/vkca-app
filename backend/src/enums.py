@@ -205,6 +205,13 @@ class MatchFormat(StrEnum):
     OTHER = "other"
 
 
+class MatchParticipantType(StrEnum):
+    """Persisted Match participant structures."""
+
+    EXTERNAL = "external"
+    INTERNAL = "internal"
+
+
 class DismissalType(StrEnum):
     """Supported batting dismissal outcomes."""
 

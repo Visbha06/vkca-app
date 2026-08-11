@@ -38,6 +38,17 @@ from tests.data_quality_builders import (
     build_quality_team,
 )
 from tests.database_safety import assert_safe_test_database_url
+from tests.integration.role_aware_dashboard_fixtures import (
+    build_role_aware_calendar_occurrence,
+    build_role_aware_dashboard_seed,
+    build_role_aware_internal_match,
+    build_role_aware_isolated_session,
+    build_role_aware_linked_account,
+    build_role_aware_match,
+    build_role_aware_membership,
+    build_role_aware_player,
+    build_role_aware_team,
+)
 
 
 @dataclass(slots=True)
@@ -94,6 +105,14 @@ class DataQualityQueryCounter:
                 "before_cursor_execute",
                 record_statement,
             )
+
+
+def assert_role_aware_dashboard_query_count(
+    counter: SqlQueryCounter, maximum: int
+) -> None:
+    """Assert a bounded SQL statement count for dashboard projections."""
+
+    counter.assert_at_most(maximum)
 
 
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
@@ -260,6 +279,43 @@ def data_quality_query_counter() -> DataQualityQueryCounter:
     """Expose an engine-level SQL counter for N+1 regression tests."""
 
     return DataQualityQueryCounter()
+
+
+@pytest.fixture
+def role_aware_dashboard_seed():
+    """Expose the deterministic Phase 1 dashboard seed builders."""
+
+    return build_role_aware_dashboard_seed
+
+
+@pytest.fixture
+def role_aware_dashboard_query_counter() -> DataQualityQueryCounter:
+    """Expose the engine-level SQL counter for dashboard tests."""
+
+    return DataQualityQueryCounter()
+
+
+@pytest.fixture
+def role_aware_dashboard_query_count_assertion():
+    """Expose the dashboard projection query-count assertion."""
+
+    return assert_role_aware_dashboard_query_count
+
+
+@pytest.fixture
+def role_aware_dashboard_builders():
+    """Expose focused deterministic builders for future dashboard scenarios."""
+
+    return {
+        "team": build_role_aware_team,
+        "player": build_role_aware_player,
+        "membership": build_role_aware_membership,
+        "occurrence": build_role_aware_calendar_occurrence,
+        "match": build_role_aware_match,
+        "internal_match": build_role_aware_internal_match,
+        "linked_account": build_role_aware_linked_account,
+        "session": build_role_aware_isolated_session,
+    }
 
 
 @pytest_asyncio.fixture
