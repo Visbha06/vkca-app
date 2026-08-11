@@ -1,13 +1,16 @@
 """Pydantic boundaries for external and internal cricket Matches."""
 
 from datetime import date, datetime
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from src.enums import MatchFormat, MatchParticipantType
 from src.schemas.base import BaseRequestSchema
+
+if TYPE_CHECKING:
+    from src.models.match import Match
 
 
 class _MatchParticipantRequestBase(BaseModel):
@@ -24,6 +27,16 @@ class ExternalMatchParticipantRequest(_MatchParticipantRequestBase):
     external_opponent_name: str = Field(min_length=1, max_length=200)
     academy_side: Literal["home", "away"]
 
+    @field_validator("external_opponent_name")
+    @classmethod
+    def validate_external_opponent_name(cls, value: str) -> str:
+        """Reject whitespace-only names and normalize accepted opponent labels."""
+
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("external_opponent_name must not be blank")
+        return normalized
+
 
 class InternalMatchParticipantRequest(_MatchParticipantRequestBase):
     """Two academy Teams with explicit home and away sides."""
@@ -31,6 +44,14 @@ class InternalMatchParticipantRequest(_MatchParticipantRequestBase):
     participant_type: Literal[MatchParticipantType.INTERNAL]
     home_team_id: UUID
     away_team_id: UUID
+
+    @model_validator(mode="after")
+    def validate_distinct_teams(self) -> "InternalMatchParticipantRequest":
+        """An academy Team cannot occupy both sides of an internal Match."""
+
+        if self.home_team_id == self.away_team_id:
+            raise ValueError("home_team_id and away_team_id must be different")
+        return self
 
 
 type MatchParticipantRequest = Annotated[
@@ -105,6 +126,50 @@ class MatchResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     version_number: int = Field(ge=1)
+
+    @classmethod
+    def from_match(cls, match: "Match") -> "MatchResponse":
+        """Expand persisted participant columns into the public union shape.
+
+        ``MatchService`` loads both Team relationships before this adapter is
+        called, keeping serialization explicit and avoiding lazy-load queries in
+        the HTTP response boundary.
+        """
+
+        if match.participant_type == MatchParticipantType.EXTERNAL:
+            academy_team = match.home_team or match.away_team
+            if academy_team is None or match.external_opponent_name is None:
+                raise ValueError(
+                    "External Match is missing a participant Team or opponent"
+                )
+            participants: MatchParticipantResponse = ExternalMatchParticipantResponse(
+                kind=MatchParticipantType.EXTERNAL,
+                academy_team=MatchTeamReference.model_validate(academy_team),
+                opponent_name=match.external_opponent_name,
+                academy_side="home" if match.home_team is not None else "away",
+            )
+        elif match.participant_type == MatchParticipantType.INTERNAL:
+            if match.home_team is None or match.away_team is None:
+                raise ValueError("Internal Match is missing a participant Team")
+            participants = InternalMatchParticipantResponse(
+                kind=MatchParticipantType.INTERNAL,
+                home_team=MatchTeamReference.model_validate(match.home_team),
+                away_team=MatchTeamReference.model_validate(match.away_team),
+            )
+        else:
+            raise ValueError("Match has an unsupported participant type")
+
+        return cls(
+            id=match.id,
+            match_date=match.match_date,
+            format=match.format,
+            venue=match.venue,
+            result=match.result,
+            participants=participants,
+            created_at=match.created_at,
+            updated_at=match.updated_at,
+            version_number=match.version_number,
+        )
 
 
 MatchParticipantsRequest = MatchParticipantRequest

@@ -45,16 +45,16 @@ description: "Implementation tasks for the dynamic role-aware dashboard and oper
 
 ### Tests for User Story 2 (write before implementation)
 
-- [ ] T009 [P] [US2] Extend `backend/tests/unit/test_match_schemas.py` with valid external/home, external/away, and internal participant cases plus mixed-field, missing-side, blank-opponent, same-Team, and unknown-shape validation failures.
-- [ ] T010 [P] [US2] Add `backend/tests/unit/test_match_service.py` covering participant-to-column mapping, Team existence checks, chronological ordering, optimistic-concurrency conflicts, and the absence of successful audit events for rejected mutations.
-- [ ] T011 [P] [US2] Extend `backend/tests/unit/test_match_routes.py` for POST, PUT, and GET participant response shapes, retained authorization, malformed payloads, unknown Teams, and stale-version `409` responses.
-- [ ] T012 [P] [US2] Add `backend/tests/integration/test_match_participants.py` to exercise revision `013` constraints against PostgreSQL, verify rollback/no-audit behavior, and prove internal participant fields cannot be mixed with external fields.
+- [X] T009 [P] [US2] Extend `backend/tests/unit/test_match_schemas.py` with valid external/home, external/away, and internal participant cases plus mixed-field, missing-side, blank-opponent, same-Team, and unknown-shape validation failures.
+- [X] T010 [P] [US2] Add `backend/tests/unit/test_match_service.py` covering participant-to-column mapping, Team existence checks, chronological ordering, optimistic-concurrency conflicts, and the absence of successful audit events for rejected mutations.
+- [X] T011 [P] [US2] Extend `backend/tests/unit/test_match_routes.py` for POST, PUT, and GET participant response shapes, retained authorization, malformed payloads, unknown Teams, and stale-version `409` responses.
+- [X] T012 [P] [US2] Add `backend/tests/integration/test_match_participants.py` to exercise revision `013` constraints against PostgreSQL, verify rollback/no-audit behavior, and prove internal participant fields cannot be mixed with external fields.
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Implement the external/internal discriminated request validators and participant response adapters in `backend/src/schemas/match.py`, preserving all existing Match metadata and explicitly excluding the legacy opponent-only shape.
-- [ ] T014 [US2] Implement participant persistence, set-based Team loading, chronological reads, and OCC-aware replacement updates in `backend/src/services/match_service.py` without introducing a second Match-to-Team relationship.
-- [ ] T015 [US2] Update `backend/src/routes/matches.py` to expose the participant contract for POST/GET, add complete OCC-aware PUT support, map validation/conflict errors to repository conventions, and keep Match management out of the frontend route surface.
+- [X] T013 [US2] Implement the external/internal discriminated request validators and participant response adapters in `backend/src/schemas/match.py`, preserving all existing Match metadata and explicitly excluding the legacy opponent-only shape.
+- [X] T014 [US2] Implement participant persistence, set-based Team loading, chronological reads, and OCC-aware replacement updates in `backend/src/services/match_service.py` without introducing a second Match-to-Team relationship.
+- [X] T015 [US2] Update `backend/src/routes/matches.py` to expose the participant contract for POST/GET, add complete OCC-aware PUT support, map validation/conflict errors to repository conventions, and keep Match management out of the frontend route surface.
 
 **Checkpoint**: External and internal Matches persist and serialize unambiguously, invalid participant combinations are rejected before commit, and the backend contract is ready for role-scoped dashboard lookup.
 
