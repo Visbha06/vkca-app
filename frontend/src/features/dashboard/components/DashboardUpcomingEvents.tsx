@@ -32,7 +32,7 @@ export default function DashboardUpcomingEvents({
         </h2>
         <Link
           to="/calendar"
-          className="rounded-md px-2 py-1 text-sm font-semibold text-slate-700 underline decoration-academy decoration-2 underline-offset-4 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2"
+          className="inline-flex min-h-11 items-center rounded-md px-2 text-sm font-semibold text-slate-700 underline decoration-academy decoration-2 underline-offset-4 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2"
         >
           View calendar
         </Link>

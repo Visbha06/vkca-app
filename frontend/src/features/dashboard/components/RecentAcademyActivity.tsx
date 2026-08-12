@@ -32,7 +32,7 @@ export default function RecentAcademyActivity({
         <ol className="mt-4 border-l border-slate-200 pl-4">
           {context.events.map((event) => (
             <li key={event.id} className="relative border-b border-slate-200 py-4 first:pt-0 last:border-b-0 last:pb-0">
-              <span aria-hidden="true" className="absolute -left-[21px] top-5 size-2 rounded-full bg-academy first:top-1" />
+              <span aria-hidden="true" className="absolute -left-5 top-5 size-2 rounded-full bg-academy first:top-1" />
               <h3 className="break-words font-semibold text-slate-900">{event.summary}</h3>
               <p className="mt-1 break-words text-sm leading-6 text-slate-600">
                 {event.actor_display_name ?? 'System activity'}

@@ -1,6 +1,6 @@
 """Unit coverage for calendar read projections and atomic mutations."""
 
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
@@ -202,7 +202,7 @@ def mutation_values(**overrides):
     values = {
         "event_type": "practice",
         "name": "Evening practice",
-        "event_date": date(2026, 8, 10),
+        "event_date": date.today() + timedelta(days=30),
         "is_all_day": False,
         "start_time": time(17),
         "end_time": time(18, 30),
