@@ -14,7 +14,16 @@ from src.main import app
 from src.middleware.auth import get_current_user
 from src.models.player import Player
 from src.schemas.player import PaginatedPlayerResponse, PlayerResponse, TeamSummary
+from src.schemas.player_account import (
+    PaginatedPlayerAccountResponse,
+    PlayerAccountAssociationResponse,
+    PlayerAccountSnapshot,
+)
 from src.services.occ import StaleVersionError
+from src.services.player_account_service import (
+    PlayerAccountConflictError,
+    PlayerAccountNotFoundError,
+)
 from src.services.player_service import PlayerService
 
 
@@ -51,10 +60,25 @@ def service_mock(mocker):
     return service
 
 
+@pytest.fixture
+def account_service_mock(mocker):
+    service = mocker.Mock()
+    service.list_eligible_accounts = AsyncMock()
+    service.get_association = AsyncMock()
+    service.link_account = AsyncMock()
+    service.unlink_account = AsyncMock()
+    service.reassign_account = AsyncMock()
+    mocker.patch("src.routes.players.PlayerAccountService", return_value=service)
+    return service
+
+
 @pytest_asyncio.fixture
 async def client():
+    session = AsyncMock()
+    session.add = Mock()
+
     async def override_get_db():
-        yield AsyncMock()
+        yield session
 
     async def override_get_current_user():
         return Mock(role=UserRole.HEAD_COACH), Mock()
@@ -274,3 +298,159 @@ async def test_update_player_returns_conflict_for_stale_version(
     assert result.status_code == 409
     assert "Stale version 1" in result.json()["detail"]
     service_mock.update_player.assert_awaited_once()
+
+
+def make_account_association(
+    player_id: UUID,
+    *,
+    account_id: UUID | None = None,
+) -> PlayerAccountAssociationResponse:
+    account = (
+        None
+        if account_id is None
+        else PlayerAccountSnapshot(
+            id=account_id,
+            display_name="Rohan Account",
+            email="rohan@example.com",
+            role=UserRole.PLAYER,
+            is_active=True,
+        )
+    )
+    return PlayerAccountAssociationResponse(
+        player_id=player_id,
+        account=account,
+        player_version_number=2,
+    )
+
+
+@pytest.mark.asyncio
+async def test_head_coach_can_lookup_and_read_safe_account_association(
+    client,
+    account_service_mock,
+) -> None:
+    account = PlayerAccountSnapshot(
+        id=uuid4(),
+        display_name="Rohan Account",
+        email="rohan@example.com",
+        role=UserRole.PLAYER,
+        is_active=True,
+    )
+    page = PaginatedPlayerAccountResponse(
+        users=[account],
+        page=1,
+        page_size=20,
+        total_users=1,
+        total_pages=1,
+    )
+    player_id = uuid4()
+    association = make_account_association(player_id, account_id=account.id)
+    account_service_mock.list_eligible_accounts.return_value = page
+    account_service_mock.get_association.return_value = association
+
+    lookup = await client.get(
+        "/api/v1/players/account-linking/users?search=Rohan&page=1&page_size=20"
+    )
+    current = await client.get(f"/api/v1/players/{player_id}/account")
+
+    assert lookup.status_code == 200
+    assert lookup.json() == page.model_dump(mode="json")
+    assert current.status_code == 200
+    assert current.json() == association.model_dump(mode="json")
+    assert "hashed_password" not in current.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("method", "suffix", "payload", "service_method"),
+    [
+        (
+            "PUT",
+            "account",
+            {"user_id": str(uuid4()), "version_number": 1},
+            "link_account",
+        ),
+        ("DELETE", "account", {"version_number": 1}, "unlink_account"),
+        (
+            "POST",
+            "account/reassign",
+            {
+                "expected_user_id": str(uuid4()),
+                "new_user_id": str(uuid4()),
+                "version_number": 1,
+            },
+            "reassign_account",
+        ),
+    ],
+)
+async def test_head_coach_account_mutations_map_to_the_protected_service(
+    client,
+    account_service_mock,
+    method: str,
+    suffix: str,
+    payload: dict[str, object],
+    service_method: str,
+) -> None:
+    player_id = uuid4()
+    association = make_account_association(
+        player_id,
+        account_id=None if method == "DELETE" else uuid4(),
+    )
+    getattr(account_service_mock, service_method).return_value = association
+
+    response = await client.request(
+        method,
+        f"/api/v1/players/{player_id}/{suffix}",
+        json=payload,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == association.model_dump(mode="json")
+    getattr(account_service_mock, service_method).assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_account_routes_map_not_found_conflict_and_validation_errors(
+    client,
+    account_service_mock,
+) -> None:
+    player_id = uuid4()
+    account_service_mock.link_account.side_effect = PlayerAccountNotFoundError(
+        "Player not found."
+    )
+    missing = await client.put(
+        f"/api/v1/players/{player_id}/account",
+        json={"user_id": str(uuid4()), "version_number": 1},
+    )
+    assert missing.status_code == 404
+
+    account_service_mock.link_account.side_effect = PlayerAccountConflictError(
+        "The Player account is already linked."
+    )
+    conflict = await client.put(
+        f"/api/v1/players/{player_id}/account",
+        json={"user_id": str(uuid4()), "version_number": 1},
+    )
+    assert conflict.status_code == 409
+
+    invalid = await client.request(
+        "DELETE",
+        f"/api/v1/players/{player_id}/account",
+        json={"version_number": 0},
+    )
+    assert invalid.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_account_linking_is_forbidden_to_non_head_coaches(
+    client,
+    account_service_mock,
+) -> None:
+    async def override_assistant():
+        return Mock(role=UserRole.ASSISTANT_COACH), Mock()
+
+    app.dependency_overrides[get_current_user] = override_assistant
+
+    response = await client.get("/api/v1/players/account-linking/users")
+
+    assert response.status_code == 403
+    account_service_mock.list_eligible_accounts.assert_not_awaited()

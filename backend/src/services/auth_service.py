@@ -8,7 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import set_committed_value
 
 from src.config import get_settings
+from src.enums import UserRole
 from src.models.auth_session import AuthSession
+from src.models.player import Player
 from src.models.user import User
 from src.services.audit_service import AuditService
 from src.services.password_service import PasswordService
@@ -37,6 +39,20 @@ class InvalidSessionError(Exception):
 
 class RateLimitExceededError(Exception):
     """Signal a throttled login without exposing account existence."""
+
+
+async def player_profile_allows_authentication(
+    session: AsyncSession,
+    user: User,
+) -> bool:
+    """Allow unlinked Players but reject an explicitly linked inactive profile."""
+
+    if user.role != UserRole.PLAYER:
+        return True
+    profile_is_active = await session.scalar(
+        select(Player.is_active).where(Player.user_id == user.id)
+    )
+    return profile_is_active is not False
 
 
 class AuthService:
@@ -86,10 +102,19 @@ class AuthService:
             user.hashed_password if user is not None else DUMMY_PASSWORD_HASH
         )
         password_valid = PasswordService.verify_password(password, password_hash)
+        profile_allowed = (
+            user is None
+            or await player_profile_allows_authentication(self.session, user)
+        )
 
-        if user is None or not password_valid or not user.is_active:
+        if (
+            user is None
+            or not password_valid
+            or not user.is_active
+            or not profile_allowed
+        ):
             self.rate_limiter.record_failure(rate_limit_key)
-            reason = self._failure_reason(user, password_valid)
+            reason = self._failure_reason(user, password_valid, profile_allowed)
             await AuditService.log_event(
                 self.session,
                 "failed_login",
@@ -243,7 +268,11 @@ class AuthService:
         user = await self.session.scalar(
             select(User).where(User.id == auth_session.user_id)
         )
-        if user is None or not user.is_active:
+        if (
+            user is None
+            or not user.is_active
+            or not await player_profile_allows_authentication(self.session, user)
+        ):
             raise InvalidSessionError
 
         new_refresh_token = self.token_service.generate_refresh_token()
@@ -348,13 +377,19 @@ class AuthService:
         raise InvalidSessionError
 
     @staticmethod
-    def _failure_reason(user: User | None, password_valid: bool) -> str:
+    def _failure_reason(
+        user: User | None,
+        password_valid: bool,
+        profile_allowed: bool = True,
+    ) -> str:
         """Return a credential-free reason for internal audit analysis."""
 
         if user is None:
             return "unknown_email"
         if not password_valid:
             return "invalid_password"
+        if not profile_allowed:
+            return "linked_player_inactive"
         return "account_disabled"
 
     @staticmethod

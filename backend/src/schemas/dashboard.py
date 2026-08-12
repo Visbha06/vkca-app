@@ -1,10 +1,10 @@
 """Strongly typed response boundary for the role-aware dashboard."""
 
 from datetime import date, datetime, time
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.enums import (
     AgeGroup,
@@ -118,6 +118,14 @@ class DashboardPlayerTeams(BaseModel):
     team_count: int = Field(ge=0)
     team_names: list[str] = Field(max_length=MAX_DASHBOARD_CONTEXT_TEAMS)
 
+    @model_validator(mode="after")
+    def validate_team_names(self) -> Self:
+        """Keep the displayed bounded subset within the actual membership count."""
+
+        if len(self.team_names) > self.team_count:
+            raise ValueError("team_names cannot exceed team_count")
+        return self
+
 
 type DashboardPlayerSlot = Annotated[
     DashboardActivePlayerCount | DashboardPlayerTeams,
@@ -205,3 +213,41 @@ class DashboardResponse(BaseModel):
     summary: DashboardSummary
     upcoming_events: DashboardSection[DashboardUpcomingEventList]
     context: DashboardSection[DashboardContext]
+
+    @model_validator(mode="after")
+    def validate_role_state(self) -> Self:
+        """Prevent role-incompatible or academy-leaking response combinations."""
+
+        sections = (
+            self.summary.training,
+            self.summary.next_match,
+            self.summary.player_slot,
+            self.upcoming_events,
+            self.context,
+        )
+        if self.dashboard_state == "unlinked":
+            if self.user.role is not UserRole.PLAYER:
+                raise ValueError("Only a Player dashboard can be unlinked")
+            if any(section.status != "unlinked" for section in sections):
+                raise ValueError("An unlinked dashboard cannot expose scoped data")
+            return self
+
+        if any(section.status == "unlinked" for section in sections):
+            raise ValueError("A ready dashboard cannot contain unlinked sections")
+        if self.summary.player_slot.status == "ready":
+            expected_kind = (
+                "player_teams"
+                if self.user.role is UserRole.PLAYER
+                else "active_player_count"
+            )
+            if self.summary.player_slot.data.kind != expected_kind:
+                raise ValueError("Player summary kind is incompatible with User role")
+        if self.context.status == "ready":
+            expected_context = (
+                "recent_activity"
+                if self.user.role is UserRole.HEAD_COACH
+                else "my_teams"
+            )
+            if self.context.data.kind != expected_context:
+                raise ValueError("Dashboard context is incompatible with User role")
+        return self

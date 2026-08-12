@@ -1,3 +1,5 @@
+import type { components } from '@features/dashboard/api/generated'
+
 export type BattingStyle = 'right' | 'left'
 
 export type BowlingStyle =
@@ -70,4 +72,23 @@ export interface PlayerUpdatePayload {
   player_metadata?: Record<string, unknown>
   is_active?: boolean
   version_number: number
+}
+
+export type PlayerAccountSnapshot =
+  components['schemas']['PlayerAccountSnapshot']
+export type PaginatedPlayerAccountResponse =
+  components['schemas']['PaginatedPlayerAccountResponse']
+export type PlayerAccountAssociationResponse =
+  components['schemas']['PlayerAccountAssociationResponse']
+export type PlayerAccountLinkPayload =
+  components['schemas']['PlayerAccountLinkRequest']
+export type PlayerAccountUnlinkPayload =
+  components['schemas']['PlayerAccountUnlinkRequest']
+export type PlayerAccountReassignPayload =
+  components['schemas']['PlayerAccountReassignRequest']
+
+export interface PlayerAccountLookupParams {
+  search?: string
+  page?: number
+  pageSize?: number
 }

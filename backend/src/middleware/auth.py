@@ -16,6 +16,7 @@ from src.enums import UserRole
 from src.models.auth_session import AuthSession
 from src.models.user import User
 from src.services.audit_service import AuditService
+from src.services.auth_service import player_profile_allows_authentication
 from src.services.token_service import TokenService
 
 AuthenticatedUser = tuple[User, AuthSession]
@@ -67,7 +68,11 @@ async def _authenticate_access_token(
         raise _authentication_error()
 
     user = await session.scalar(select(User).where(User.id == user_id))
-    if user is None or not user.is_active:
+    if (
+        user is None
+        or not user.is_active
+        or not await player_profile_allows_authentication(session, user)
+    ):
         raise _authentication_error()
     return user, auth_session
 
@@ -150,6 +155,10 @@ async def get_logout_user(
         raise _authentication_error()
 
     user = await session.scalar(select(User).where(User.id == auth_session.user_id))
-    if user is None or not user.is_active:
+    if (
+        user is None
+        or not user.is_active
+        or not await player_profile_allows_authentication(session, user)
+    ):
         raise _authentication_error()
     return user, auth_session

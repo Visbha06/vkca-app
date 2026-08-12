@@ -1,2 +1,15 @@
-/** Dashboard API and presentation-type boundary. */
-
+export type {
+  DashboardActivityEvent,
+  DashboardCalendarEvent,
+  DashboardContext,
+  DashboardContextSection,
+  DashboardMatch,
+  DashboardMatchSection,
+  DashboardPlayerSection,
+  DashboardPlayerSlot,
+  DashboardResponse,
+  DashboardSummary,
+  DashboardTeam,
+  DashboardTrainingSection,
+  DashboardUpcomingEventsSection,
+} from './dashboard'

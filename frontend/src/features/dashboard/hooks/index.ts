@@ -1,2 +1,1 @@
-/** Dashboard query-hook boundary. */
-
+export { useDashboard } from './useDashboard'

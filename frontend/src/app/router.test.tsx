@@ -8,7 +8,7 @@ import { appRoutes } from '@app/router'
 import { AuthContext, type AuthContextValue } from '@features/auth'
 
 const routeCases = [
-  ['/', 'Good evening, Coach'],
+  ['/', 'Welcome back, Coach Asha'],
   ['/players', 'Player Directory'],
   ['/teams', 'Teams'],
   ['/coaches', 'Coaches Portal'],
@@ -28,7 +28,7 @@ const headCoach: NonNullable<AuthContextValue['user']> = {
   session: { session_id: '', created_at: '', last_used_at: '', expires_at: '' },
 }
 
-function renderRoute(path: string, user: AuthContextValue['user'] = null) {
+function renderRoute(path: string, user: AuthContextValue['user'] = headCoach) {
   const router = createMemoryRouter(appRoutes, { initialEntries: [path] })
   const authValue: AuthContextValue = {
     user,

@@ -18,6 +18,7 @@ from src.schemas.player import (
     PlayerUpdate,
     TeamSummary,
 )
+from src.services.auth_service import AuthService
 from src.services.business_audit_service import (
     AuditActorContext,
     AuditTargetContext,
@@ -207,6 +208,8 @@ class PlayerService:
         if player is None:
             raise PlayerNotFoundError
 
+        was_active = player.is_active
+        linked_user_id = player.user_id
         changes = payload.model_dump(exclude_unset=True)
         incoming_version = changes.pop("version_number")
         try:
@@ -233,6 +236,12 @@ class PlayerService:
             setattr(player, field, value)
 
         try:
+            if was_active and player.is_active is False and linked_user_id is not None:
+                await AuthService(self.session).revoke_user_sessions(
+                    linked_user_id,
+                    reason="linked_player_inactive",
+                    target_resource=f"/api/v1/players/{player.id}",
+                )
             if actor is not None:
                 await BusinessAuditService(self.session).record(
                     actor=actor,

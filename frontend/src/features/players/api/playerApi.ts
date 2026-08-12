@@ -1,6 +1,12 @@
 import { apiClient } from '@shared/api/client'
 import type {
   PaginatedPlayerResponse,
+  PaginatedPlayerAccountResponse,
+  PlayerAccountAssociationResponse,
+  PlayerAccountLinkPayload,
+  PlayerAccountLookupParams,
+  PlayerAccountReassignPayload,
+  PlayerAccountUnlinkPayload,
   PlayerCreatePayload,
   PlayerResponse,
   PlayerUpdatePayload,
@@ -13,6 +19,7 @@ interface TeamFilterResponse {
 
 const PLAYERS_PATH = '/api/v1/players'
 const TEAMS_PATH = '/api/v1/teams'
+const PLAYER_ACCOUNT_LOOKUP_PATH = `${PLAYERS_PATH}/account-linking/users`
 
 export interface PlayerListParams {
   page?: number
@@ -87,4 +94,69 @@ export function updatePlayer(
     method: 'PUT',
     body: JSON.stringify(payload),
   })
+}
+
+function accountPath(playerId: string) {
+  return `${playerPath(playerId)}/account`
+}
+
+export function fetchEligiblePlayerAccounts(
+  params: PlayerAccountLookupParams = {},
+  signal?: AbortSignal,
+) {
+  const query = new URLSearchParams()
+  const search = params.search?.trim()
+  if (search) query.set('search', search)
+  if (params.page !== undefined) query.set('page', String(params.page))
+  if (params.pageSize !== undefined) {
+    query.set('page_size', String(params.pageSize))
+  }
+  const queryString = query.toString()
+  const path = queryString
+    ? `${PLAYER_ACCOUNT_LOOKUP_PATH}?${queryString}`
+    : PLAYER_ACCOUNT_LOOKUP_PATH
+  return apiClient.request<PaginatedPlayerAccountResponse>(
+    path,
+    signal === undefined ? undefined : { signal },
+  )
+}
+
+export function fetchPlayerAccountAssociation(
+  playerId: string,
+  signal?: AbortSignal,
+) {
+  return apiClient.request<PlayerAccountAssociationResponse>(
+    accountPath(playerId),
+    signal === undefined ? undefined : { signal },
+  )
+}
+
+export function linkPlayerAccount(
+  playerId: string,
+  payload: PlayerAccountLinkPayload,
+) {
+  return apiClient.request<PlayerAccountAssociationResponse>(
+    accountPath(playerId),
+    { method: 'PUT', body: JSON.stringify(payload) },
+  )
+}
+
+export function unlinkPlayerAccount(
+  playerId: string,
+  payload: PlayerAccountUnlinkPayload,
+) {
+  return apiClient.request<PlayerAccountAssociationResponse>(
+    accountPath(playerId),
+    { method: 'DELETE', body: JSON.stringify(payload) },
+  )
+}
+
+export function reassignPlayerAccount(
+  playerId: string,
+  payload: PlayerAccountReassignPayload,
+) {
+  return apiClient.request<PlayerAccountAssociationResponse>(
+    `${accountPath(playerId)}/reassign`,
+    { method: 'POST', body: JSON.stringify(payload) },
+  )
 }

@@ -4,6 +4,7 @@ import {
   useState,
 } from 'react'
 import { ApiClientError } from '@shared/api/client'
+import ModalDialog from '@shared/components/overlays/ModalDialog'
 import { fetchPlayer, updatePlayer } from '../../api/playerApi'
 import type {
   PlayerCreatePayload,
@@ -11,14 +12,13 @@ import type {
   PlayerUpdatePayload,
 } from '../../types/player'
 import PlayerForm, { type PlayerFormHandle } from './PlayerForm'
-import {
-  useBackdropDismiss,
-  useModalDialog,
-} from '@shared/components/overlays/useModalDialog'
+import PlayerAccountSection from '../player-account/PlayerAccountSection'
 
 interface EditPlayerModalProps {
+  canLinkAccounts?: boolean
   player: PlayerResponse
   onClose: () => void
+  onAccountChanged?: (player: PlayerResponse) => void
   onUpdated: (player: PlayerResponse) => void
 }
 
@@ -26,11 +26,12 @@ const conflictMessage =
   'This player was updated by another user. Reload the latest data before trying again.'
 
 export default function EditPlayerModal({
+  canLinkAccounts = false,
   player,
   onClose,
+  onAccountChanged,
   onUpdated,
 }: EditPlayerModalProps) {
-  const dialogRef = useRef<HTMLDivElement>(null)
   const formRef = useRef<PlayerFormHandle>(null)
   const [currentPlayer, setCurrentPlayer] = useState(player)
   const [formRevision, setFormRevision] = useState(0)
@@ -43,8 +44,6 @@ export default function EditPlayerModal({
     onClose()
     return true
   }, [onClose])
-  useModalDialog(dialogRef, requestClose)
-  const backdropDismissHandlers = useBackdropDismiss(requestClose)
 
   const fullName = `${currentPlayer.first_name} ${currentPlayer.last_name}`
 
@@ -109,19 +108,13 @@ export default function EditPlayerModal({
   ) : undefined
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-slate-900/60 p-3 sm:p-6"
-      data-testid="edit-player-backdrop"
-      {...backdropDismissHandlers}
+    <ModalDialog
+      labelledBy="edit-player-title"
+      describedBy="edit-player-description"
+      onClose={requestClose}
+      testId="edit-player-backdrop"
     >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="edit-player-title"
-        aria-describedby="edit-player-description"
-        className="relative max-h-full w-full max-w-3xl overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white text-slate-900"
-      >
+      <div className="relative text-slate-900">
         <header className="border-b border-slate-200 p-5 pr-16 sm:p-6 sm:pr-16">
           <h2
             id="edit-player-title"
@@ -136,6 +129,22 @@ export default function EditPlayerModal({
             Update this player profile. Changes use the latest saved version.
           </p>
         </header>
+
+        {canLinkAccounts ? (
+          <PlayerAccountSection
+            canManage
+            playerId={currentPlayer.id}
+            versionNumber={currentPlayer.version_number}
+            onAssociationChanged={(association) => {
+              const updatedPlayer = {
+                ...currentPlayer,
+                version_number: association.player_version_number,
+              }
+              setCurrentPlayer(updatedPlayer)
+              onAccountChanged?.(updatedPlayer)
+            }}
+          />
+        ) : null}
 
         <PlayerForm
           key={`${currentPlayer.id}-${currentPlayer.version_number}-${formRevision}`}
@@ -154,6 +163,7 @@ export default function EditPlayerModal({
         <button
           type="button"
           aria-label="Close Edit Player"
+          data-modal-initial-focus
           disabled={isSubmitting || isReloading}
           className="absolute right-3 top-3 flex size-11 items-center justify-center rounded-lg text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-academy focus:ring-offset-2 disabled:cursor-not-allowed disabled:text-slate-400 sm:right-4 sm:top-4"
           onClick={requestClose}
@@ -173,6 +183,6 @@ export default function EditPlayerModal({
           </svg>
         </button>
       </div>
-    </div>
+    </ModalDialog>
   )
 }

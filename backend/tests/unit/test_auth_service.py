@@ -10,7 +10,12 @@ from src.enums import UserRole
 from src.models.auth_session import AuthSession
 from src.models.user import User
 from src.services.audit_service import AuditService
-from src.services.auth_service import AuthService, InvalidSessionError
+from src.services.auth_service import (
+    AuthService,
+    InvalidCredentialsError,
+    InvalidSessionError,
+)
+from src.services.password_service import PasswordService
 from src.services.token_service import TokenService
 
 
@@ -206,3 +211,73 @@ async def test_refresh_rejected_for_revoked_session(
     token_service.generate_refresh_token.assert_not_called()
     db_session.execute.assert_not_awaited()
     db_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_login_rejects_player_with_linked_inactive_profile(
+    db_session: AsyncMock,
+    mocker,
+) -> None:
+    user = make_user()
+    db_session.scalar.side_effect = [user, False]
+    mocker.patch.object(
+        PasswordService,
+        "verify_password",
+        return_value=True,
+    )
+    audit_log = mocker.patch.object(
+        AuditService,
+        "log_event",
+        new_callable=AsyncMock,
+    )
+    rate_limiter = Mock()
+    rate_limiter.sliding_window_check.return_value = False
+
+    with pytest.raises(InvalidCredentialsError):
+        await AuthService(db_session, rate_limiter=rate_limiter).login(
+            user.email,
+            "CorrectP@ssword1",
+            "127.0.0.1",
+            "pytest",
+        )
+
+    rate_limiter.record_failure.assert_called_once()
+    assert audit_log.await_args.kwargs["reason"] == "linked_player_inactive"
+    db_session.commit.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_player_with_linked_inactive_profile(
+    db_session: AsyncMock,
+) -> None:
+    user = make_user()
+    refresh_token = "inactive-profile-refresh-token"
+    token_hash = TokenService.hash_token(refresh_token)
+    auth_session = make_auth_session(user, current_token_hash=token_hash)
+    db_session.scalar.side_effect = [auth_session, user, False]
+    token_service = Mock(spec=TokenService)
+    token_service.hash_token.return_value = token_hash
+
+    with pytest.raises(InvalidSessionError):
+        await AuthService(db_session, token_service=token_service).refresh(
+            refresh_token,
+            "127.0.0.1",
+            "pytest",
+        )
+
+    token_service.generate_refresh_token.assert_not_called()
+    db_session.execute.assert_not_awaited()
+    db_session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_unlinked_player_and_reactivated_profile_pass_the_profile_gate(
+    db_session: AsyncMock,
+) -> None:
+    from src.services.auth_service import player_profile_allows_authentication
+
+    user = make_user()
+    db_session.scalar.side_effect = [None, True]
+
+    assert await player_profile_allows_authentication(db_session, user) is True
+    assert await player_profile_allows_authentication(db_session, user) is True

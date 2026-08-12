@@ -59,6 +59,24 @@ ACTION_REGISTRY: dict[AuditActionType, AuditActionDefinition] = {
         "{actor} updated player {target}",
         frozenset({"changed_fields"}),
     ),
+    AuditActionType.PLAYER_ACCOUNT_LINKED: AuditActionDefinition(
+        AuditActionCategory.PLAYER,
+        AuditEntityType.PLAYER,
+        "{actor} linked an account to player {target}",
+        frozenset({"account_user_id"}),
+    ),
+    AuditActionType.PLAYER_ACCOUNT_UNLINKED: AuditActionDefinition(
+        AuditActionCategory.PLAYER,
+        AuditEntityType.PLAYER,
+        "{actor} unlinked the account from player {target}",
+        frozenset({"previous_account_user_id"}),
+    ),
+    AuditActionType.PLAYER_ACCOUNT_REASSIGNED: AuditActionDefinition(
+        AuditActionCategory.PLAYER,
+        AuditEntityType.PLAYER,
+        "{actor} reassigned the account for player {target}",
+        frozenset({"previous_account_user_id", "account_user_id"}),
+    ),
     AuditActionType.TEAM_CREATED: AuditActionDefinition(
         AuditActionCategory.TEAM,
         AuditEntityType.TEAM,

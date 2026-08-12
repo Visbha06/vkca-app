@@ -87,6 +87,14 @@ class PlayerAccountReassignRequest(BaseModel):
     new_user_id: UUID
     version_number: int = Field(ge=1)
 
+    @model_validator(mode="after")
+    def validate_changed_account(self) -> Self:
+        """Reject a correction that keeps the same account."""
+
+        if self.expected_user_id == self.new_user_id:
+            raise ValueError("new_user_id must be different from expected_user_id")
+        return self
+
 
 class PlayerAccountAssociationResponse(BaseModel):
     """Safe result shared by link, unlink, and reassignment mutations."""

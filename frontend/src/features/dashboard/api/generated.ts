@@ -11,7 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Role Aware Dashboard */
+        /**
+         * Get Dashboard
+         * @description Return only the authenticated User's server-derived dashboard scope.
+         */
         get: operations["get_role_aware_dashboard"];
         put?: never;
         post?: never;
@@ -53,8 +56,11 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Update Match */
-        put: operations["update_match"];
+        /**
+         * Update Match
+         * @description Completely replace a Match when the submitted version remains current.
+         */
+        put: operations["update_match_api_v1_matches__match_id__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -69,8 +75,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Eligible Player Accounts */
-        get: operations["list_eligible_player_accounts"];
+        /**
+         * List Eligible Player Accounts
+         * @description List safe unlinked Player-role accounts for a Head Coach.
+         */
+        get: operations["list_eligible_player_accounts_api_v1_players_account_linking_users_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -86,12 +95,22 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        /** Link Player Account */
-        put: operations["link_player_account"];
+        /**
+         * Get Player Account Association
+         * @description Return a protected safe snapshot of one Player's linked account.
+         */
+        get: operations["get_player_account_association_api_v1_players__player_id__account_get"];
+        /**
+         * Link Player Account
+         * @description Associate one explicitly selected Player-role account.
+         */
+        put: operations["link_player_account_api_v1_players__player_id__account_put"];
         post?: never;
-        /** Unlink Player Account */
-        delete: operations["unlink_player_account"];
+        /**
+         * Unlink Player Account
+         * @description Remove one association after explicit frontend confirmation.
+         */
+        delete: operations["unlink_player_account_api_v1_players__player_id__account_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -106,8 +125,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reassign Player Account */
-        post: operations["reassign_player_account"];
+        /**
+         * Reassign Player Account
+         * @description Correct an exact existing association as one audited mutation.
+         */
+        post: operations["reassign_player_account_api_v1_players__player_id__account_reassign_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -135,7 +157,7 @@ export interface components {
          * @description Stable identifiers for the initial business-audit action catalogue.
          * @enum {string}
          */
-        AuditActionType: "coach.created" | "coach.activated" | "coach.deactivated" | "coach.team_assignments_updated" | "player.created" | "player.updated" | "team.created" | "team.updated" | "roster.added" | "roster.removed" | "roster.reordered" | "calendar.standalone_created" | "calendar.standalone_updated" | "calendar.standalone_deleted" | "calendar.series_created" | "calendar.series_updated" | "calendar.series_deleted" | "calendar.occurrence_updated" | "calendar.occurrence_moved" | "calendar.occurrence_deleted";
+        AuditActionType: "coach.created" | "coach.activated" | "coach.deactivated" | "coach.team_assignments_updated" | "player.created" | "player.updated" | "player.account_linked" | "player.account_unlinked" | "player.account_reassigned" | "team.created" | "team.updated" | "roster.added" | "roster.removed" | "roster.reordered" | "calendar.standalone_created" | "calendar.standalone_updated" | "calendar.standalone_deleted" | "calendar.series_created" | "calendar.series_updated" | "calendar.series_deleted" | "calendar.occurrence_updated" | "calendar.occurrence_moved" | "calendar.occurrence_deleted";
         /**
          * AuditEntityType
          * @description Historical target kinds supported by the business-audit feed.
@@ -2278,7 +2300,7 @@ export interface operations {
                     "application/json": components["schemas"]["DashboardResponse"];
                 };
             };
-            /** @description Request could not be completed. */
+            /** @description Unauthorized */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -2287,7 +2309,7 @@ export interface operations {
                     "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
                 };
             };
-            /** @description Request could not be completed. */
+            /** @description Forbidden */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -2296,7 +2318,16 @@ export interface operations {
                     "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
                 };
             };
-            /** @description Request could not be completed. */
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
             500: {
                 headers: {
                     [name: string]: unknown;
@@ -2360,7 +2391,7 @@ export interface operations {
             };
         };
     };
-    update_match: {
+    update_match_api_v1_matches__match_id__put: {
         parameters: {
             query?: never;
             header?: never;
@@ -2384,54 +2415,18 @@ export interface operations {
                     "application/json": components["schemas"]["MatchResponse"];
                 };
             };
-            /** @description Request could not be completed. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
     };
-    list_eligible_player_accounts: {
+    list_eligible_player_accounts_api_v1_players_account_linking_users_get: {
         parameters: {
             query?: {
                 search?: string | null;
@@ -2453,39 +2448,54 @@ export interface operations {
                     "application/json": components["schemas"]["PaginatedPlayerAccountResponse"];
                 };
             };
-            /** @description Request could not be completed. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
     };
-    link_player_account: {
+    get_player_account_association_api_v1_players__player_id__account_get: {
         parameters: {
             query?: never;
             header?: never;
+            path: {
+                player_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlayerAccountAssociationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_player_account_api_v1_players__player_id__account_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Request-ID"?: string | null;
+            };
             path: {
                 player_id: string;
             };
@@ -2506,57 +2516,23 @@ export interface operations {
                     "application/json": components["schemas"]["PlayerAccountAssociationResponse"];
                 };
             };
-            /** @description Request could not be completed. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
     };
-    unlink_player_account: {
+    unlink_player_account_api_v1_players__player_id__account_delete: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: string | null;
+            };
             path: {
                 player_id: string;
             };
@@ -2577,57 +2553,23 @@ export interface operations {
                     "application/json": components["schemas"]["PlayerAccountAssociationResponse"];
                 };
             };
-            /** @description Request could not be completed. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
     };
-    reassign_player_account: {
+    reassign_player_account_api_v1_players__player_id__account_reassign_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-Request-ID"?: string | null;
+            };
             path: {
                 player_id: string;
             };
@@ -2648,49 +2590,13 @@ export interface operations {
                     "application/json": components["schemas"]["PlayerAccountAssociationResponse"];
                 };
             };
-            /** @description Request could not be completed. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
-                };
-            };
-            /** @description Request could not be completed. */
+            /** @description Validation Error */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoleAwareApiErrorResponse"];
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -117,6 +117,17 @@ def _contract_app() -> FastAPI:
     ) -> PlayerAccountAssociationResponse:
         raise NotImplementedError
 
+    @contract_app.get(
+        ACCOUNT_ASSOCIATION_PATH,
+        response_model=PlayerAccountAssociationResponse,
+        operation_id="get_player_account_association",
+        responses=_error_responses(401, 403, 404),
+    )
+    async def get_player_account_association(
+        player_id: UUID,
+    ) -> PlayerAccountAssociationResponse:
+        raise NotImplementedError
+
     @contract_app.delete(
         ACCOUNT_ASSOCIATION_PATH,
         response_model=PlayerAccountAssociationResponse,
