@@ -188,6 +188,14 @@ class DashboardTeam(BaseModel):
     )
     next_event: DashboardCalendarEvent | None
 
+    @model_validator(mode="after")
+    def validate_coach_references(self) -> Self:
+        """Keep each Team's permitted coach snapshot unambiguous and bounded."""
+
+        if len({coach.id for coach in self.coaches}) != len(self.coaches):
+            raise ValueError("coaches cannot contain duplicate accounts")
+        return self
+
 
 class DashboardMyTeams(BaseModel):
     """Bounded role-scoped Team context."""

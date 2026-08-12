@@ -127,14 +127,14 @@ description: "Implementation tasks for the dynamic role-aware dashboard and oper
 
 ### Tests for User Story 4 (write before implementation)
 
-- [ ] T043 [P] [US4] Add `backend/tests/unit/test_dashboard_context.py` for Recent Academy Activity eligibility, My Teams fields, active-player distinct counts, next-event selection, deterministic ordering, and role-denied audit data.
-- [ ] T044 [P] [US4] Add `frontend/src/features/dashboard/components/DashboardContextPanel.test.tsx`, `frontend/src/features/dashboard/components/RecentAcademyActivity.test.tsx`, and `frontend/src/features/dashboard/components/MyTeamsPanel.test.tsx` for role-specific rendering, no-team/unlinked/unavailable states, bounded rows, permitted navigation, and keyboard semantics.
+- [X] T043 [P] [US4] Add `backend/tests/unit/test_dashboard_context.py` for Recent Academy Activity eligibility, My Teams fields, active-player distinct counts, next-event selection, deterministic ordering, and role-denied audit data.
+- [X] T044 [P] [US4] Add `frontend/src/features/dashboard/components/DashboardContextPanel.test.tsx`, `frontend/src/features/dashboard/components/RecentAcademyActivity.test.tsx`, and `frontend/src/features/dashboard/components/MyTeamsPanel.test.tsx` for role-specific rendering, no-team/unlinked/unavailable states, bounded rows, permitted navigation, and keyboard semantics.
 
 ### Implementation for User Story 4
 
-- [ ] T045 [US4] Complete the contextual response mapping in `backend/src/schemas/dashboard.py` and `backend/src/services/dashboard_service.py` for four-event Recent Academy Activity, twelve-row My Teams, permitted coach context, next relevant event, and explicit no-team/unavailable states.
-- [ ] T046 [US4] Build `frontend/src/features/dashboard/components/DashboardContextPanel.tsx`, `frontend/src/features/dashboard/components/RecentAcademyActivity.tsx`, and `frontend/src/features/dashboard/components/MyTeamsPanel.tsx`, then compose them into `frontend/src/pages/home/HomeSchedule.tsx` without removing the right column on narrow or empty states.
-- [ ] T047 [US4] Add role-safe panel navigation, accessible status announcements, visible focus, 44px targets, reduced-motion behavior, and responsive wrapping for team/event metadata in `frontend/src/features/dashboard/components/DashboardContextPanel.tsx`, `frontend/src/features/dashboard/components/MyTeamsPanel.tsx`, and `frontend/src/pages/home/HomeSchedule.tsx` using `PRODUCT.md` and `DESIGN.md`.
+- [X] T045 [US4] Complete the contextual response mapping in `backend/src/schemas/dashboard.py` and `backend/src/services/dashboard_service.py` for four-event Recent Academy Activity, twelve-row My Teams, permitted coach context, next relevant event, and explicit no-team/unavailable states.
+- [X] T046 [US4] Build `frontend/src/features/dashboard/components/DashboardContextPanel.tsx`, `frontend/src/features/dashboard/components/RecentAcademyActivity.tsx`, and `frontend/src/features/dashboard/components/MyTeamsPanel.tsx`, then compose them into `frontend/src/pages/home/HomeSchedule.tsx` without removing the right column on narrow or empty states.
+- [X] T047 [US4] Add role-safe panel navigation, accessible status announcements, visible focus, 44px targets, reduced-motion behavior, and responsive wrapping for team/event metadata in `frontend/src/features/dashboard/components/DashboardContextPanel.tsx`, `frontend/src/features/dashboard/components/MyTeamsPanel.tsx`, and `frontend/src/pages/home/HomeSchedule.tsx` using `PRODUCT.md` and `DESIGN.md`.
 
 **Checkpoint**: The right panel remains present and useful for all roles without exposing unrelated teams, Players, Business Audit data, or invented permissions.
 

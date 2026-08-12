@@ -19,11 +19,13 @@ from src.models.team_player import TeamPlayer
 from src.models.user import User
 from src.schemas.calendar import CalendarEventInstance
 from src.schemas.dashboard import (
+    MAX_DASHBOARD_COACHES_PER_TEAM,
     MAX_DASHBOARD_CONTEXT_TEAMS,
     MAX_DASHBOARD_UPCOMING_EVENTS,
     DashboardActivePlayerCount,
     DashboardActivityEvent,
     DashboardCalendarEvent,
+    DashboardCoachReference,
     DashboardContext,
     DashboardEmptySection,
     DashboardMatch,
@@ -357,6 +359,37 @@ class DashboardService:
             )
             counts = {team_id: int(count) for team_id, count in result.all()}
 
+        coaches_by_team: dict[UUID, list[DashboardCoachReference]] = {}
+        if scope.role is UserRole.PLAYER and displayed_ids:
+            result = await self.session.execute(
+                select(
+                    TeamCoach.team_id,
+                    User.id,
+                    User.first_name,
+                    User.last_name,
+                )
+                .join(User, User.id == TeamCoach.user_id)
+                .where(
+                    TeamCoach.team_id.in_(displayed_ids),
+                    User.is_active.is_(True),
+                )
+                .order_by(
+                    TeamCoach.team_id,
+                    func.lower(User.first_name),
+                    func.lower(User.last_name),
+                    User.id,
+                )
+            )
+            for team_id, coach_id, first_name, last_name in result.all():
+                team_coaches = coaches_by_team.setdefault(team_id, [])
+                if len(team_coaches) < MAX_DASHBOARD_COACHES_PER_TEAM:
+                    team_coaches.append(
+                        DashboardCoachReference(
+                            id=coach_id,
+                            display_name=f"{first_name} {last_name}".strip(),
+                        )
+                    )
+
         instances = calendar_projection.instances if calendar_projection else ()
         teams = [
             DashboardTeam(
@@ -364,7 +397,7 @@ class DashboardService:
                 name=team.name,
                 age_group=AgeGroup(team.age_group),
                 active_player_count=counts.get(team.id, 0),
-                coaches=[],
+                coaches=coaches_by_team.get(team.id, []),
                 next_event=self._next_team_event(team, instances),
             )
             for team in displayed_teams
