@@ -65,9 +65,11 @@ a real Gemini key. No chatbot, LLM answer generation, conversation history,
 frontend RAG UI, external document ingestion, or hosted vector database.
 
 Scale/Scope: One academy and nine initial source types. Calendar projection
-uses the existing bounded 45-day effective-occurrence horizon. The first vector
-profile is 1536 dimensions. Indexing is bounded and batched; exact production
-corpus sizing and strict latency SLOs are deferred beyond this foundation.
+uses `CalendarService.get_range()` and its existing
+`MAX_CALENDAR_RANGE_DATES` 45-day effective-occurrence horizon; this feature
+does not introduce a separate RAG horizon setting. The first vector profile is
+1536 dimensions. Indexing is bounded and batched; exact production corpus sizing
+and strict latency SLOs are deferred beyond this foundation.
 
 ## Constitution Check
 
@@ -171,7 +173,8 @@ justification. All Phase 0 technical unknowns are resolved in research.md.
         │   ├── test_rag_chunking.py
         │   ├── test_rag_embedding.py
         │   ├── test_rag_scope.py
-        │   └── test_rag_retrieval.py
+        │   ├── test_rag_retrieval.py
+        │   └── test_rag_route.py
         ├── integration/
         │   ├── test_rag_migration.py
         │   ├── test_rag_pgvector.py
@@ -229,8 +232,10 @@ Phase 0 is complete in [research.md](./research.md). Key decisions are:
 2. Add RAG SQLAlchemy models and migration 014. Enable vector extension,
    create vector(1536), scope/model/status indexes, HNSW cosine index, and
    downgrade behavior. Register models in models/__init__.py.
-3. Add provider configuration and google-genai dependency. Implement the
-   Gemini adapter, fake provider, bounded batching, timeout/retry policy,
+3. Add provider configuration and the exact `google-genai` 1.45.0 dependency
+   using `uv add google-genai==1.45.0`, with its rationale recorded
+   in `pyproject.toml`. Implement the Gemini adapter, fake provider, bounded
+   batching, timeout/retry policy,
    finite/dimension/order validation, L2 normalization, and sanitized errors.
 4. Implement set-based loaders and dedicated builders for Player, Team, Match,
    three performance families, two statistics families, and projected Calendar
@@ -249,9 +254,12 @@ Phase 0 is complete in [research.md](./research.md). Key decisions are:
 8. Add unit, migration, pgvector, authorization, indexing, quickstart, and
    request-level Playwright coverage. Include SQL query-count/N+1 regression
    checks and no-audit assertions.
-9. Run the isolated quickstart and quality gates, then write
-   docs/rag-indexing-foundation.md describing implemented behavior, commands,
-   configuration, source extension, authorization, recovery, and exclusions.
+9. Perform the final security/data-exclusion review and apply fixes, then rerun
+   the isolated quickstart, backend quality gates, and Playwright E2E check.
+   Complete the acceptance checklist, then write
+   docs/rag-indexing-foundation.md describing the verified implemented behavior,
+   commands, configuration, source extension, authorization, recovery, and
+   exclusions.
 
 ## Risks and Mitigations
 
