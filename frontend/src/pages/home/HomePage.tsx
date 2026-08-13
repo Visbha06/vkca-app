@@ -98,7 +98,10 @@ export default function HomePage() {
         />
       ) : null}
       {dashboard.result !== null ? (
-        <>
+        <section
+          aria-busy={dashboard.isFetching}
+          aria-label="Dashboard results"
+        >
           {dashboard.errorMessage !== null ? (
             <div
               role="alert"
@@ -129,7 +132,7 @@ export default function HomePage() {
             onRetry={dashboard.retry}
             role={dashboard.result.user.role}
           />
-        </>
+        </section>
       ) : null}
     </div>
   )

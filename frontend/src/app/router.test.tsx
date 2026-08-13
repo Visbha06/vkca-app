@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { renderToStaticMarkup } from 'react-dom/server'
+import { prerender } from 'react-dom/static'
 import { createMemoryRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { describe, expect, it } from 'vitest'
@@ -28,7 +28,10 @@ const headCoach: NonNullable<AuthContextValue['user']> = {
   session: { session_id: '', created_at: '', last_used_at: '', expires_at: '' },
 }
 
-function renderRoute(path: string, user: AuthContextValue['user'] = headCoach) {
+async function renderRoute(
+  path: string,
+  user: AuthContextValue['user'] = headCoach,
+) {
   const router = createMemoryRouter(appRoutes, { initialEntries: [path] })
   const authValue: AuthContextValue = {
     user,
@@ -43,35 +46,36 @@ function renderRoute(path: string, user: AuthContextValue['user'] = headCoach) {
     updateUser: () => undefined,
   }
 
-  return renderToStaticMarkup(
+  const { prelude } = await prerender(
     <AuthContext.Provider value={authValue}>
       <RouterProvider router={router} />
     </AuthContext.Provider>,
   )
+  return new Response(prelude).text()
 }
 
 describe('application routes', () => {
-  it.each(routeCases)('renders the correct page for %s', (path, heading) => {
-    const markup = renderRoute(path)
+  it.each(routeCases)('renders the correct page for %s', async (path, heading) => {
+    const markup = await renderRoute(path)
 
     expect(markup).toContain(`>${heading}</h1>`)
   })
 
-  it('renders the not found page for an unknown route', () => {
-    const markup = renderRoute('/not-a-real-page')
+  it('renders the not found page for an unknown route', async () => {
+    const markup = await renderRoute('/not-a-real-page')
 
     expect(markup).toContain('>Page Not Found</h1>')
   })
 
-  it('renders the Audit Log for a Head Coach', () => {
-    const markup = renderRoute('/audit-log', headCoach)
+  it('renders the Audit Log for a Head Coach', async () => {
+    const markup = await renderRoute('/audit-log', headCoach)
 
     expect(markup).toContain('>Audit Log</h1>')
     expect(markup).not.toContain('403 Forbidden')
   })
 
-  it('renders Data Quality for a Head Coach', () => {
-    const markup = renderRoute('/data-quality', headCoach)
+  it('renders Data Quality for a Head Coach', async () => {
+    const markup = await renderRoute('/data-quality', headCoach)
 
     expect(markup).toContain('>Data Quality</h1>')
     expect(markup).not.toContain('403 Forbidden')
@@ -79,8 +83,8 @@ describe('application routes', () => {
 
   it.each(['assistant coach', 'player'] as const)(
     'keeps business audit data out of the direct Audit Log route for %s users',
-    (role) => {
-      const markup = renderRoute('/audit-log', { ...headCoach, role })
+    async (role) => {
+      const markup = await renderRoute('/audit-log', { ...headCoach, role })
 
       expect(markup).toContain('403 Forbidden')
       expect(markup).toContain('Audit Log is available to Head Coaches only.')
@@ -90,8 +94,8 @@ describe('application routes', () => {
 
   it.each(['assistant coach', 'player'] as const)(
     'protects the direct Data Quality route for %s users',
-    (role) => {
-      const markup = renderRoute('/data-quality', { ...headCoach, role })
+    async (role) => {
+      const markup = await renderRoute('/data-quality', { ...headCoach, role })
 
       expect(markup).toContain('403 Forbidden')
       expect(markup).toContain('Data Quality is available to Head Coaches only.')

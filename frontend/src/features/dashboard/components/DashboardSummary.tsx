@@ -25,17 +25,12 @@ interface DashboardSummaryProps {
 interface SummaryCardProps {
   children: ReactNode
   icon: ReactNode
-  index: number
   title: string
 }
 
-function SummaryCard({ children, icon, index, title }: SummaryCardProps) {
+function SummaryCard({ children, icon, title }: SummaryCardProps) {
   return (
-    <div
-      className={`flex min-w-0 gap-4 p-5 lg:p-6 ${
-        index < 2 ? 'border-b border-slate-200 sm:border-b-0' : ''
-      }`}
-    >
+    <div className="dashboard-summary-card flex min-w-0 gap-4 p-5 lg:p-6">
       <span
         aria-hidden="true"
         className="flex size-11 shrink-0 items-center justify-center rounded-full bg-academy text-slate-900"
@@ -54,15 +49,20 @@ function SectionMessage({
   message,
   retryLabel,
   retryable,
+  unavailable,
   onRetry,
 }: {
   message: string
   retryLabel: string
   retryable: boolean
+  unavailable: boolean
   onRetry: () => void
 }) {
   return (
-    <div className="mt-2 text-sm leading-6 text-slate-700">
+    <div
+      role={unavailable ? 'alert' : undefined}
+      className="mt-2 text-sm leading-6 text-slate-700"
+    >
       <p>{message}</p>
       {retryable ? (
         <button
@@ -90,6 +90,7 @@ function TrainingSummary({
         message={section.message}
         retryLabel="Retry upcoming training"
         retryable={section.status === 'unavailable' && section.retryable}
+        unavailable={section.status === 'unavailable'}
         onRetry={onRetry}
       />
     )
@@ -121,6 +122,7 @@ function MatchSummary({
         message={section.message}
         retryLabel="Retry next match"
         retryable={section.status === 'unavailable' && section.retryable}
+        unavailable={section.status === 'unavailable'}
         onRetry={onRetry}
       />
     )
@@ -150,6 +152,7 @@ function PlayerSummary({
         message={section.message}
         retryLabel="Retry player summary"
         retryable={section.status === 'unavailable' && section.retryable}
+        unavailable={section.status === 'unavailable'}
         onRetry={onRetry}
       />
     )
@@ -193,25 +196,25 @@ export default function DashboardSummary({
       : 'Active players'
 
   return (
-    <section aria-label="Academy summary" className="py-8">
-      <div className="grid overflow-hidden rounded-xl border border-slate-200 bg-white sm:grid-cols-3 sm:divide-x sm:divide-slate-200">
+    <section
+      aria-label="Academy summary"
+      className="dashboard-summary-container py-8"
+    >
+      <div className="dashboard-summary-grid overflow-hidden rounded-xl border border-slate-200 bg-white">
         <SummaryCard
           icon={<CalendarIcon className="size-6" />}
-          index={0}
           title="Upcoming training"
         >
           <TrainingSummary section={summary.training} onRetry={onRetry} />
         </SummaryCard>
         <SummaryCard
           icon={<MatchIcon className="size-6" />}
-          index={1}
           title="Next match"
         >
           <MatchSummary section={summary.next_match} onRetry={onRetry} />
         </SummaryCard>
         <SummaryCard
           icon={<PlayersIcon className="size-6" />}
-          index={2}
           title={playerTitle}
         >
           <PlayerSummary section={summary.player_slot} onRetry={onRetry} />

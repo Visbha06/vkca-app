@@ -83,9 +83,33 @@ describe('HomeSummary', () => {
       />,
     )
 
-    expect(screen.getByText('No upcoming training.')).toBeVisible()
-    expect(screen.getByText('Matches are temporarily unavailable.')).toBeVisible()
+    const emptyMessage = screen.getByText('No upcoming training.')
+    const unavailableMessage = screen.getByText(
+      'Matches are temporarily unavailable.',
+    )
+    expect(emptyMessage).toBeVisible()
+    expect(emptyMessage.closest('[role="alert"]')).toBeNull()
+    expect(unavailableMessage).toBeVisible()
+    expect(unavailableMessage.closest('[role="alert"]')).toBe(
+      screen.getByRole('alert'),
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Retry next match' }))
     expect(onRetry).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps unlinked summary guidance informational', () => {
+    render(
+      <HomeSummary
+        onRetry={vi.fn()}
+        summary={{
+          training: { status: 'unlinked', message: 'Link your player profile.' },
+          next_match: { status: 'unlinked', message: 'Link your player profile.' },
+          player_slot: { status: 'unlinked', message: 'Link your player profile.' },
+        }}
+      />,
+    )
+
+    expect(screen.getAllByText('Link your player profile.')).toHaveLength(3)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

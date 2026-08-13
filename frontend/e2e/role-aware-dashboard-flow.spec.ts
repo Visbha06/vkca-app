@@ -9,6 +9,7 @@ import {
 const viewports = [
   { label: 'mobile', width: 320, height: 760 },
   { label: 'tablet', width: 768, height: 900 },
+  { label: 'compact desktop', width: 1024, height: 900 },
   { label: 'desktop', width: 1280, height: 900 },
   { label: 'wide desktop', width: 2560, height: 1200 },
 ]
@@ -192,6 +193,45 @@ test.describe('role-aware dashboard journey', () => {
       await expect(
         page.getByRole('region', { name: 'Recent academy activity' }),
       ).toBeVisible()
+
+      const summaryCards = page
+        .getByRole('region', { name: 'Academy summary' })
+        .locator('.dashboard-summary-card')
+      const summaryCardBounds = await summaryCards.evaluateAll((cards) =>
+        cards.map((card) => {
+          const bounds = card.getBoundingClientRect()
+          return { x: bounds.x, y: bounds.y, width: bounds.width }
+        }),
+      )
+      expect(summaryCardBounds).toHaveLength(3)
+
+      if (viewport.width === 768) {
+        expect(summaryCardBounds[0]?.x).toBe(summaryCardBounds[1]?.x)
+        expect(summaryCardBounds[1]?.y).toBeGreaterThan(
+          summaryCardBounds[0]?.y ?? 0,
+        )
+        expect(summaryCardBounds[0]?.width).toBeGreaterThanOrEqual(400)
+      }
+
+      if (viewport.width === 1024) {
+        expect(summaryCardBounds[0]?.y).toBe(summaryCardBounds[1]?.y)
+        expect(summaryCardBounds[1]?.x).toBeGreaterThan(
+          summaryCardBounds[0]?.x ?? 0,
+        )
+        expect(summaryCardBounds[2]?.y).toBeGreaterThan(
+          summaryCardBounds[0]?.y ?? 0,
+        )
+        expect(summaryCardBounds[2]?.width).toBeGreaterThan(
+          summaryCardBounds[0]?.width ?? 0,
+        )
+      }
+
+      if (viewport.width === 1280 || viewport.width === 2560) {
+        expect(summaryCardBounds[0]?.y).toBe(summaryCardBounds[1]?.y)
+        expect(summaryCardBounds[1]?.x).toBeGreaterThan(
+          summaryCardBounds[0]?.x ?? 0,
+        )
+      }
 
       expect(
         await page.evaluate(

@@ -5,7 +5,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { ApiClientError } from '@shared/api/client'
-import { AuthContext, LoginPage, type AuthContextValue } from '@features/auth'
+import { AuthContext, type AuthContextValue } from '@features/auth'
+import LoginPage from './LoginPage'
 
 afterEach(cleanup)
 

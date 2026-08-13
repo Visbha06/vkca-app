@@ -34,6 +34,55 @@
 }
 
 @layer components {
+  .dashboard-summary-container {
+    container: dashboard-summary / inline-size;
+  }
+
+  .dashboard-summary-grid {
+    display: grid;
+  }
+
+  .dashboard-summary-card {
+    border-block-end: 1px solid var(--color-slate-200);
+  }
+
+  .dashboard-summary-card:last-child {
+    border-block-end: 0;
+  }
+
+  @container dashboard-summary (min-width: 36rem) {
+    .dashboard-summary-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dashboard-summary-card:nth-child(odd) {
+      border-inline-end: 1px solid var(--color-slate-200);
+    }
+
+    .dashboard-summary-card:last-child {
+      grid-column: 1 / -1;
+      border-inline-end: 0;
+    }
+  }
+
+  @container dashboard-summary (min-width: 60rem) {
+    .dashboard-summary-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .dashboard-summary-card {
+      border-block-end: 0;
+    }
+
+    .dashboard-summary-card:nth-child(2) {
+      border-inline-end: 1px solid var(--color-slate-200);
+    }
+
+    .dashboard-summary-card:last-child {
+      grid-column: auto;
+    }
+  }
+
   .skip-link {
     position: fixed;
     inset-block-start: calc(var(--spacing) * 3);

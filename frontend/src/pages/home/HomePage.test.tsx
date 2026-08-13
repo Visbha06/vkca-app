@@ -161,6 +161,21 @@ describe('HomePage live briefing', () => {
     expect(retry).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps populated dashboard results labelled and exposes background refresh state', () => {
+    renderHome(dashboardFixture(), baseUser, { isFetching: true })
+
+    const results = screen.getByRole('region', { name: 'Dashboard results' })
+    expect(results).toHaveAttribute('aria-busy', 'true')
+    expect(within(results).getAllByText('Batting fundamentals')).toHaveLength(2)
+
+    cleanup()
+    renderHome(dashboardFixture(), baseUser, { isFetching: false })
+
+    expect(
+      screen.getByRole('region', { name: 'Dashboard results' }),
+    ).toHaveAttribute('aria-busy', 'false')
+  })
+
   it('keeps an unlinked Player limited to contact guidance', () => {
     renderHome(
       playerDashboardFixture({ unlinked: true }),
