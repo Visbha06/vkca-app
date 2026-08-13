@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test'
 import { installAuthApiMock } from './auth-api-mock'
 import { installCalendarApiMock } from './calendar-api-mock'
+import { installRoleAwareDashboardApiMock } from './role-aware-dashboard-fixtures'
 
 test.describe('application shell primary journey', () => {
   test.beforeEach(async ({ page }) => {
-    await installAuthApiMock(page)
+    const auth = await installAuthApiMock(page)
+    await installRoleAwareDashboardApiMock(page, auth)
   })
 
   test('navigates and collapses the inline sidebar at 1280px', async ({
@@ -16,11 +18,12 @@ test.describe('application shell primary journey', () => {
     await expect(
       page.getByRole('heading', {
         level: 1,
-        name: 'Good evening, Coach',
+        name: 'Welcome back, Coach John',
       }),
     ).toBeVisible()
     await expect(page.getByText('Academy Portal')).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Create match' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Schedule event' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Create match' })).toHaveCount(0)
     await expect(page.getByRole('link', { name: 'Home' })).toHaveAttribute(
       'aria-current',
       'page',

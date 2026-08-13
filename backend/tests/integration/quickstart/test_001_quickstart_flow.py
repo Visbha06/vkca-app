@@ -153,9 +153,14 @@ async def test_full_twelve_step_quickstart_flow(
             json={
                 "match_date": "2026-07-01",
                 "format": "T20",
-                "opponent_name": f"Challengers CC {run_id}",
                 "venue": "Main Ground",
                 "result": "Won by 7 wickets",
+                "participants": {
+                    "participant_type": "external",
+                    "academy_team_id": str(team_id),
+                    "external_opponent_name": f"Challengers CC {run_id}",
+                    "academy_side": "home",
+                },
             },
         )
         assert create_match.status_code == 201
@@ -260,7 +265,6 @@ async def test_full_twelve_step_quickstart_flow(
             await db_session.execute(
                 delete(TeamPlayer).where(TeamPlayer.team_id == team_id)
             )
-            await db_session.execute(delete(Team).where(Team.id == team_id))
         if match_id is not None:
             await db_session.execute(
                 delete(MatchFieldingPerformance).where(
@@ -285,6 +289,8 @@ async def test_full_twelve_step_quickstart_flow(
             )
         if match_id is not None:
             await db_session.execute(delete(Match).where(Match.id == match_id))
+        if team_id is not None:
+            await db_session.execute(delete(Team).where(Team.id == team_id))
         player_ids = [
             entity_id
             for entity_id in (

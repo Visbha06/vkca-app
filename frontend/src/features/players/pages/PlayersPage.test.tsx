@@ -19,6 +19,7 @@ import type {
 } from '@features/players/types/player'
 import {
   createPlayer,
+  fetchPlayerAccountAssociation,
   fetchPlayer,
   fetchPlayers,
   fetchTeamsForFilter,
@@ -27,6 +28,7 @@ import {
 
 vi.mock('@features/players/api/playerApi', () => ({
   createPlayer: vi.fn(),
+  fetchPlayerAccountAssociation: vi.fn(),
   fetchPlayer: vi.fn(),
   fetchPlayers: vi.fn(),
   fetchTeamsForFilter: vi.fn(),
@@ -130,6 +132,11 @@ beforeEach(() => {
     last_name: 'Patel',
   })
   vi.mocked(fetchPlayer).mockResolvedValue(player)
+  vi.mocked(fetchPlayerAccountAssociation).mockResolvedValue({
+    player_id: player.id,
+    account: null,
+    player_version_number: player.version_number,
+  })
   vi.mocked(updatePlayer).mockResolvedValue({
     ...player,
     first_name: 'Asha-Rae',

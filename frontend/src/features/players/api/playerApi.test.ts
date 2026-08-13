@@ -2,9 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { apiClient } from '@shared/api/client'
 import {
   createPlayer,
+  fetchEligiblePlayerAccounts,
+  fetchPlayerAccountAssociation,
   fetchPlayer,
   fetchPlayers,
   fetchTeamsForFilter,
+  linkPlayerAccount,
+  reassignPlayerAccount,
+  unlinkPlayerAccount,
   updatePlayer,
 } from '@features/players/api/playerApi'
 import type {
@@ -116,5 +121,67 @@ describe('player API client', () => {
       method: 'PUT',
       body: JSON.stringify(payload),
     })
+  })
+
+  it('fetches a bounded safe account lookup and the protected association', async () => {
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({ users: [] })
+    const signal = new AbortController().signal
+
+    await fetchEligiblePlayerAccounts(
+      { search: '  Rohan Patel  ', page: 2, pageSize: 25 },
+      signal,
+    )
+    await fetchPlayerAccountAssociation('player/1', signal)
+
+    expect(request).toHaveBeenNthCalledWith(
+      1,
+      '/api/v1/players/account-linking/users?search=Rohan+Patel&page=2&page_size=25',
+      { signal },
+    )
+    expect(request).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/players/player%2F1/account',
+      { signal },
+    )
+  })
+
+  it('sends typed OCC link, unlink, and reassignment mutations', async () => {
+    const request = vi.spyOn(apiClient, 'request').mockResolvedValue({
+      player_id: 'player-1',
+      account: null,
+      player_version_number: 2,
+    })
+
+    await linkPlayerAccount('player-1', {
+      user_id: 'account-1',
+      version_number: 1,
+    })
+    await unlinkPlayerAccount('player-1', { version_number: 2 })
+    await reassignPlayerAccount('player-1', {
+      expected_user_id: 'account-1',
+      new_user_id: 'account-2',
+      version_number: 3,
+    })
+
+    expect(request).toHaveBeenNthCalledWith(1, '/api/v1/players/player-1/account', {
+      method: 'PUT',
+      body: JSON.stringify({ user_id: 'account-1', version_number: 1 }),
+    })
+    expect(request).toHaveBeenNthCalledWith(2, '/api/v1/players/player-1/account', {
+      method: 'DELETE',
+      body: JSON.stringify({ version_number: 2 }),
+    })
+    expect(request).toHaveBeenNthCalledWith(
+      3,
+      '/api/v1/players/player-1/account/reassign',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          expected_user_id: 'account-1',
+          new_user_id: 'account-2',
+          version_number: 3,
+        }),
+      },
+    )
   })
 })

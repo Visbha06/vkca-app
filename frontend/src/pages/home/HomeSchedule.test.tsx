@@ -1,164 +1,81 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router'
-import type { ReactElement } from 'react'
-import { AuthContext, type AuthContextValue, type AuthUser } from '@features/auth'
-import { fetchRecentBusinessAudit } from '@features/audit/api/businessAuditApi'
-import type { BusinessAuditEvent } from '@features/audit/types/businessAudit'
-import HomePage from './HomePage'
+import { dashboardFixture, playerDashboardFixture } from '@features/dashboard/test/dashboardFixture'
 import HomeSchedule from './HomeSchedule'
 
-vi.mock('@features/audit/api/businessAuditApi', () => ({
-  fetchBusinessAuditActors: vi.fn(),
-  fetchBusinessAuditEvents: vi.fn(),
-  fetchRecentBusinessAudit: vi.fn(),
-}))
+afterEach(cleanup)
 
-const user: AuthUser = {
-  id: 'head-coach-1',
-  first_name: 'Asha',
-  last_name: 'Coach',
-  email: 'asha@example.com',
-  role: 'head coach',
-  is_active: true,
-  created_at: '',
-  updated_at: '',
-  session: {
-    session_id: 'session-1',
-    created_at: '',
-    last_used_at: '',
-    expires_at: '',
-  },
-}
-
-const auth: AuthContextValue = {
-  user,
-  accessToken: 'token',
-  isAuthenticated: true,
-  isInitializing: false,
-  isLoginPending: false,
-  isLogoutPending: false,
-  login: vi.fn(),
-  logout: vi.fn(),
-  refreshSession: vi.fn(),
-  updateUser: vi.fn(),
-}
-
-function event(
-  id: string,
-  category: BusinessAuditEvent['action_category'],
-  summary: string,
-  createdAt = '2026-08-06T18:00:00-07:00',
-): BusinessAuditEvent {
+function renderSchedule(
+  dashboard = dashboardFixture(),
+  onRetry = vi.fn(),
+) {
   return {
-    id,
-    actor_user_id: user.id,
-    actor_display_name: 'Asha Coach',
-    actor_role: 'head coach',
-    action_type: `${category}.updated` as BusinessAuditEvent['action_type'],
-    action_category: category,
-    target_entity_type: category === 'calendar' ? 'calendar_event' : category,
-    target_entity_id: `${category}-${id}`,
-    target_label: `${category} target`,
-    summary,
-    metadata: {},
-    created_at: createdAt,
-    request_id: null,
+    onRetry,
+    ...render(
+      <MemoryRouter>
+        <HomeSchedule
+          upcomingEvents={dashboard.upcoming_events}
+          context={dashboard.context}
+          onRetry={onRetry}
+          role={dashboard.user.role}
+        />
+      </MemoryRouter>,
+    ),
   }
 }
 
-function renderWithRole(
-  element: ReactElement,
-  role: AuthUser['role'] = 'head coach',
-) {
-  render(
-    <AuthContext.Provider value={{ ...auth, user: { ...user, role } }}>
-      <MemoryRouter>{element}</MemoryRouter>
-    </AuthContext.Provider>,
-  )
-}
+describe('HomeSchedule', () => {
+  it('renders live event rows without location or venue data', () => {
+    renderSchedule()
 
-afterEach(() => {
-  cleanup()
-  vi.clearAllMocks()
-})
-
-beforeEach(() => {
-  vi.useFakeTimers({ toFake: ['Date'] })
-  vi.setSystemTime(new Date('2026-08-06T20:00:00-07:00'))
-})
-
-afterEach(() => {
-  vi.useRealTimers()
-})
-
-describe('HomeSchedule recent academy activity', () => {
-  it('renders at most the latest four events with concise summaries, categories, and relative times', async () => {
-    vi.mocked(fetchRecentBusinessAudit).mockResolvedValue({
-      events: [
-        event('1', 'player', 'Added Aarav Singh'),
-        event('2', 'team', 'Updated U16 squad'),
-        event('3', 'roster', 'Reordered U16 roster'),
-        event('4', 'coach', 'Activated Maya Shah'),
-        event('5', 'calendar', 'Scheduled Monday training'),
-      ],
-    })
-
-    renderWithRole(<HomeSchedule />)
-
-    const activity = screen.getByRole('region', { name: 'Recent academy activity' })
-    await waitFor(() => expect(activity.querySelectorAll('ol > li')).toHaveLength(4))
-    expect(activity).toHaveTextContent('Added Aarav Singh')
-    expect(activity).toHaveTextContent('Player')
-    expect(activity).toHaveTextContent('2 hours ago')
-    expect(activity).not.toHaveTextContent('Scheduled Monday training')
-    expect(fetchRecentBusinessAudit).toHaveBeenCalledWith(4, expect.any(AbortSignal))
+    const events = screen.getByRole('region', { name: 'Upcoming events' })
+    expect(within(events).getByText('Batting fundamentals')).toBeVisible()
+    expect(within(events).getByText('U15')).toBeVisible()
+    expect(events).not.toHaveTextContent('Indoor Net')
+    expect(events).not.toHaveTextContent('Academy Ground')
+    expect(events).not.toHaveTextContent('Riverside Oval')
   })
 
-  it('does not render or request recent activity for Assistant Coaches and Players', async () => {
-    vi.mocked(fetchRecentBusinessAudit).mockResolvedValue({ events: [] })
-
-    renderWithRole(<HomeSchedule />, 'assistant coach')
-    await waitFor(() => expect(fetchRecentBusinessAudit).not.toHaveBeenCalled())
-    expect(screen.queryByRole('region', { name: 'Recent academy activity' })).not.toBeInTheDocument()
+  it('renders Head Coach activity and scoped My Teams context', () => {
+    renderSchedule()
+    expect(
+      screen.getByRole('region', { name: 'Recent academy activity' }),
+    ).toHaveTextContent('Asha Coach added Rohan Player')
 
     cleanup()
-    renderWithRole(<HomeSchedule />, 'player')
-    await waitFor(() => expect(fetchRecentBusinessAudit).not.toHaveBeenCalled())
-    expect(screen.queryByRole('region', { name: 'Recent academy activity' })).not.toBeInTheDocument()
+    renderSchedule(playerDashboardFixture())
+    const teams = screen.getByRole('region', { name: 'My teams' })
+    expect(teams).toHaveTextContent('U15 Falcons')
+    expect(teams).toHaveTextContent('12 active players')
+    expect(screen.queryByText('Asha Coach added Rohan Player')).not.toBeInTheDocument()
   })
 
-  it('shows an empty state without placeholder activity', async () => {
-    vi.mocked(fetchRecentBusinessAudit).mockResolvedValue({ events: [] })
+  it('renders explicit event and context empty states', () => {
+    renderSchedule(playerDashboardFixture({ hasEvents: false, hasTeams: false }))
 
-    renderWithRole(<HomeSchedule />)
-
-    await waitFor(() => expect(screen.getByText('No recent academy activity yet.')).toBeInTheDocument())
-    expect(screen.getByRole('region', { name: 'Recent academy activity' })).toBeInTheDocument()
+    expect(screen.getByText('No upcoming events in your scope.')).toBeVisible()
+    expect(screen.getByText('You are not on a team yet.')).toBeVisible()
   })
 
-  it('isolates a retryable recent-activity failure from the rest of the dashboard', async () => {
-    vi.mocked(fetchRecentBusinessAudit)
-      .mockRejectedValueOnce(new Error('temporary failure'))
-      .mockResolvedValueOnce({ events: [] })
+  it('isolates partial failures and exposes a section retry', () => {
+    const dashboard = dashboardFixture({
+      upcoming_events: {
+        status: 'unavailable',
+        message: 'Upcoming events are temporarily unavailable.',
+        retryable: true,
+      },
+    })
+    const { onRetry } = renderSchedule(dashboard)
 
-    renderWithRole(<HomePage />)
-
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Unable to load recent academy activity.'))
-    expect(screen.getByRole('heading', { name: 'Upcoming events' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
-    await waitFor(() => expect(screen.getByText('No recent academy activity yet.')).toBeInTheDocument())
-    expect(fetchRecentBusinessAudit).toHaveBeenCalledTimes(2)
-  })
-
-  it('links Head Coaches to the full Audit Log', async () => {
-    vi.mocked(fetchRecentBusinessAudit).mockResolvedValue({ events: [] })
-
-    renderWithRole(<HomeSchedule />)
-
-    await waitFor(() => expect(screen.getByRole('link', { name: 'View all activity' })).toHaveAttribute('href', '/audit-log'))
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Upcoming events are temporarily unavailable.',
+    )
+    expect(screen.getByText('Asha Coach added Rohan Player')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry upcoming events' }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
   })
 })

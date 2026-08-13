@@ -6,7 +6,6 @@ export {
 } from './context/AuthContext'
 export { default as GuestRoute } from './components/GuestRoute'
 export { default as ProtectedRoute } from './components/ProtectedRoute'
-export { default as LoginPage } from './pages/LoginPage'
 export { default as LogoutButton } from './components/LogoutButton'
 export type {
   AuthUser,

@@ -12,6 +12,7 @@ export default function PlayersPage() {
   const { user } = useAuth()
   const canManagePlayers =
     user?.role === 'head coach' || user?.role === 'assistant coach'
+  const canLinkAccounts = user?.role === 'head coach'
   const shouldOpenAddPlayer = useInitialAddPlayerAction(canManagePlayers)
   const {
     committedSearch,
@@ -81,6 +82,7 @@ export default function PlayersPage() {
       />
 
       <PlayersPageModals
+        canLinkAccounts={canLinkAccounts}
         canManagePlayers={canManagePlayers}
         isAddPlayerOpen={isAddPlayerOpen}
         selectedPlayer={selectedPlayer}

@@ -9,7 +9,13 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import AsyncSessionFactory
-from src.enums import BattingStyle, BowlingStyle, MatchFormat, PlayerType
+from src.enums import (
+    BattingStyle,
+    BowlingStyle,
+    MatchFormat,
+    MatchParticipantType,
+    PlayerType,
+)
 from src.models.match import Match
 from src.models.match_batting_performance import MatchBattingPerformance
 from src.models.match_bowling_performance import MatchBowlingPerformance
@@ -17,6 +23,7 @@ from src.models.match_fielding_performance import MatchFieldingPerformance
 from src.models.player import Player
 from src.models.player_batting_stats import PlayerBattingStats
 from src.models.player_bowling_stats import PlayerBowlingStats
+from src.models.team import Team
 from src.schemas.performance import BatchPerformanceRequest
 from src.services.performance_service import PerformanceService, PlayerNotFoundError
 
@@ -42,23 +49,29 @@ async def test_batch_submission_is_atomic_and_recalculates_stats(
         bowling_style=BowlingStyle.RIGHT_ARM_MEDIUM,
         player_type=PlayerType.ALL_ROUNDER,
     )
+    team = Team(id=uuid4(), name=f"Atomic Team {uuid4()}", age_group="U15")
     match = Match(
         match_date=date(2026, 7, 1),
         format=MatchFormat.T20,
-        opponent_name=f"Integration-{uuid4()}",
+        participant_type=MatchParticipantType.EXTERNAL,
+        home_team_id=team.id,
+        external_opponent_name=f"Integration-{uuid4()}",
         venue="Test Ground",
         result="Won",
     )
     rollback_match = Match(
         match_date=date(2026, 7, 2),
         format=MatchFormat.T20,
-        opponent_name=f"Rollback-{uuid4()}",
+        participant_type=MatchParticipantType.EXTERNAL,
+        home_team_id=team.id,
+        external_opponent_name=f"Rollback-{uuid4()}",
         venue="Test Ground",
         result="Won",
     )
-    db_session.add_all([player, match, rollback_match])
+    db_session.add_all([player, team, match, rollback_match])
     await db_session.flush()
     player_id = player.id
+    team_id = team.id
     match_id = match.id
     rollback_match_id = rollback_match.id
     await db_session.commit()
@@ -184,5 +197,6 @@ async def test_batch_submission_is_atomic_and_recalculates_stats(
         await db_session.execute(
             delete(Match).where(Match.id.in_([match_id, rollback_match_id]))
         )
+        await db_session.execute(delete(Team).where(Team.id == team_id))
         await db_session.execute(delete(Player).where(Player.id == player_id))
         await db_session.commit()

@@ -1,22 +1,31 @@
 """Player profile database model."""
 
+from __future__ import annotations
+
 from datetime import date
-from typing import Any
+from typing import TYPE_CHECKING, Any
+from uuid import UUID
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Date,
+    ForeignKey,
+    Index,
     String,
     Text,
     UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.enums import BattingStyle, BowlingStyle, PlayerType
 from src.models.base import Base, TimestampMixin, UUIDMixin, VersionMixin
+
+if TYPE_CHECKING:
+    from src.models.user import User
 
 
 class Player(UUIDMixin, TimestampMixin, VersionMixin, Base):
@@ -24,6 +33,12 @@ class Player(UUIDMixin, TimestampMixin, VersionMixin, Base):
 
     __tablename__ = "players"
     __table_args__ = (
+        Index(
+            "uq_players_user_id",
+            "user_id",
+            unique=True,
+            postgresql_where=text("user_id IS NOT NULL"),
+        ),
         UniqueConstraint(
             "first_name",
             "last_name",
@@ -47,6 +62,11 @@ class Player(UUIDMixin, TimestampMixin, VersionMixin, Base):
         ),
     )
 
+    user_id: Mapped[UUID | None] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL", name="fk_players_user_id_users"),
+        nullable=True,
+    )
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     date_of_birth: Mapped[date] = mapped_column(Date, nullable=False)
@@ -65,4 +85,9 @@ class Player(UUIDMixin, TimestampMixin, VersionMixin, Base):
         nullable=False,
         default=True,
         server_default=text("true"),
+    )
+    user: Mapped[User | None] = relationship(
+        back_populates="player_profile",
+        foreign_keys=[user_id],
+        uselist=False,
     )

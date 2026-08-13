@@ -268,6 +268,25 @@ async def test_login_disabled_user_returns_401_generic(
 
 
 @pytest.mark.asyncio
+async def test_login_linked_inactive_player_returns_the_same_generic_401(
+    client: httpx.AsyncClient,
+    auth_service_mock,
+) -> None:
+    auth_service_mock.login.side_effect = invalid_credentials_response()
+
+    response = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "inactive.player@example.com",
+            "password": "CorrectP@ssword1",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid credentials"}
+
+
+@pytest.mark.asyncio
 async def test_responses_byte_identical_across_failure_modes(
     client: httpx.AsyncClient,
     auth_service_mock,
@@ -551,7 +570,7 @@ async def test_access_token_rejected_after_logout(
     assert logout.status_code == 204
 
     app.dependency_overrides.pop(get_logout_user)
-    db_session.scalar.side_effect = [auth_session, user]
+    db_session.scalar.side_effect = [auth_session, user, None]
     response = await client.get(
         "/api/v1/auth/me",
         headers={"Authorization": f"Bearer {token}"},
@@ -1077,7 +1096,7 @@ async def test_role_from_jwt_not_trusted(
         auth_session.id,
         UserRole.HEAD_COACH,
     )
-    db_session.scalar.side_effect = [auth_session, user]
+    db_session.scalar.side_effect = [auth_session, user, None]
 
     response = await client.post(
         "/api/v1/players",

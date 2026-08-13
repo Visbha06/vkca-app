@@ -6,13 +6,22 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from src.enums import BattingStyle, BowlingStyle, PlayerType
+from src.enums import BattingStyle, BowlingStyle, PlayerType, UserRole
 from src.schemas.player import (
     PaginatedPlayerResponse,
     PlayerCreate,
     PlayerResponse,
     PlayerUpdate,
     TeamSummary,
+)
+from src.schemas.player_account import (
+    PaginatedPlayerAccountResponse,
+    PlayerAccountAssociationResponse,
+    PlayerAccountLinkRequest,
+    PlayerAccountLookupQuery,
+    PlayerAccountReassignRequest,
+    PlayerAccountSnapshot,
+    PlayerAccountUnlinkRequest,
 )
 
 
@@ -166,3 +175,104 @@ def test_paginated_player_response_rejects_invalid_metadata(
 
     with pytest.raises(ValidationError, match=message):
         PaginatedPlayerResponse.model_validate(payload)
+
+
+def test_player_account_lookup_normalizes_search_and_enforces_bounds() -> None:
+    query = PlayerAccountLookupQuery(search="  Rohan Patel  ", page=2, page_size=25)
+
+    assert query.search == "Rohan Patel"
+    assert PlayerAccountLookupQuery(search="   ").search is None
+
+    for invalid in ({"page": 0}, {"page_size": 0}, {"page_size": 101}):
+        with pytest.raises(ValidationError):
+            PlayerAccountLookupQuery.model_validate(invalid)
+
+
+def test_player_account_requests_are_strict_and_reassignment_is_not_a_noop() -> None:
+    user_id = uuid4()
+
+    assert (
+        PlayerAccountLinkRequest(user_id=user_id, version_number=3).user_id
+        == user_id
+    )
+    assert PlayerAccountUnlinkRequest(version_number=4).version_number == 4
+
+    with pytest.raises(ValidationError):
+        PlayerAccountLinkRequest.model_validate(
+            {"user_id": user_id, "version_number": 3, "password": "secret"}
+        )
+    with pytest.raises(ValidationError, match="different"):
+        PlayerAccountReassignRequest(
+            expected_user_id=user_id,
+            new_user_id=user_id,
+            version_number=4,
+        )
+
+
+def test_player_account_responses_expose_only_allowlisted_account_fields() -> None:
+    user_id = uuid4()
+    player_id = uuid4()
+    snapshot = PlayerAccountSnapshot.model_validate(
+        {
+            "id": user_id,
+            "display_name": "Rohan Patel",
+            "email": "rohan@example.com",
+            "role": UserRole.PLAYER,
+            "is_active": True,
+            "hashed_password": "must-not-leak",
+            "sessions": ["must-not-leak"],
+        }
+    )
+    page = PaginatedPlayerAccountResponse(
+        users=[snapshot],
+        page=1,
+        page_size=20,
+        total_users=1,
+        total_pages=1,
+    )
+    association = PlayerAccountAssociationResponse(
+        player_id=player_id,
+        account=snapshot,
+        player_version_number=2,
+    )
+
+    serialized = page.model_dump(mode="json")["users"][0]
+    assert serialized == {
+        "id": str(user_id),
+        "display_name": "Rohan Patel",
+        "email": "rohan@example.com",
+        "role": "player",
+        "is_active": True,
+    }
+    assert association.account == snapshot
+
+
+def test_normal_player_response_omits_account_and_session_fields() -> None:
+    now = datetime.now(UTC)
+    response = PlayerResponse.model_validate(
+        {
+            "id": uuid4(),
+            "first_name": "Safe",
+            "last_name": "Player",
+            "date_of_birth": date(2010, 1, 1),
+            "bio": None,
+            "batting_style": BattingStyle.RIGHT,
+            "bowling_style": BowlingStyle.RIGHT_ARM_MEDIUM,
+            "player_type": PlayerType.ALL_ROUNDER,
+            "player_metadata": {},
+            "is_active": True,
+            "created_at": now,
+            "updated_at": now,
+            "version_number": 1,
+            "user_id": uuid4(),
+            "account": {"email": "hidden@example.com"},
+            "hashed_password": "hidden",
+            "sessions": ["hidden"],
+        }
+    )
+
+    serialized = response.model_dump(mode="json")
+    assert "user_id" not in serialized
+    assert "account" not in serialized
+    assert "hashed_password" not in serialized
+    assert "sessions" not in serialized

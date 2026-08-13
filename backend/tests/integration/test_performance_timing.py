@@ -11,7 +11,13 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.database import AsyncSessionFactory, get_db
-from src.enums import BattingStyle, BowlingStyle, MatchFormat, PlayerType
+from src.enums import (
+    BattingStyle,
+    BowlingStyle,
+    MatchFormat,
+    MatchParticipantType,
+    PlayerType,
+)
 from src.main import app
 from src.models.data_sync_log import DataSyncLog
 from src.models.match import Match
@@ -21,6 +27,7 @@ from src.models.match_fielding_performance import MatchFieldingPerformance
 from src.models.player import Player
 from src.models.player_batting_stats import PlayerBattingStats
 from src.models.player_bowling_stats import PlayerBowlingStats
+from src.models.team import Team
 
 
 @pytest_asyncio.fixture
@@ -70,6 +77,7 @@ async def delete_performance_data(
     session: AsyncSession,
     player_ids: list[UUID],
     match_id: UUID,
+    team_id: UUID,
 ) -> None:
     """Remove rows produced by one timed batch in foreign-key order."""
 
@@ -83,6 +91,7 @@ async def delete_performance_data(
         await session.execute(delete(model).where(model.player_id.in_(player_ids)))
     await session.execute(delete(Match).where(Match.id == match_id))
     await session.execute(delete(Player).where(Player.id.in_(player_ids)))
+    await session.execute(delete(Team).where(Team.id == team_id))
 
 
 @pytest.mark.asyncio
@@ -94,16 +103,20 @@ async def test_eleven_player_batch_completes_within_three_seconds(
     """SC-002: write 33 performance rows and aggregates in under three seconds."""
 
     players = make_players(11)
+    team = Team(id=uuid4(), name=f"Timing Team {uuid4()}", age_group="U15")
     match = Match(
         match_date=date(2026, 7, 12),
         format=MatchFormat.T20,
-        opponent_name=f"Timing Opponent {uuid4()}",
+        participant_type=MatchParticipantType.EXTERNAL,
+        home_team_id=team.id,
+        external_opponent_name=f"Timing Opponent {uuid4()}",
         venue="Timing Ground",
         result="Won",
     )
-    db_session.add_all([*players, match])
+    db_session.add_all([*players, team, match])
     await db_session.flush()
     player_ids = [player.id for player in players]
+    team_id = team.id
     match_id = match.id
     await db_session.commit()
 
@@ -147,7 +160,7 @@ async def test_eleven_player_batch_completes_within_three_seconds(
         assert elapsed < 3, f"11-player batch took {elapsed:.3f}s"
     finally:
         await db_session.rollback()
-        await delete_performance_data(db_session, player_ids, match_id)
+        await delete_performance_data(db_session, player_ids, match_id, team_id)
         await db_session.commit()
 
 

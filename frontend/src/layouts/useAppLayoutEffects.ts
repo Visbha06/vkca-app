@@ -31,14 +31,33 @@ export function useAppLayoutEffects(
     document.title = `${getPageTitle(pathname)} | VK Cricket Academy`
     const previousPath = previousPathRef.current
     if (previousPath !== null && previousPath !== pathname) {
+      let headingObserver: MutationObserver | null = null
       const focusTimer = window.setTimeout(() => {
         const settingsTrigger = document.querySelector<HTMLElement>('a[aria-label="User Settings"]')
         if (previousPath !== '/settings' || document.activeElement !== settingsTrigger) {
-          document.querySelector<HTMLElement>('#main-content h1')?.focus()
+          const focusHeading = () => {
+            const heading = document.querySelector<HTMLElement>('#main-content h1')
+            if (heading === null) return false
+            heading.focus()
+            return true
+          }
+
+          if (!focusHeading()) {
+            const mainContent = document.querySelector<HTMLElement>('#main-content')
+            if (mainContent !== null) {
+              headingObserver = new MutationObserver(() => {
+                if (focusHeading()) headingObserver?.disconnect()
+              })
+              headingObserver.observe(mainContent, { childList: true, subtree: true })
+            }
+          }
         }
       }, 0)
       previousPathRef.current = pathname
-      return () => window.clearTimeout(focusTimer)
+      return () => {
+        window.clearTimeout(focusTimer)
+        headingObserver?.disconnect()
+      }
     }
     previousPathRef.current = pathname
   }, [pathname])

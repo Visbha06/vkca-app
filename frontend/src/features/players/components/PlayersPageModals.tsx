@@ -5,6 +5,7 @@ import EditPlayerModal from './player-form/EditPlayerModal'
 import PlayerDetailsModal from './player-details/PlayerDetailsModal'
 
 interface PlayersPageModalsProps {
+  canLinkAccounts: boolean
   canManagePlayers: boolean
   isAddPlayerOpen: boolean
   selectedPlayer: PlayerResponse | null
@@ -17,6 +18,7 @@ interface PlayersPageModalsProps {
 }
 
 export default function PlayersPageModals({
+  canLinkAccounts,
   canManagePlayers,
   isAddPlayerOpen,
   selectedPlayer,
@@ -57,8 +59,10 @@ export default function PlayersPageModals({
 
       {editingPlayer !== null ? (
         <EditPlayerModal
+          canLinkAccounts={canLinkAccounts}
           player={editingPlayer}
           onClose={() => setEditingPlayer(null)}
+          onAccountChanged={(player) => onPlayerMutation(player, 'updated')}
           onUpdated={handlePlayerUpdated}
         />
       ) : null}

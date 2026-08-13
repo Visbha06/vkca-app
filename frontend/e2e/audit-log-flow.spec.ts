@@ -5,6 +5,7 @@ import {
   installBusinessAuditApiMock,
 } from './audit-log-fixtures'
 import { installPlayersApiMock } from './players-api-mock'
+import { installRoleAwareDashboardApiMock } from './role-aware-dashboard-fixtures'
 
 test.describe('business audit log journey', () => {
   test('captures admin activity, reviews it newest-first, and enforces roles', async ({
@@ -14,6 +15,18 @@ test.describe('business audit log journey', () => {
     const auth = await installAuthApiMock(page, false)
     await installPlayersApiMock(page)
     const audit = await installBusinessAuditApiMock(page)
+    await installRoleAwareDashboardApiMock(page, auth, {
+      recentActivity: () =>
+        audit.events.map((event) => ({
+          id: event.id,
+          actor_display_name: event.actor_display_name,
+          action_type: event.action_type,
+          action_category: event.action_category,
+          target_label: event.target_label,
+          summary: event.summary,
+          created_at: event.created_at,
+        })),
+    })
 
     await page.goto('/players')
     await expect(page).toHaveURL(/\/login\?redirect=%2Fplayers$/)

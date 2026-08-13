@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "generate:data-quality-types": "node scripts/generate-data-quality-types.mjs",
     "check:data-quality-types": "node scripts/generate-data-quality-types.mjs --check",
+    "generate:role-aware-dashboard-types": "node scripts/generate-role-aware-dashboard-types.mjs",
+    "check:role-aware-dashboard-types": "node scripts/generate-role-aware-dashboard-types.mjs --check",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",

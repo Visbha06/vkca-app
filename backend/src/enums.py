@@ -112,6 +112,9 @@ class AuditActionType(StrEnum):
     COACH_TEAM_ASSIGNMENTS_UPDATED = "coach.team_assignments_updated"
     PLAYER_CREATED = "player.created"
     PLAYER_UPDATED = "player.updated"
+    PLAYER_ACCOUNT_LINKED = "player.account_linked"
+    PLAYER_ACCOUNT_UNLINKED = "player.account_unlinked"
+    PLAYER_ACCOUNT_REASSIGNED = "player.account_reassigned"
     TEAM_CREATED = "team.created"
     TEAM_UPDATED = "team.updated"
     ROSTER_ADDED = "roster.added"
@@ -203,6 +206,13 @@ class MatchFormat(StrEnum):
     ONE_DAY = "one-day"
     TEST = "test"
     OTHER = "other"
+
+
+class MatchParticipantType(StrEnum):
+    """Persisted Match participant structures."""
+
+    EXTERNAL = "external"
+    INTERNAL = "internal"
 
 
 class DismissalType(StrEnum):

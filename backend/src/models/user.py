@@ -1,10 +1,17 @@
 """SQLAlchemy model for application user accounts."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from sqlalchemy import Boolean, CheckConstraint, String, UniqueConstraint, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.enums import UserRole
 from src.models.base import Base, TimestampMixin, UUIDMixin, VersionMixin
+
+if TYPE_CHECKING:
+    from src.models.player import Player
 
 
 class User(UUIDMixin, TimestampMixin, VersionMixin, Base):
@@ -38,4 +45,8 @@ class User(UUIDMixin, TimestampMixin, VersionMixin, Base):
     role: Mapped[UserRole] = mapped_column(String(20), nullable=False)
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("true")
+    )
+    player_profile: Mapped[Player | None] = relationship(
+        back_populates="user",
+        uselist=False,
     )
