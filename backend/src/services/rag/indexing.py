@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import or_, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.rag_chunk import RagChunk
@@ -434,3 +434,291 @@ def report_from_run(run: RagIndexRun) -> RagIndexRunReport:
 
 
 IndexingStateService = RagIndexingStateService
+
+
+class RagIndexingService:
+    """Run deterministic full or targeted builds over explicitly registered sources."""
+
+    def __init__(
+        self,
+        session: AsyncSession,
+        *,
+        provider: object,
+        batch_size: int,
+        timeout_seconds: float,
+        registry: object | None = None,
+        chunker: object | None = None,
+    ) -> None:
+        from src.services.rag.chunking import RagChunker
+        from src.services.rag.embedding import EmbeddingBatcher
+        from src.services.rag.registry import source_registry
+
+        if not all(
+            hasattr(provider, attribute) for attribute in ("profile", "embed_documents")
+        ):
+            raise TypeError("provider must implement the embedding provider contract")
+        self.session = session
+        self.provider = provider
+        self.registry = registry or source_registry
+        self.chunker = chunker or RagChunker()
+        self.batcher = EmbeddingBatcher(
+            batch_size=batch_size, timeout_seconds=timeout_seconds
+        )
+        self.state = RagIndexingStateService(session)
+
+    async def run_full(self) -> RagIndexRunReport:
+        """Build every registered source family from committed authoritative rows."""
+
+        return await self.run(RagRunMode.FULL)
+
+    async def run_targeted(self, source_type: str) -> RagIndexRunReport:
+        """Build one explicit registry source type without dynamic model discovery."""
+
+        return await self.run(RagRunMode.TARGETED, source_type=source_type)
+
+    async def run(
+        self,
+        mode: RagRunMode,
+        *,
+        source_type: str | None = None,
+    ) -> RagIndexRunReport:
+        """Execute the Phase 3 full/targeted traversal and safely persist aggregates."""
+
+        if mode not in {RagRunMode.FULL, RagRunMode.TARGETED}:
+            raise ValueError("Phase 3 indexing supports full and targeted modes only")
+        if mode is RagRunMode.TARGETED:
+            if source_type is None:
+                raise ValueError("targeted RAG runs require source_type")
+            definitions = self.registry.select((source_type,))
+        else:
+            definitions = self.registry.select()
+            source_type = None
+
+        run = await self.state.start_run(mode, source_type=source_type)
+        counters = RagRunCounters()
+        try:
+            for definition in definitions:
+                await self._traverse_definition(run, definition, counters)
+            status = (
+                RagRunStatus.PARTIAL
+                if counters.failed_sources
+                else RagRunStatus.COMPLETED
+            )
+            await self.state.finish_run(run, status=status, counters=counters)
+            await self.session.commit()
+            return report_from_run(run)
+        except Exception as error:
+            await self.session.rollback()
+            # Preserve no semantic/error body and do not attempt to continue
+            # after a global registry/database configuration failure.
+            failure = failure_from_exception(error)
+            retry_run = await self.state.start_run(mode, source_type=source_type)
+            await self.state.finish_run(
+                retry_run,
+                status=RagRunStatus.FAILED,
+                counters=counters,
+                failure=failure,
+            )
+            await self.session.commit()
+            return report_from_run(retry_run)
+
+    async def _traverse_definition(
+        self,
+        run: RagIndexRun,
+        definition: object,
+        counters: RagRunCounters,
+    ) -> None:
+        cursor: str | None = None
+        seen_cursors: set[str] = set()
+        while True:
+            page = await definition.loader.load_batch(  # type: ignore[union-attr]
+                self.session, cursor=cursor, limit=100
+            )
+            for loaded in page.items:
+                await self._process_record(run, definition, loaded, counters)
+            if page.next_cursor is None:
+                return
+            if page.next_cursor in seen_cursors:
+                raise RuntimeError(
+                    "registered RAG source loader produced a cursor cycle"
+                )
+            seen_cursors.add(page.next_cursor)
+            cursor = page.next_cursor
+
+    async def _process_record(
+        self,
+        run: RagIndexRun,
+        definition: object,
+        loaded: object,
+        counters: RagRunCounters,
+    ) -> None:
+        counters.add(source_records_inspected=1)
+        source_type = definition.source_type  # type: ignore[union-attr]
+        source_key = definition.source_key(loaded)  # type: ignore[union-attr]
+        source_id = derive_source_id(source_type, source_key)
+        source_version = definition.source_version(loaded)  # type: ignore[union-attr]
+        dependency_hash = definition.dependency_fingerprint(loaded)  # type: ignore[union-attr]
+        if not definition.eligible(loaded):  # type: ignore[union-attr]
+            existing = await self.session.get(RagSourceState, source_id)
+            if existing is not None:
+                await self.state.mark_source_unsearchable(
+                    existing.id,
+                    expected_version=existing.version_number,
+                    status=RagSourceStatus.INELIGIBLE,
+                )
+            counters.add(deleted_or_ineligible=1)
+            return
+
+        document = definition.build(loaded)  # type: ignore[union-attr]
+        existing_state = await self.session.get(RagSourceState, source_id)
+        profile = self.provider.profile
+        if self._is_current(existing_state, document, profile):
+            counters.add(unchanged_skipped=1)
+            return
+        state = existing_state or await self.state.create_source_state(
+            source_type=source_type,
+            source_key=source_key,
+            source_entity_id=document.source_entity_id,
+            builder_version=document.builder_version,
+            chunking_version=self.chunker.policy.version,
+            profile=profile,
+        )
+        try:
+            claimed = await self.state.claim_source(
+                state.id,
+                expected_version=state.version_number,
+                run_id=run.id,
+            )
+            chunks = self.chunker.chunk(document)
+            from src.services.rag.contracts import as_embedding_inputs
+
+            batch = await self.batcher.embed_documents(
+                self.provider, as_embedding_inputs(chunks), profile=profile
+            )
+            vectors = {vector.item_key: vector.values for vector in batch.vectors}
+            if len(vectors) != len(chunks):
+                raise ValueError("validated embedding response did not map every chunk")
+            await self._activate_document(
+                state=claimed,
+                document=document,
+                chunks=chunks,
+                vectors=vectors,
+                profile=profile,
+            )
+            await self.state.mark_source_current(
+                claimed.id,
+                expected_version=claimed.version_number,
+                run_id=run.id,
+                active_document_id=document.document_id,
+                source_version=source_version,
+                dependency_hash=dependency_hash,
+                content_hash=document.content_hash,
+            )
+            counters.add(
+                documents_prepared=1,
+                chunks_generated=len(chunks),
+                embeddings_created=len(chunks),
+            )
+        except Exception as error:
+            counters.add(failed_sources=1)
+            if "claimed" in locals():
+                try:
+                    await self.state.mark_source_failed(
+                        claimed.id,
+                        expected_version=claimed.version_number,
+                        run_id=run.id,
+                        failure=failure_from_exception(error),
+                    )
+                except RagClaimConflictError:
+                    pass
+
+    @staticmethod
+    def _is_current(
+        state: RagSourceState | None,
+        document: object,
+        profile: EmbeddingProfile,
+    ) -> bool:
+        return bool(
+            state is not None
+            and state.status == RagSourceStatus.CURRENT
+            and state.active_document_id == document.document_id  # type: ignore[union-attr]
+            and state.last_successful_content_hash == document.content_hash  # type: ignore[union-attr]
+            and state.builder_version == document.builder_version  # type: ignore[union-attr]
+            and state.chunking_version
+            and state.provider_name == profile.provider_name
+            and state.model_name == profile.model_name
+            and state.embedding_dimension == profile.dimension
+        )
+
+    async def _activate_document(
+        self,
+        *,
+        state: RagSourceState,
+        document: object,
+        chunks: object,
+        vectors: dict[str, tuple[float, ...]],
+        profile: EmbeddingProfile,
+    ) -> None:
+        """Replace one derived document atomically after all vectors validate."""
+
+        persisted = await self.session.scalar(
+            select(RagDocument).where(RagDocument.source_state_id == state.id)
+        )
+        values = {
+            "source_type": document.source_type,
+            "source_key": document.source_key,
+            "source_entity_id": document.source_entity_id,
+            "source_version": document.source_version,
+            "semantic_text": document.semantic_text,
+            "provenance_metadata": dict(document.provenance),
+            "scope_metadata": document.scope.as_json(),
+            "player_ids": list(document.scope.player_ids),
+            "team_ids": list(document.scope.team_ids),
+            "age_groups": list(document.scope.age_groups),
+            "is_all_academy": document.scope.is_all_academy,
+            "content_hash": document.content_hash,
+            "builder_version": document.builder_version,
+            "chunking_version": self.chunker.policy.version,
+            "prepared_at": document.prepared_at,
+            "is_searchable": True,
+        }
+        if persisted is None:
+            persisted = RagDocument(
+                id=document.document_id,
+                source_state_id=state.id,
+                **values,
+            )
+            self.session.add(persisted)
+        else:
+            for key, value in values.items():
+                setattr(persisted, key, value)
+        await self.session.flush()
+        await self.session.execute(
+            delete(RagChunk).where(RagChunk.document_id == persisted.id)
+        )
+        for chunk in chunks:
+            self.session.add(
+                RagChunk(
+                    id=chunk.chunk_id,
+                    document_id=persisted.id,
+                    source_type=chunk.source_type,
+                    source_key=chunk.source_key,
+                    ordinal=chunk.ordinal,
+                    semantic_text=chunk.semantic_text,
+                    content_hash=chunk.content_hash,
+                    provenance_metadata=dict(chunk.provenance),
+                    scope_metadata=chunk.scope.as_json(),
+                    player_ids=list(chunk.scope.player_ids),
+                    team_ids=list(chunk.scope.team_ids),
+                    age_groups=list(chunk.scope.age_groups),
+                    is_all_academy=chunk.scope.is_all_academy,
+                    embedding=list(vectors[str(chunk.chunk_id)]),
+                    provider_name=profile.provider_name,
+                    model_name=profile.model_name,
+                    embedding_dimension=profile.dimension,
+                    builder_version=chunk.builder_version,
+                    chunking_version=chunk.chunking_version,
+                    is_searchable=True,
+                )
+            )
+        await self.session.flush()

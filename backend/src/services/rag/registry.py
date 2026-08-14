@@ -188,5 +188,202 @@ class RagSourceRegistry[RecordT]:
         return len(self._definitions)
 
 
-# This remains intentionally empty until Phase 3 registers the nine initial sources.
-source_registry: RagSourceRegistry[object] = RagSourceRegistry()
+def _loaded_record(record: object) -> object:
+    return getattr(record, "record", record)
+
+
+def _relationships(record: object) -> dict[str, object]:
+    return dict(getattr(record, "relationships", {}))
+
+
+def _loaded_source_key(record: object) -> str:
+    source_key = getattr(record, "source_key", None)
+    return str(source_key if source_key is not None else _loaded_record(record).id)
+
+
+def _loaded_source_version(record: object) -> str | None:
+    value = getattr(
+        record,
+        "source_version",
+        getattr(_loaded_record(record), "version_number", None),
+    )
+    return str(value) if value is not None else None
+
+
+def _loaded_dependency(record: object) -> str | None:
+    value = getattr(record, "dependency_fingerprint", None)
+    return str(value) if value is not None else None
+
+
+def _eligible_active_player(record: object) -> bool:
+    return bool(getattr(_loaded_record(record), "is_active", False))
+
+
+def _eligible_relationship_player(record: object) -> bool:
+    player = _relationships(record).get("player")
+    return player is not None and bool(getattr(player, "is_active", False))
+
+
+def _build_initial_registry() -> RagSourceRegistry[object]:
+    """Register only the nine approved academy source families."""
+
+    from src.services.rag.builders.calendar import (
+        CALENDAR_OCCURRENCE_BUILDER_VERSION,
+        build_calendar_occurrence_document,
+    )
+    from src.services.rag.builders.match import (
+        MATCH_BUILDER_VERSION,
+        build_match_document,
+    )
+    from src.services.rag.builders.performance import (
+        BATTING_PERFORMANCE_BUILDER_VERSION,
+        BOWLING_PERFORMANCE_BUILDER_VERSION,
+        FIELDING_PERFORMANCE_BUILDER_VERSION,
+        build_batting_performance_document,
+        build_bowling_performance_document,
+        build_fielding_performance_document,
+    )
+    from src.services.rag.builders.player import (
+        PLAYER_PROFILE_BUILDER_VERSION,
+        build_player_profile_document,
+        is_eligible_player,
+    )
+    from src.services.rag.builders.statistics import (
+        BATTING_STATISTICS_BUILDER_VERSION,
+        BOWLING_STATISTICS_BUILDER_VERSION,
+        build_batting_statistics_document,
+        build_bowling_statistics_document,
+    )
+    from src.services.rag.builders.team import TEAM_BUILDER_VERSION, build_team_document
+    from src.services.rag.loaders import (
+        batting_performance_loader,
+        batting_statistics_loader,
+        bowling_performance_loader,
+        bowling_statistics_loader,
+        calendar_occurrence_loader,
+        fielding_performance_loader,
+        match_loader,
+        player_profile_loader,
+        team_loader,
+    )
+
+    definitions: list[RagSourceDefinition[object]] = []
+
+    def add(
+        source_type: str,
+        builder_version: str,
+        loader: object,
+        build: object,
+        eligible: object,
+    ) -> None:
+        assert callable(build)
+        assert callable(eligible)
+        definitions.append(
+            RagSourceDefinition(
+                source_type=source_type,
+                builder_version=builder_version,
+                loader=loader,  # type: ignore[arg-type]
+                build=build,  # type: ignore[arg-type]
+                source_key=_loaded_source_key,
+                source_version=_loaded_source_version,
+                dependency_fingerprint=_loaded_dependency,
+                scope_metadata=lambda record, build=build: build(record).scope,  # type: ignore[union-attr]
+                eligible=eligible,  # type: ignore[arg-type]
+                dependencies=getattr(loader, "dependencies", ()),
+                deletion_policy=MarkMissingDeletedPolicy(),
+            )
+        )
+
+    add(
+        "player_profile",
+        PLAYER_PROFILE_BUILDER_VERSION,
+        player_profile_loader,
+        lambda item: build_player_profile_document(
+            _loaded_record(item), team_memberships=_relationships(item).get("teams", ())
+        ),
+        lambda item: is_eligible_player(_loaded_record(item)),
+    )
+    add(
+        "team",
+        TEAM_BUILDER_VERSION,
+        team_loader,
+        lambda item: build_team_document(
+            _loaded_record(item),
+            roster=_relationships(item).get("roster", ()),
+            coaches=_relationships(item).get("coaches", ()),
+        ),
+        lambda item: True,
+    )
+    add(
+        "match",
+        MATCH_BUILDER_VERSION,
+        match_loader,
+        lambda item: build_match_document(
+            _loaded_record(item),
+            home_team=_relationships(item).get("home_team"),
+            away_team=_relationships(item).get("away_team"),
+        ),
+        lambda item: True,
+    )
+    add(
+        "batting_performance",
+        BATTING_PERFORMANCE_BUILDER_VERSION,
+        batting_performance_loader,
+        lambda item: build_batting_performance_document(
+            _loaded_record(item),
+            player=_relationships(item).get("player"),
+            match=_relationships(item).get("match"),
+        ),
+        _eligible_relationship_player,
+    )
+    add(
+        "bowling_performance",
+        BOWLING_PERFORMANCE_BUILDER_VERSION,
+        bowling_performance_loader,
+        lambda item: build_bowling_performance_document(
+            _loaded_record(item),
+            player=_relationships(item).get("player"),
+            match=_relationships(item).get("match"),
+        ),
+        _eligible_relationship_player,
+    )
+    add(
+        "fielding_performance",
+        FIELDING_PERFORMANCE_BUILDER_VERSION,
+        fielding_performance_loader,
+        lambda item: build_fielding_performance_document(
+            _loaded_record(item),
+            player=_relationships(item).get("player"),
+            match=_relationships(item).get("match"),
+        ),
+        _eligible_relationship_player,
+    )
+    add(
+        "player_batting_statistics",
+        BATTING_STATISTICS_BUILDER_VERSION,
+        batting_statistics_loader,
+        lambda item: build_batting_statistics_document(
+            _loaded_record(item), player=_relationships(item).get("player")
+        ),
+        _eligible_relationship_player,
+    )
+    add(
+        "player_bowling_statistics",
+        BOWLING_STATISTICS_BUILDER_VERSION,
+        bowling_statistics_loader,
+        lambda item: build_bowling_statistics_document(
+            _loaded_record(item), player=_relationships(item).get("player")
+        ),
+        _eligible_relationship_player,
+    )
+    add(
+        "calendar_occurrence",
+        CALENDAR_OCCURRENCE_BUILDER_VERSION,
+        calendar_occurrence_loader,
+        lambda item: build_calendar_occurrence_document(_loaded_record(item)),
+        lambda item: True,
+    )
+    return RagSourceRegistry(definitions)
+
+
+source_registry: RagSourceRegistry[object] = _build_initial_registry()
