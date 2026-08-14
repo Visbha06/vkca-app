@@ -4,7 +4,14 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, PostgresDsn, SecretStr, field_validator, model_validator
+from pydantic import (
+    Field,
+    PostgresDsn,
+    RedisDsn,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -36,6 +43,24 @@ class Settings(BaseSettings):
     password_min_length: int = 12
     password_max_length: int = 128
 
+    # Background processing settings. Resources are created by their runtime
+    # boundaries, never while Settings is imported.
+    redis_url: RedisDsn = "redis://localhost:6379/0"
+    background_queue_name: str = Field(
+        default="vkca-background", min_length=1, max_length=64
+    )
+    background_worker_max_jobs: int = Field(default=4, ge=1, le=64)
+    background_job_timeout_seconds: float = Field(default=300.0, gt=0, le=3_600)
+    background_max_attempts: int = Field(default=5, ge=1, le=20)
+    background_retry_base_seconds: float = Field(default=5.0, gt=0, le=3_600)
+    background_retry_max_seconds: float = Field(default=300.0, gt=0, le=86_400)
+    background_retry_jitter_seconds: float = Field(default=5.0, ge=0, le=60)
+    background_dispatch_batch_size: int = Field(default=50, ge=1, le=500)
+    background_dispatch_poll_seconds: float = Field(default=5.0, gt=0, le=300)
+    background_claim_lease_seconds: int = Field(default=120, ge=1, le=3_600)
+    background_completed_retention_days: int = Field(default=7, ge=1, le=3_650)
+    background_dead_retention_days: int = Field(default=30, ge=1, le=3_650)
+
     # RAG provider and bounded pipeline settings. Provider clients are created
     # by the RAG service boundary, never while Settings is imported.
     rag_embedding_provider: str = "fake"
@@ -55,6 +80,7 @@ class Settings(BaseSettings):
         "rag_embedding_provider",
         "rag_embedding_model",
         "rag_chunking_version",
+        "background_queue_name",
     )
     @classmethod
     def validate_non_empty_rag_setting(cls, value: str) -> str:
@@ -62,7 +88,7 @@ class Settings(BaseSettings):
 
         normalized = value.strip()
         if not normalized:
-            raise ValueError("RAG provider settings must not be blank")
+            raise ValueError("Configuration identifiers must not be blank")
         return normalized
 
     @model_validator(mode="after")
@@ -77,6 +103,11 @@ class Settings(BaseSettings):
         if provider == "gemini" and self.rag_embedding_model != "gemini-embedding-001":
             raise ValueError(
                 "The Gemini provider requires RAG_EMBEDDING_MODEL=gemini-embedding-001"
+            )
+        if self.background_retry_max_seconds < self.background_retry_base_seconds:
+            raise ValueError(
+                "BACKGROUND_RETRY_MAX_SECONDS must not be below "
+                "BACKGROUND_RETRY_BASE_SECONDS"
             )
         return self
 

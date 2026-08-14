@@ -18,10 +18,10 @@ Foundational phase so every story uses the same durable processing path.
 **Purpose**: Add the dependency, configuration, local services, and package
 entry points required before implementing the processing foundation.
 
-- [ ] T001 Add exact production dependency `arq==0.28.0` with the required dependency rationale in `backend/pyproject.toml` and refresh `backend/uv.lock` using `uv add arq==0.28.0`.
-- [ ] T002 [P] Add validated Redis, queue, worker, retry, dispatcher, lease, and retention settings with safe defaults to `backend/src/config.py`, `.env.example`, and `.env.test.example`.
-- [ ] T003 [P] Add the local backend runtime image and Redis/dedicated-worker Compose services in `backend/Dockerfile` and `docker-compose.yml` while preserving the existing PostgreSQL/pgvector service.
-- [ ] T004 [P] Create background-processing package and command entry points in `backend/src/services/background_jobs/__init__.py`, `backend/src/services/background_jobs/handlers/__init__.py`, `backend/scripts/background_worker.py`, and `backend/scripts/background_jobs.py`.
+- [X] T001 Add exact production dependency `arq==0.28.0` with the required dependency rationale in `backend/pyproject.toml` and refresh `backend/uv.lock` using `uv add arq==0.28.0`.
+- [X] T002 [P] Add validated Redis, queue, worker, retry, dispatcher, lease, and retention settings with safe defaults to `backend/src/config.py`, `.env.example`, and `.env.test.example`.
+- [X] T003 [P] Add the local backend runtime image and Redis/dedicated-worker Compose services in `backend/Dockerfile` and `docker-compose.yml` while preserving the existing PostgreSQL/pgvector service.
+- [X] T004 [P] Create background-processing package and command entry points in `backend/src/services/background_jobs/__init__.py`, `backend/src/services/background_jobs/handlers/__init__.py`, `backend/scripts/background_worker.py`, and `backend/scripts/background_jobs.py`.
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
