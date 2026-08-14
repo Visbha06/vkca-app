@@ -158,11 +158,11 @@ async def _run(args: argparse.Namespace) -> int:
     return 2
 
 
-def main() -> None:
-    """Execute the operator command with sanitized errors and documented exits."""
+async def _run_cli(args: argparse.Namespace) -> int:
+    """Run the command and release database resources on the same event loop."""
 
     try:
-        exit_code = asyncio.run(_run(_parse_args()))
+        return await _run(args)
     except Exception as error:
         failure = failure_from_exception(error)
         print(
@@ -175,10 +175,15 @@ def main() -> None:
                 sort_keys=True,
             )
         )
-        exit_code = 2
+        return 2
     finally:
-        asyncio.run(engine.dispose())
-    raise SystemExit(exit_code)
+        await engine.dispose()
+
+
+def main() -> None:
+    """Execute the operator command with sanitized errors and documented exits."""
+
+    raise SystemExit(asyncio.run(_run_cli(_parse_args())))
 
 
 if __name__ == "__main__":
