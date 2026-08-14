@@ -34,9 +34,7 @@ def deterministic_id(label: str) -> UUID:
     return uuid5(ROLE_AWARE_NAMESPACE, label)
 
 
-def build_role_aware_team(
-    *, name: str = "U15 Falcons", age_group: str = "U15"
-) -> Team:
+def build_role_aware_team(*, name: str = "U15 Falcons", age_group: str = "U15") -> Team:
     """Build a deterministic dashboard team."""
 
     return Team(
@@ -192,9 +190,7 @@ def build_role_aware_audit_event(
     )
 
 
-def build_role_aware_linked_account(
-    *, label: str = "asha"
-) -> tuple[Player, User]:
+def build_role_aware_linked_account(*, label: str = "asha") -> tuple[Player, User]:
     """Build a Player explicitly linked to one Player-role User."""
 
     player = build_role_aware_player(label=label)

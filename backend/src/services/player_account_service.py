@@ -134,8 +134,7 @@ class PlayerAccountService:
             )
 
         total_users = int(
-            await self.session.scalar(select(func.count(User.id)).where(*filters))
-            or 0
+            await self.session.scalar(select(func.count(User.id)).where(*filters)) or 0
         )
         statement = (
             select(User)

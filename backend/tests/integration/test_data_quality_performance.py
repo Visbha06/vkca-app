@@ -66,8 +66,7 @@ async def test_seeded_scan_is_bounded_batched_and_deterministic(
 
     async with AsyncSessionFactory() as session:
         teams = [
-            build_quality_team(name=f"Performance Team {index}")
-            for index in range(8)
+            build_quality_team(name=f"Performance Team {index}") for index in range(8)
         ]
         roster_players = [
             build_quality_player(
@@ -165,8 +164,7 @@ async def test_seeded_scan_is_bounded_batched_and_deterministic(
     first_counter.assert_at_most(6)
     second_counter.assert_at_most(6)
     normalized_statements = [
-        " ".join(statement.lower().split())
-        for statement in first_counter.statements
+        " ".join(statement.lower().split()) for statement in first_counter.statements
     ]
     for source in (
         "players",

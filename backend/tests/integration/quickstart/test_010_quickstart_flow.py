@@ -34,9 +34,7 @@ async def _login(
 
 async def _business_audit_count() -> int:
     async with AsyncSessionFactory() as session:
-        return int(
-            await session.scalar(select(func.count(BusinessAuditEvent.id))) or 0
-        )
+        return int(await session.scalar(select(func.count(BusinessAuditEvent.id))) or 0)
 
 
 @pytest.mark.asyncio
@@ -235,10 +233,13 @@ async def test_academy_data_quality_quickstart_flow(quality_data_builder) -> Non
         )
         assert stale.status_code == 409
         async with AsyncSessionFactory() as session:
-            assert await session.get(
-                TeamCoach,
-                {"team_id": team.id, "user_id": inactive_assistant.id},
-            ) is not None
+            assert (
+                await session.get(
+                    TeamCoach,
+                    {"team_id": team.id, "user_id": inactive_assistant.id},
+                )
+                is not None
+            )
         assert await _business_audit_count() == 0
 
         refreshed = await client.get(
@@ -275,10 +276,13 @@ async def test_academy_data_quality_quickstart_flow(quality_data_builder) -> Non
         assert resolved.json()["findings"] == []
 
     async with AsyncSessionFactory() as session:
-        assert await session.get(
-            TeamCoach,
-            {"team_id": team.id, "user_id": inactive_assistant.id},
-        ) is None
+        assert (
+            await session.get(
+                TeamCoach,
+                {"team_id": team.id, "user_id": inactive_assistant.id},
+            )
+            is None
+        )
         events = list((await session.scalars(select(BusinessAuditEvent))).all())
     assert len(events) == 1
     assert events[0].action_type == (

@@ -95,9 +95,9 @@ def synthetic_registry(
         dependency_fingerprint=lambda note: stable_component_hash(
             note.dependency_version
         ),
-        scope_metadata=lambda note: build_synthetic_note(
-            note, builder_version=builder_version
-        ).scope,
+        scope_metadata=lambda note: (
+            build_synthetic_note(note, builder_version=builder_version).scope
+        ),
         eligible=lambda note: note.is_eligible,
         dependencies=loader.dependencies,
         deletion_policy=MarkMissingDeletedPolicy(),

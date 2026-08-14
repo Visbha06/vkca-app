@@ -47,7 +47,6 @@ def build_player_profile_document(
             ("Player type", enum_value(player.player_type)),
             ("Batting style", enum_value(player.batting_style)),
             ("Bowling style", enum_value(player.bowling_style)),
-            ("Profile", player.bio),
             ("Current teams", team_labels),
         ],
         provenance={"entity": "player"},

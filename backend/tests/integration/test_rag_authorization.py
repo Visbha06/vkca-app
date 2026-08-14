@@ -206,7 +206,7 @@ async def _seed_scope_corpus(session):
         ("match", "match-a", (), (team_a.id,), ("U13",), False),
         ("match", "match-b", (), (team_b.id,), ("U15",), False),
         (
-            "batting_performance",
+            "match_batting_performance",
             "performance-a1",
             (player_a1.id,),
             (team_a.id,),
@@ -214,7 +214,7 @@ async def _seed_scope_corpus(session):
             False,
         ),
         (
-            "batting_performance",
+            "match_batting_performance",
             "performance-a2",
             (player_a2.id,),
             (team_a.id,),
@@ -222,7 +222,7 @@ async def _seed_scope_corpus(session):
             False,
         ),
         (
-            "batting_performance",
+            "match_batting_performance",
             "performance-b",
             (player_b.id,),
             (team_b.id,),
@@ -230,7 +230,7 @@ async def _seed_scope_corpus(session):
             False,
         ),
         (
-            "player_batting_statistics",
+            "player_batting_stats",
             "stats-a1",
             (player_a1.id,),
             (team_a.id,),
@@ -238,7 +238,7 @@ async def _seed_scope_corpus(session):
             False,
         ),
         (
-            "player_batting_statistics",
+            "player_batting_stats",
             "stats-a2",
             (player_a2.id,),
             (team_a.id,),
@@ -246,7 +246,7 @@ async def _seed_scope_corpus(session):
             False,
         ),
         (
-            "player_batting_statistics",
+            "player_batting_stats",
             "stats-b",
             (player_b.id,),
             (team_b.id,),

@@ -157,8 +157,7 @@ def _validate_safe_mapping(value: object, *, context: str) -> None:
         for key, nested in value.items():
             normalized_key = str(key).strip().casefold()
             if any(
-                fragment in normalized_key
-                for fragment in _FORBIDDEN_METADATA_FRAGMENTS
+                fragment in normalized_key for fragment in _FORBIDDEN_METADATA_FRAGMENTS
             ):
                 raise RegistryValidationError(
                     f"{context} contains an unapproved sensitive field"
@@ -430,7 +429,7 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
         lambda item: True,
     )
     add(
-        "batting_performance",
+        "match_batting_performance",
         BATTING_PERFORMANCE_BUILDER_VERSION,
         batting_performance_loader,
         lambda item: build_batting_performance_document(
@@ -441,7 +440,7 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
         _eligible_relationship_player,
     )
     add(
-        "bowling_performance",
+        "match_bowling_performance",
         BOWLING_PERFORMANCE_BUILDER_VERSION,
         bowling_performance_loader,
         lambda item: build_bowling_performance_document(
@@ -452,7 +451,7 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
         _eligible_relationship_player,
     )
     add(
-        "fielding_performance",
+        "match_fielding_performance",
         FIELDING_PERFORMANCE_BUILDER_VERSION,
         fielding_performance_loader,
         lambda item: build_fielding_performance_document(
@@ -463,7 +462,7 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
         _eligible_relationship_player,
     )
     add(
-        "player_batting_statistics",
+        "player_batting_stats",
         BATTING_STATISTICS_BUILDER_VERSION,
         batting_statistics_loader,
         lambda item: build_batting_statistics_document(
@@ -474,7 +473,7 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
         _eligible_relationship_player,
     )
     add(
-        "player_bowling_statistics",
+        "player_bowling_stats",
         BOWLING_STATISTICS_BUILDER_VERSION,
         bowling_statistics_loader,
         lambda item: build_bowling_statistics_document(

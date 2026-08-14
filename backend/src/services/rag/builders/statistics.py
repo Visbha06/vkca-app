@@ -51,7 +51,7 @@ def build_batting_statistics_document(
     """Prepare explicitly approved batting aggregates for one Player/format."""
 
     return build_document(
-        source_type="player_batting_statistics",
+        source_type="player_batting_stats",
         source_key=str(statistics.id),
         source_entity_id=statistics.id,
         source_version=model_version(statistics),
@@ -76,7 +76,7 @@ def build_batting_statistics_document(
             "player_id": str(statistics.player_id),
             "format": str(enum_value(statistics.format)),
         },
-        scope=_scope(player, "player_batting_statistics", teams),
+        scope=_scope(player, "player_batting_stats", teams),
         builder_version=BATTING_STATISTICS_BUILDER_VERSION,
         model=statistics,
     )
@@ -91,7 +91,7 @@ def build_bowling_statistics_document(
     """Prepare explicitly approved bowling aggregates for one Player/format."""
 
     return build_document(
-        source_type="player_bowling_statistics",
+        source_type="player_bowling_stats",
         source_key=str(statistics.id),
         source_entity_id=statistics.id,
         source_version=model_version(statistics),
@@ -116,7 +116,7 @@ def build_bowling_statistics_document(
             "player_id": str(statistics.player_id),
             "format": str(enum_value(statistics.format)),
         },
-        scope=_scope(player, "player_bowling_statistics", teams),
+        scope=_scope(player, "player_bowling_stats", teams),
         builder_version=BOWLING_STATISTICS_BUILDER_VERSION,
         model=statistics,
     )

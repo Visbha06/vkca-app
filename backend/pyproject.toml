@@ -55,3 +55,8 @@ indent-style = "space"
 
 [tool.pytest.ini_options]
 asyncio_default_test_loop_scope = "session"
+filterwarnings = [
+    # google-genai 1.45.0 declares Metric.validate_name as a classmethod;
+    # upstream releases use the Pydantic 2.12-compatible instance method.
+    "ignore:Using `@model_validator` with mode='after' on a classmethod is deprecated.*:pydantic.warnings.PydanticDeprecatedSince212:google\\.genai\\.types",
+]

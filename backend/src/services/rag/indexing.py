@@ -789,9 +789,11 @@ class RagIndexingService:
         if source_type is not None and not selected_type:
             raise ValueError("RAG status source_type must not be blank")
 
-        run_statement = select(RagIndexRun).order_by(
-            RagIndexRun.started_at.desc(), RagIndexRun.id
-        ).limit(limit)
+        run_statement = (
+            select(RagIndexRun)
+            .order_by(RagIndexRun.started_at.desc(), RagIndexRun.id)
+            .limit(limit)
+        )
         if run_id is not None:
             run_statement = run_statement.where(RagIndexRun.id == run_id)
         if selected_type is not None:
@@ -800,9 +802,11 @@ class RagIndexingService:
             )
         runs = tuple((await self.session.scalars(run_statement)).all())
 
-        state_statement = select(RagSourceState).order_by(
-            RagSourceState.source_type, RagSourceState.source_key
-        ).limit(limit)
+        state_statement = (
+            select(RagSourceState)
+            .order_by(RagSourceState.source_type, RagSourceState.source_key)
+            .limit(limit)
+        )
         if selected_type is not None:
             state_statement = state_statement.where(
                 RagSourceState.source_type == selected_type

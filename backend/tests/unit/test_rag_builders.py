@@ -49,6 +49,7 @@ def test_player_builder_is_deterministic_and_excludes_sensitive_fields() -> None
     assert document.source_type == "player_profile"
     assert document.source_entity_id == player.id
     assert "Ada Player" in document.semantic_text
+    assert "A careful batter." not in document.semantic_text
     assert "must-not-leak" not in document.semantic_text
     assert "date_of_birth" not in document.semantic_text
     assert document.scope.player_ids == (player.id,)
@@ -123,6 +124,8 @@ def test_performance_and_statistics_builders_allowlist_numeric_fields() -> None:
     )
     statistics_document = build_batting_statistics_document(statistics, player=player)
 
+    assert performance_document.source_type == "match_batting_performance"
+    assert statistics_document.source_type == "player_batting_stats"
     assert "private coaching note" not in performance_document.semantic_text
     assert "Runs: 42" in performance_document.semantic_text
     assert "Runs: 300" in statistics_document.semantic_text

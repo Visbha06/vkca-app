@@ -56,6 +56,20 @@ def _scope(*, unlinked: bool = False) -> RagAccessScope:
     )
 
 
+def _assistant_scope() -> RagAccessScope:
+    return RagAccessScope(
+        user_id=uuid4(),
+        role=UserRole.ASSISTANT_COACH,
+        is_active=True,
+        linked_player_id=None,
+        team_ids=(uuid4(),),
+        age_groups=("U13",),
+        active_player_ids=(uuid4(),),
+        is_unlinked_player=False,
+        can_read_all_registered_sources=False,
+    )
+
+
 def test_request_rejects_client_scope_and_invalid_result_limits():
     with pytest.raises(ValidationError):
         RagRetrievalRequest(query="practice", limit=5, team_id=str(uuid4()))
@@ -177,6 +191,24 @@ def test_candidate_statement_filters_before_cosine_order_with_stable_tie_breaker
     assert sql.index("WHERE") < sql.index("ORDER BY") < sql.index("LIMIT")
     assert "rag_chunks.id" in sql[sql.index("ORDER BY") :]
     assert "rag_chunks.embedding," not in sql.partition("FROM")[0]
+
+
+def test_role_predicates_are_intersected_with_the_active_source_registry() -> None:
+    statement = build_retrieval_statement(
+        _assistant_scope(),
+        query_vector=(1.0,) + (0.0,) * 1535,
+        profile=FakeEmbeddingProvider().profile,
+        limit=5,
+        registered_source_types=("team",),
+    )
+    sql = str(
+        statement.compile(
+            dialect=postgresql.dialect(),
+            compile_kwargs={"literal_binds": True},
+        )
+    )
+
+    assert "rag_chunks.source_type IN ('team')" in sql
 
 
 @pytest.mark.asyncio

@@ -24,6 +24,7 @@ from src.services.rag.registry import (
     MarkMissingDeletedPolicy,
     RagSourceRegistry,
     RegistryValidationError,
+    source_registry,
     validate_built_document,
 )
 
@@ -70,6 +71,20 @@ def test_registry_requires_explicit_valid_unique_registration() -> None:
         registry.register(definition)
     with pytest.raises(RegistryValidationError, match="not registered"):
         registry.get("unregistered_model")
+
+
+def test_initial_registry_uses_the_specified_nine_source_identifiers() -> None:
+    assert set(source_registry.source_types) == {
+        "player_profile",
+        "team",
+        "match",
+        "match_batting_performance",
+        "match_bowling_performance",
+        "match_fielding_performance",
+        "player_batting_stats",
+        "player_bowling_stats",
+        "calendar_occurrence",
+    }
 
 
 @pytest.mark.parametrize("source_type", ["", "Player Profile", "users", "a/b"])

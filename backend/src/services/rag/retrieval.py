@@ -34,9 +34,6 @@ TEAM_TYPES = frozenset({"team"})
 MATCH_TYPES = frozenset({"match"})
 PERFORMANCE_TYPES = frozenset(
     {
-        "batting_performance",
-        "bowling_performance",
-        "fielding_performance",
         "match_batting_performance",
         "match_bowling_performance",
         "match_fielding_performance",
@@ -44,8 +41,6 @@ PERFORMANCE_TYPES = frozenset(
 )
 STATISTICS_TYPES = frozenset(
     {
-        "player_batting_statistics",
-        "player_bowling_statistics",
         "player_batting_stats",
         "player_bowling_stats",
     }
@@ -105,39 +100,45 @@ def build_authorization_predicate(
         or_(RagChunk.is_all_academy.is_(True), age_group_overlap),
     )
     if scope.role is UserRole.ASSISTANT_COACH:
-        return or_(
-            and_(
-                RagChunk.source_type.in_(PLAYER_PROFILE_TYPES | STATISTICS_TYPES),
-                player_overlap,
+        return and_(
+            RagChunk.source_type.in_(allowed_types),
+            or_(
+                and_(
+                    RagChunk.source_type.in_(PLAYER_PROFILE_TYPES | STATISTICS_TYPES),
+                    player_overlap,
+                ),
+                and_(
+                    RagChunk.source_type.in_(PERFORMANCE_TYPES),
+                    player_overlap,
+                    team_overlap,
+                ),
+                and_(
+                    RagChunk.source_type.in_(TEAM_TYPES | MATCH_TYPES),
+                    team_overlap,
+                ),
+                calendar,
             ),
-            and_(
-                RagChunk.source_type.in_(PERFORMANCE_TYPES),
-                player_overlap,
-                team_overlap,
-            ),
-            and_(
-                RagChunk.source_type.in_(TEAM_TYPES | MATCH_TYPES),
-                team_overlap,
-            ),
-            calendar,
         )
     if scope.role is UserRole.PLAYER and scope.linked_player_id is not None:
         own_player = RagChunk.player_ids.overlap([scope.linked_player_id])
-        return or_(
-            and_(
-                RagChunk.source_type.in_(PLAYER_PROFILE_TYPES | STATISTICS_TYPES),
-                own_player,
+        return and_(
+            RagChunk.source_type.in_(allowed_types),
+            or_(
+                and_(
+                    RagChunk.source_type.in_(PLAYER_PROFILE_TYPES | STATISTICS_TYPES),
+                    own_player,
+                ),
+                and_(
+                    RagChunk.source_type.in_(PERFORMANCE_TYPES),
+                    own_player,
+                    team_overlap,
+                ),
+                and_(
+                    RagChunk.source_type.in_(TEAM_TYPES | MATCH_TYPES),
+                    team_overlap,
+                ),
+                calendar,
             ),
-            and_(
-                RagChunk.source_type.in_(PERFORMANCE_TYPES),
-                own_player,
-                team_overlap,
-            ),
-            and_(
-                RagChunk.source_type.in_(TEAM_TYPES | MATCH_TYPES),
-                team_overlap,
-            ),
-            calendar,
         )
     return false()
 

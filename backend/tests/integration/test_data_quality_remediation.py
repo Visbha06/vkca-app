@@ -124,10 +124,13 @@ async def test_success_removes_one_assignment_refreshes_and_records_one_event(
     assert refreshed.json()["findings"] == []
 
     async with AsyncSessionFactory() as session:
-        assert await session.get(
-            TeamCoach,
-            {"team_id": team.id, "user_id": coach.id},
-        ) is None
+        assert (
+            await session.get(
+                TeamCoach,
+                {"team_id": team.id, "user_id": coach.id},
+            )
+            is None
+        )
         persisted_coach = await session.get(User, coach.id)
         assert persisted_coach is not None
         assert persisted_coach.version_number == 5
@@ -176,10 +179,13 @@ async def test_confirmation_and_stale_versions_reject_without_mutation_or_audit(
     assert stale.status_code == 409
 
     async with AsyncSessionFactory() as session:
-        assert await session.get(
-            TeamCoach,
-            {"team_id": team.id, "user_id": coach.id},
-        ) is not None
+        assert (
+            await session.get(
+                TeamCoach,
+                {"team_id": team.id, "user_id": coach.id},
+            )
+            is not None
+        )
         audit_count = await session.scalar(select(func.count(BusinessAuditEvent.id)))
     assert audit_count == 0
 
@@ -246,10 +252,13 @@ async def test_changed_roster_precondition_preserves_the_selected_membership(
     assert rejected.status_code == 409
 
     async with AsyncSessionFactory() as session:
-        assert await session.get(
-            TeamPlayer,
-            {"team_id": team.id, "player_id": inactive_player.id},
-        ) is not None
+        assert (
+            await session.get(
+                TeamPlayer,
+                {"team_id": team.id, "player_id": inactive_player.id},
+            )
+            is not None
+        )
         audit_count = await session.scalar(select(func.count(BusinessAuditEvent.id)))
     assert audit_count == 0
 
@@ -274,10 +283,13 @@ async def test_audit_failure_rolls_back_assignment_and_version(
 
     assert response.status_code == 500
     async with AsyncSessionFactory() as session:
-        assert await session.get(
-            TeamCoach,
-            {"team_id": team.id, "user_id": coach.id},
-        ) is not None
+        assert (
+            await session.get(
+                TeamCoach,
+                {"team_id": team.id, "user_id": coach.id},
+            )
+            is not None
+        )
         persisted_coach = await session.get(User, coach.id)
         assert persisted_coach is not None
         assert persisted_coach.version_number == 4

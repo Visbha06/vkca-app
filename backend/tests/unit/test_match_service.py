@@ -93,12 +93,8 @@ async def test_create_maps_internal_participant_to_both_academy_sides() -> None:
             },
         }
     )
-    home_team = Team(
-        id=payload.participants.home_team_id, name="U13", age_group="U13"
-    )
-    away_team = Team(
-        id=payload.participants.away_team_id, name="U15", age_group="U15"
-    )
+    home_team = Team(id=payload.participants.home_team_id, name="U13", age_group="U13")
+    away_team = Team(id=payload.participants.away_team_id, name="U15", age_group="U15")
     session = mock_session_with_teams(home_team, away_team)
     loaded_result = Mock()
     loaded_result.one_or_none.return_value = Match(

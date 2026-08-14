@@ -34,6 +34,7 @@ def test_profile_builder_never_serializes_private_model_fields() -> None:
     )
     for forbidden in (
         "not-for-provider",
+        "Reliable teammate",
         "date_of_birth",
         "password_hash",
         "token",

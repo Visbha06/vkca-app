@@ -69,7 +69,7 @@ def build_batting_performance_document(
     """Prepare recorded batting figures; unapproved free-text notes never enter RAG."""
 
     return build_document(
-        source_type="batting_performance",
+        source_type="match_batting_performance",
         source_key=str(performance.id),
         source_entity_id=performance.id,
         source_version=model_version(performance),
@@ -87,7 +87,7 @@ def build_batting_performance_document(
             "player_id": str(performance.player_id),
             "match_id": str(performance.match_id),
         },
-        scope=_scope(player, match, "batting_performance"),
+        scope=_scope(player, match, "match_batting_performance"),
         builder_version=BATTING_PERFORMANCE_BUILDER_VERSION,
         model=performance,
     )
@@ -102,7 +102,7 @@ def build_bowling_performance_document(
     """Prepare recorded bowling figures; unapproved free-text notes never enter RAG."""
 
     return build_document(
-        source_type="bowling_performance",
+        source_type="match_bowling_performance",
         source_key=str(performance.id),
         source_entity_id=performance.id,
         source_version=model_version(performance),
@@ -120,7 +120,7 @@ def build_bowling_performance_document(
             "player_id": str(performance.player_id),
             "match_id": str(performance.match_id),
         },
-        scope=_scope(player, match, "bowling_performance"),
+        scope=_scope(player, match, "match_bowling_performance"),
         builder_version=BOWLING_PERFORMANCE_BUILDER_VERSION,
         model=performance,
     )
@@ -135,7 +135,7 @@ def build_fielding_performance_document(
     """Prepare recorded fielding figures; unapproved free-text notes never enter RAG."""
 
     return build_document(
-        source_type="fielding_performance",
+        source_type="match_fielding_performance",
         source_key=str(performance.id),
         source_entity_id=performance.id,
         source_version=model_version(performance),
@@ -152,7 +152,7 @@ def build_fielding_performance_document(
             "player_id": str(performance.player_id),
             "match_id": str(performance.match_id),
         },
-        scope=_scope(player, match, "fielding_performance"),
+        scope=_scope(player, match, "match_fielding_performance"),
         builder_version=FIELDING_PERFORMANCE_BUILDER_VERSION,
         model=performance,
     )

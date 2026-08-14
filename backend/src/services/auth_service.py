@@ -102,9 +102,8 @@ class AuthService:
             user.hashed_password if user is not None else DUMMY_PASSWORD_HASH
         )
         password_valid = PasswordService.verify_password(password, password_hash)
-        profile_allowed = (
-            user is None
-            or await player_profile_allows_authentication(self.session, user)
+        profile_allowed = user is None or await player_profile_allows_authentication(
+            self.session, user
         )
 
         if (
