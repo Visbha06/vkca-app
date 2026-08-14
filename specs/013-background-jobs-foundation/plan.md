@@ -146,7 +146,7 @@ specs/013-background-jobs-foundation/
 ├── quickstart.md
 ├── contracts/
 │   └── background-jobs.md
-└── tasks.md                 # created later by /speckit-tasks
+└── tasks.md                 # generated implementation worklist
 ```
 
 ### Source Code
@@ -206,8 +206,6 @@ backend/
 │   └── integration/
 │       ├── test_background_job_migration.py
 │       ├── test_background_outbox.py
-│       ├── test_background_dispatch.py
-│       ├── test_background_worker.py
 │       ├── test_background_rag_reconciliation.py
 │       ├── test_background_failure_recovery.py
 │       └── quickstart/
