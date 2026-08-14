@@ -50,6 +50,7 @@ from src.services.calendar_recurrence import (
     academy_today,
 )
 from src.services.calendar_service import CalendarService
+from src.services.role_scope import resolve_current_role_team_scope
 
 UNLINKED_MESSAGE = (
     "Contact your Head Coach to link your login account to your Player profile."
@@ -148,9 +149,7 @@ class DashboardService:
 
         player_slot: DashboardSection[DashboardPlayerSlot]
         if self._requires_team_scope(scope) and not scope.teams:
-            player_slot = DashboardEmptySection(
-                message=self._no_team_message(scope)
-            )
+            player_slot = DashboardEmptySection(message=self._no_team_message(scope))
         else:
             try:
                 slot = await self._load_player_slot(scope)
@@ -187,47 +186,16 @@ class DashboardService:
     async def _resolve_scope(self, user: User) -> DashboardScope:
         """Resolve role and Team scope only from current database relations."""
 
-        role = UserRole(user.role)
-        if role is UserRole.HEAD_COACH:
-            teams = await self._all_teams()
-            return DashboardScope(role=role, teams=teams, linked_player_id=None)
-
-        if role is UserRole.ASSISTANT_COACH:
-            result = await self.session.scalars(
-                select(Team)
-                .join(TeamCoach, TeamCoach.team_id == Team.id)
-                .where(TeamCoach.user_id == user.id)
-                .order_by(Team.name, Team.id)
-            )
-            return DashboardScope(
-                role=role,
-                teams=tuple(result.all()),
-                linked_player_id=None,
-            )
-
-        player = await self.session.scalar(
-            select(Player).where(
-                Player.user_id == user.id,
-                Player.is_active.is_(True),
-            )
-        )
-        if player is None:
-            return DashboardScope(role=role, teams=(), linked_player_id=None)
-        result = await self.session.scalars(
-            select(Team)
-            .join(TeamPlayer, TeamPlayer.team_id == Team.id)
-            .where(TeamPlayer.player_id == player.id)
-            .order_by(Team.name, Team.id)
+        resolved = await resolve_current_role_team_scope(
+            self.session,
+            user,
+            include_head_coach_teams=True,
         )
         return DashboardScope(
-            role=role,
-            teams=tuple(result.all()),
-            linked_player_id=player.id,
+            role=resolved.role,
+            teams=resolved.teams,
+            linked_player_id=resolved.linked_player_id,
         )
-
-    async def _all_teams(self) -> tuple[Team, ...]:
-        result = await self.session.scalars(select(Team).order_by(Team.name, Team.id))
-        return tuple(result.all())
 
     async def _load_calendar_projection(
         self,
@@ -290,8 +258,7 @@ class DashboardService:
             return DashboardPlayerTeams(
                 team_count=len(scope.teams),
                 team_names=[
-                    team.name
-                    for team in scope.teams[:MAX_DASHBOARD_CONTEXT_TEAMS]
+                    team.name for team in scope.teams[:MAX_DASHBOARD_CONTEXT_TEAMS]
                 ],
             )
 
@@ -420,9 +387,7 @@ class DashboardService:
             None,
         )
         if training is None:
-            return DashboardEmptySection(
-                message="No upcoming training in your scope."
-            )
+            return DashboardEmptySection(message="No upcoming training in your scope.")
         return DashboardReadySection(data=self._calendar_event(training))
 
     @staticmethod
@@ -431,9 +396,7 @@ class DashboardService:
     ) -> DashboardReadySection[list[DashboardCalendarEvent]] | DashboardEmptySection:
         events = list(projection.events[:MAX_DASHBOARD_UPCOMING_EVENTS])
         if not events:
-            return DashboardEmptySection(
-                message="No upcoming events in your scope."
-            )
+            return DashboardEmptySection(message="No upcoming events in your scope.")
         return DashboardReadySection(data=events)
 
     @staticmethod

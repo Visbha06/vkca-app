@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
+from typing import Any, cast
 
-from src.services.rag.contracts import RagSourceDefinition
+from src.services.rag.contracts import CanonicalRagDocument, RagSourceDefinition
 
 _SOURCE_TYPE_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
 _RESERVED_SOURCE_TYPES = frozenset(
@@ -198,7 +199,8 @@ def _relationships(record: object) -> dict[str, object]:
 
 def _loaded_source_key(record: object) -> str:
     source_key = getattr(record, "source_key", None)
-    return str(source_key if source_key is not None else _loaded_record(record).id)
+    loaded = cast(Any, _loaded_record(record))
+    return str(source_key if source_key is not None else loaded.id)
 
 
 def _loaded_source_version(record: object) -> str | None:
@@ -227,6 +229,15 @@ def _eligible_relationship_player(record: object) -> bool:
 def _build_initial_registry() -> RagSourceRegistry[object]:
     """Register only the nine approved academy source families."""
 
+    from src.models.match import Match
+    from src.models.match_batting_performance import MatchBattingPerformance
+    from src.models.match_bowling_performance import MatchBowlingPerformance
+    from src.models.match_fielding_performance import MatchFieldingPerformance
+    from src.models.player import Player
+    from src.models.player_batting_stats import PlayerBattingStats
+    from src.models.player_bowling_stats import PlayerBowlingStats
+    from src.models.team import Team
+    from src.schemas.calendar import CalendarEventInstance
     from src.services.rag.builders.calendar import (
         CALENDAR_OCCURRENCE_BUILDER_VERSION,
         build_calendar_occurrence_document,
@@ -273,11 +284,9 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
         source_type: str,
         builder_version: str,
         loader: object,
-        build: object,
-        eligible: object,
+        build: Callable[[object], CanonicalRagDocument],
+        eligible: Callable[[object], bool],
     ) -> None:
-        assert callable(build)
-        assert callable(eligible)
         definitions.append(
             RagSourceDefinition(
                 source_type=source_type,
@@ -287,8 +296,8 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
                 source_key=_loaded_source_key,
                 source_version=_loaded_source_version,
                 dependency_fingerprint=_loaded_dependency,
-                scope_metadata=lambda record, build=build: build(record).scope,  # type: ignore[union-attr]
-                eligible=eligible,  # type: ignore[arg-type]
+                scope_metadata=lambda record: build(record).scope,
+                eligible=eligible,
                 dependencies=getattr(loader, "dependencies", ()),
                 deletion_policy=MarkMissingDeletedPolicy(),
             )
@@ -299,18 +308,21 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
         PLAYER_PROFILE_BUILDER_VERSION,
         player_profile_loader,
         lambda item: build_player_profile_document(
-            _loaded_record(item), team_memberships=_relationships(item).get("teams", ())
+            cast(Player, _loaded_record(item)),
+            team_memberships=cast(
+                Iterable[Team], _relationships(item).get("teams", ())
+            ),
         ),
-        lambda item: is_eligible_player(_loaded_record(item)),
+        lambda item: is_eligible_player(cast(Player, _loaded_record(item))),
     )
     add(
         "team",
         TEAM_BUILDER_VERSION,
         team_loader,
         lambda item: build_team_document(
-            _loaded_record(item),
-            roster=_relationships(item).get("roster", ()),
-            coaches=_relationships(item).get("coaches", ()),
+            cast(Team, _loaded_record(item)),
+            roster=cast(Iterable[Player], _relationships(item).get("roster", ())),
+            coaches=cast(Iterable[str], _relationships(item).get("coaches", ())),
         ),
         lambda item: True,
     )
@@ -319,9 +331,9 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
         MATCH_BUILDER_VERSION,
         match_loader,
         lambda item: build_match_document(
-            _loaded_record(item),
-            home_team=_relationships(item).get("home_team"),
-            away_team=_relationships(item).get("away_team"),
+            cast(Match, _loaded_record(item)),
+            home_team=cast(Team | None, _relationships(item).get("home_team")),
+            away_team=cast(Team | None, _relationships(item).get("away_team")),
         ),
         lambda item: True,
     )
@@ -330,9 +342,9 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
         BATTING_PERFORMANCE_BUILDER_VERSION,
         batting_performance_loader,
         lambda item: build_batting_performance_document(
-            _loaded_record(item),
-            player=_relationships(item).get("player"),
-            match=_relationships(item).get("match"),
+            cast(MatchBattingPerformance, _loaded_record(item)),
+            player=cast(Player | None, _relationships(item).get("player")),
+            match=cast(Match | None, _relationships(item).get("match")),
         ),
         _eligible_relationship_player,
     )
@@ -341,9 +353,9 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
         BOWLING_PERFORMANCE_BUILDER_VERSION,
         bowling_performance_loader,
         lambda item: build_bowling_performance_document(
-            _loaded_record(item),
-            player=_relationships(item).get("player"),
-            match=_relationships(item).get("match"),
+            cast(MatchBowlingPerformance, _loaded_record(item)),
+            player=cast(Player | None, _relationships(item).get("player")),
+            match=cast(Match | None, _relationships(item).get("match")),
         ),
         _eligible_relationship_player,
     )
@@ -352,9 +364,9 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
         FIELDING_PERFORMANCE_BUILDER_VERSION,
         fielding_performance_loader,
         lambda item: build_fielding_performance_document(
-            _loaded_record(item),
-            player=_relationships(item).get("player"),
-            match=_relationships(item).get("match"),
+            cast(MatchFieldingPerformance, _loaded_record(item)),
+            player=cast(Player | None, _relationships(item).get("player")),
+            match=cast(Match | None, _relationships(item).get("match")),
         ),
         _eligible_relationship_player,
     )
@@ -363,7 +375,9 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
         BATTING_STATISTICS_BUILDER_VERSION,
         batting_statistics_loader,
         lambda item: build_batting_statistics_document(
-            _loaded_record(item), player=_relationships(item).get("player")
+            cast(PlayerBattingStats, _loaded_record(item)),
+            player=cast(Player | None, _relationships(item).get("player")),
+            teams=cast(Iterable[Team], _relationships(item).get("teams", ())),
         ),
         _eligible_relationship_player,
     )
@@ -372,7 +386,9 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
         BOWLING_STATISTICS_BUILDER_VERSION,
         bowling_statistics_loader,
         lambda item: build_bowling_statistics_document(
-            _loaded_record(item), player=_relationships(item).get("player")
+            cast(PlayerBowlingStats, _loaded_record(item)),
+            player=cast(Player | None, _relationships(item).get("player")),
+            teams=cast(Iterable[Team], _relationships(item).get("teams", ())),
         ),
         _eligible_relationship_player,
     )
@@ -380,7 +396,9 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
         "calendar_occurrence",
         CALENDAR_OCCURRENCE_BUILDER_VERSION,
         calendar_occurrence_loader,
-        lambda item: build_calendar_occurrence_document(_loaded_record(item)),
+        lambda item: build_calendar_occurrence_document(
+            cast(CalendarEventInstance, _loaded_record(item))
+        ),
         lambda item: True,
     )
     return RagSourceRegistry(definitions)

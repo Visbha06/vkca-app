@@ -1,4 +1,4 @@
-"""Run bounded, safe Phase 3 RAG full or targeted index builds."""
+"""Run bounded full, incremental, targeted, or repair RAG reconciliation."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ if __package__ in {None, ""}:
 
 from src.config import get_settings  # noqa: E402
 from src.database import AsyncSessionFactory, engine  # noqa: E402
+from src.services.rag.contracts import RagRunMode, RagRunStatus  # noqa: E402
 from src.services.rag.embedding import create_embedding_provider  # noqa: E402
 from src.services.rag.indexing import (  # noqa: E402
     RagIndexingService,
@@ -23,7 +24,11 @@ from src.services.rag.registry import source_registry  # noqa: E402
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=("full", "targeted"), required=True)
+    parser.add_argument(
+        "--mode",
+        choices=tuple(mode.value for mode in RagRunMode),
+        required=True,
+    )
     parser.add_argument("--source-type")
     return parser.parse_args()
 
@@ -45,7 +50,7 @@ def _safe_report(report: object) -> dict[str, object]:
 async def _run(args: argparse.Namespace) -> int:
     if args.mode == "targeted" and not args.source_type:
         raise ValueError("--source-type is required for targeted mode")
-    if args.mode == "full" and args.source_type:
+    if args.mode != "targeted" and args.source_type:
         raise ValueError("--source-type is only valid with targeted mode")
     if args.source_type and args.source_type not in source_registry:
         raise ValueError("--source-type must name a registered RAG source")
@@ -59,13 +64,20 @@ async def _run(args: argparse.Namespace) -> int:
             batch_size=settings.rag_embedding_batch_size,
             timeout_seconds=settings.rag_embedding_timeout_seconds,
         )
-        report = (
-            await service.run_targeted(args.source_type)
-            if args.mode == "targeted"
-            else await service.run_full()
-        )
+        if args.mode == "targeted":
+            report = await service.run_targeted(args.source_type)
+        elif args.mode == "incremental":
+            report = await service.run_incremental()
+        elif args.mode == "repair":
+            report = await service.run_repair()
+        else:
+            report = await service.run_full()
     print(json.dumps(_safe_report(report), sort_keys=True))
-    return 0 if report.status.value == "completed" else 2
+    if report.status is RagRunStatus.COMPLETED:
+        return 0
+    if report.status is RagRunStatus.PARTIAL:
+        return 3
+    return 2
 
 
 def main() -> None:

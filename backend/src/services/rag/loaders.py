@@ -263,7 +263,12 @@ def _model_cursor_page[ModelT](model: type[ModelT]) -> SourcePageFetcher[ModelT]
     async def fetch(
         session: AsyncSession, *, cursor: str | None, limit: int
     ) -> FetchedSourcePage[ModelT]:
-        statement = select(model).order_by(model.id).limit(limit)  # type: ignore[attr-defined]
+        statement = (
+            select(model)
+            .order_by(model.id)  # type: ignore[attr-defined]
+            .limit(limit)
+            .execution_options(populate_existing=True)
+        )
         if cursor is not None:
             statement = statement.where(model.id > UUID(cursor))  # type: ignore[attr-defined]
         rows = tuple((await session.execute(statement)).scalars().all())
@@ -283,6 +288,15 @@ def _attribute(record: object, name: str) -> object:
     """Read a known ORM attribute from generic loader records."""
 
     return getattr(record, name)
+
+
+def _uuid_attribute(record: object, name: str) -> UUID:
+    """Read and validate a UUID identity from a generic ORM record."""
+
+    value = _attribute(record, name)
+    if not isinstance(value, UUID):
+        raise LoaderContractError(f"loaded source {name} must be a UUID")
+    return value
 
 
 def _fingerprint_value(value: object) -> object:
@@ -322,6 +336,7 @@ async def _player_relationships(
         .join(Team, Team.id == TeamPlayer.team_id)
         .where(TeamPlayer.player_id.in_([record.id for record in records]))
         .order_by(TeamPlayer.player_id, Team.name, Team.id)
+        .execution_options(populate_existing=True)
     )
     teams: defaultdict[str, list[Team]] = defaultdict(list)
     for player_id, team in rows:
@@ -341,6 +356,7 @@ async def _team_relationships(
         .join(Player, Player.id == TeamPlayer.player_id)
         .where(TeamPlayer.team_id.in_(team_ids), Player.is_active.is_(True))
         .order_by(TeamPlayer.team_id, TeamPlayer.roster_order, Player.id)
+        .execution_options(populate_existing=True)
     )
     coach_rows = await session.execute(
         select(TeamCoach.team_id, User.first_name, User.last_name)
@@ -380,13 +396,25 @@ async def _match_relationships(
         teams = {
             team.id: team
             for team in (
-                await session.execute(select(Team).where(Team.id.in_(team_ids)))
+                await session.execute(
+                    select(Team)
+                    .where(Team.id.in_(team_ids))
+                    .execution_options(populate_existing=True)
+                )
             ).scalars()
         }
     return {
         str(record.id): {
-            "home_team": teams.get(record.home_team_id),
-            "away_team": teams.get(record.away_team_id),
+            "home_team": (
+                teams.get(record.home_team_id)
+                if record.home_team_id is not None
+                else None
+            ),
+            "away_team": (
+                teams.get(record.away_team_id)
+                if record.away_team_id is not None
+                else None
+            ),
         }
         for record in records
     }
@@ -398,24 +426,53 @@ async def _performance_relationships(
     dependencies: tuple[SourceDependency, ...],
 ) -> Mapping[str, Mapping[str, object]]:
     del dependencies
-    player_ids = {_attribute(record, "player_id") for record in records}
-    match_ids = {_attribute(record, "match_id") for record in records}
+    player_ids = {_uuid_attribute(record, "player_id") for record in records}
+    match_ids = {_uuid_attribute(record, "match_id") for record in records}
     players = {
         item.id: item
         for item in (
-            await session.execute(select(Player).where(Player.id.in_(player_ids)))
+            await session.execute(
+                select(Player)
+                .where(Player.id.in_(player_ids))
+                .execution_options(populate_existing=True)
+            )
         ).scalars()
     }
     matches = {
         item.id: item
         for item in (
-            await session.execute(select(Match).where(Match.id.in_(match_ids)))
+            await session.execute(
+                select(Match)
+                .where(Match.id.in_(match_ids))
+                .execution_options(populate_existing=True)
+            )
         ).scalars()
     }
+    team_ids = {
+        team_id
+        for match in matches.values()
+        for team_id in (match.home_team_id, match.away_team_id)
+        if team_id is not None
+    }
+    teams = (
+        tuple(
+            (
+                await session.scalars(
+                    select(Team)
+                    .where(Team.id.in_(team_ids))
+                    .order_by(Team.id)
+                    .execution_options(populate_existing=True)
+                )
+            ).all()
+        )
+        if team_ids
+        else ()
+    )
     return {
         str(_attribute(record, "id")): {
-            "player": players.get(_attribute(record, "player_id")),
-            "match": matches.get(_attribute(record, "match_id")),
+            "player": players.get(_uuid_attribute(record, "player_id")),
+            "match": matches.get(_uuid_attribute(record, "match_id")),
+            "teams": teams,
         }
         for record in records
     }
@@ -427,16 +484,31 @@ async def _statistics_relationships(
     dependencies: tuple[SourceDependency, ...],
 ) -> Mapping[str, Mapping[str, object]]:
     del dependencies
-    player_ids = {_attribute(record, "player_id") for record in records}
+    player_ids = {_uuid_attribute(record, "player_id") for record in records}
     players = {
         item.id: item
         for item in (
-            await session.execute(select(Player).where(Player.id.in_(player_ids)))
+            await session.execute(
+                select(Player)
+                .where(Player.id.in_(player_ids))
+                .execution_options(populate_existing=True)
+            )
         ).scalars()
     }
+    team_rows = await session.execute(
+        select(TeamPlayer.player_id, Team)
+        .join(Team, Team.id == TeamPlayer.team_id)
+        .where(TeamPlayer.player_id.in_(player_ids))
+        .order_by(TeamPlayer.player_id, Team.name, Team.id)
+        .execution_options(populate_existing=True)
+    )
+    teams: defaultdict[UUID, list[Team]] = defaultdict(list)
+    for player_id, team in team_rows:
+        teams[player_id].append(team)
     return {
         str(_attribute(record, "id")): {
-            "player": players.get(_attribute(record, "player_id"))
+            "player": players.get(_uuid_attribute(record, "player_id")),
+            "teams": tuple(teams[_uuid_attribute(record, "player_id")]),
         }
         for record in records
     }
@@ -460,6 +532,7 @@ def _loader[RecordT](
                 .where(Player.is_active.is_(True))
                 .order_by(model.id)  # type: ignore[attr-defined]
                 .limit(limit)
+                .execution_options(populate_existing=True)
             )
             if cursor is not None:
                 statement = statement.where(model.id > UUID(cursor))  # type: ignore[attr-defined]
@@ -517,12 +590,12 @@ fielding_performance_loader = _loader(
 )
 batting_statistics_loader = _loader(
     PlayerBattingStats,
-    dependencies=(SourceDependency("player"),),
+    dependencies=(SourceDependency("player"), SourceDependency("team_memberships")),
     relationship_loader=_statistics_relationships,
 )
 bowling_statistics_loader = _loader(
     PlayerBowlingStats,
-    dependencies=(SourceDependency("player"),),
+    dependencies=(SourceDependency("player"), SourceDependency("team_memberships")),
     relationship_loader=_statistics_relationships,
 )
 

@@ -7,9 +7,11 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy import func, inspect, select
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import IntegrityError, StatementError
 
 from src.database import AsyncSessionFactory
+from src.enums import UserRole
 from src.models.auth_audit_log import AuthAuditLog
 from src.models.business_audit_event import BusinessAuditEvent
 from src.models.rag_chunk import RagChunk
@@ -27,12 +29,15 @@ from src.services.rag.contracts import (
     RagRunStatus,
     RagSourceStatus,
 )
+from src.services.rag.embedding import FakeEmbeddingProvider
 from src.services.rag.indexing import (
     RagClaimConflictError,
     RagIndexingStateService,
     report_from_run,
     technical_failure,
 )
+from src.services.rag.retrieval import build_retrieval_statement
+from src.services.rag.scope import RagAccessScope
 
 DIMENSION = 1536
 
@@ -41,6 +46,36 @@ def _unit_vector(index: int) -> list[float]:
     values = [0.0] * DIMENSION
     values[index] = 1.0
     return values
+
+
+def test_authorization_predicates_precede_cosine_order_and_vectors_are_not_selected():
+    team_id, player_id, user_id = uuid4(), uuid4(), uuid4()
+    scope = RagAccessScope(
+        user_id=user_id,
+        role=UserRole.ASSISTANT_COACH,
+        is_active=True,
+        linked_player_id=None,
+        team_ids=(team_id,),
+        age_groups=("U13",),
+        active_player_ids=(player_id,),
+        is_unlinked_player=False,
+        can_read_all_registered_sources=False,
+    )
+    statement = build_retrieval_statement(
+        scope,
+        query_vector=tuple(_unit_vector(0)),
+        profile=FakeEmbeddingProvider().profile,
+        limit=5,
+    )
+    sql = str(statement.compile(dialect=postgresql.dialect()))
+    selected_names = {column.key for column in statement.selected_columns}
+
+    assert sql.index("WHERE") < sql.index("ORDER BY") < sql.index("LIMIT")
+    assert "rag_chunks.player_ids &&" in sql
+    assert "rag_chunks.team_ids &&" in sql
+    assert "rag_chunks.age_groups &&" in sql
+    assert "rag_chunks.is_all_academy IS true" in sql
+    assert "embedding" not in selected_names
 
 
 @pytest.mark.asyncio(loop_scope="session")
