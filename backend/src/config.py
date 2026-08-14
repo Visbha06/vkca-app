@@ -4,7 +4,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, PostgresDsn, field_validator, model_validator
+from pydantic import Field, PostgresDsn, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -40,16 +40,22 @@ class Settings(BaseSettings):
     # by the RAG service boundary, never while Settings is imported.
     rag_embedding_provider: str = "fake"
     rag_embedding_model: str = "gemini-embedding-001"
-    rag_embedding_dimension: int = Field(default=1536, ge=1, le=3072)
+    rag_embedding_dimension: int = Field(default=1536, ge=1536, le=1536)
     rag_embedding_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
     rag_embedding_batch_size: int = Field(default=32, ge=1, le=256)
+    rag_chunking_version: str = "rag-chunk-v1"
     rag_chunk_max_characters: int = Field(default=4000, ge=256, le=16_000)
     rag_chunk_context_characters: int = Field(default=240, ge=0, le=2_000)
     rag_query_max_characters: int = Field(default=1_000, ge=1, le=8_000)
     rag_result_limit_default: int = Field(default=5, ge=0, le=100)
     rag_result_limit_max: int = Field(default=20, ge=1, le=100)
+    gemini_api_key: SecretStr | None = None
 
-    @field_validator("rag_embedding_provider", "rag_embedding_model")
+    @field_validator(
+        "rag_embedding_provider",
+        "rag_embedding_model",
+        "rag_chunking_version",
+    )
     @classmethod
     def validate_non_empty_rag_setting(cls, value: str) -> str:
         """Reject blank provider identifiers while retaining exact casing."""
@@ -61,11 +67,16 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_rag_result_bounds(self) -> "Settings":
-        """Keep the default result bound within the configured maximum."""
+        """Keep result and initial Gemini profile settings mutually compatible."""
 
         if self.rag_result_limit_default > self.rag_result_limit_max:
             raise ValueError(
                 "RAG_RESULT_LIMIT_DEFAULT must not exceed RAG_RESULT_LIMIT_MAX"
+            )
+        provider = self.rag_embedding_provider.casefold()
+        if provider == "gemini" and self.rag_embedding_model != "gemini-embedding-001":
+            raise ValueError(
+                "The Gemini provider requires RAG_EMBEDDING_MODEL=gemini-embedding-001"
             )
         return self
 
