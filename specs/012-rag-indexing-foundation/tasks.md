@@ -21,10 +21,10 @@ behavior is in the story that owns it.
 **Purpose**: Initialize dependencies, settings, package boundaries, and test
 scaffolding without implementing story behavior.
 
-- [ ] T001 Add google-genai 1.45.0 with its dependency rationale using `uv add google-genai==1.45.0` in backend/pyproject.toml, and lock that exact resolved package in backend/uv.lock.
-- [ ] T002 Add RAG provider, model, dimension, timeout, batch, chunking, query, and result-bound settings in backend/src/config.py with safe placeholders in .env.example and .env.test.example.
-- [ ] T003 [P] Create the RAG package and schema module boundaries in backend/src/services/rag/__init__.py and backend/src/schemas/rag.py without initializing provider clients at import time.
-- [ ] T004 [P] Add isolated RAG unit/integration fixture helpers and fake-provider configuration seams in backend/tests/conftest.py and backend/tests/integration/conftest.py.
+- [X] T001 Add google-genai 1.45.0 with its dependency rationale using `uv add google-genai==1.45.0` in backend/pyproject.toml, and lock that exact resolved package in backend/uv.lock.
+- [X] T002 Add RAG provider, model, dimension, timeout, batch, chunking, query, and result-bound settings in backend/src/config.py with safe placeholders in .env.example and .env.test.example.
+- [X] T003 [P] Create the RAG package and schema module boundaries in backend/src/services/rag/__init__.py and backend/src/schemas/rag.py without initializing provider clients at import time.
+- [X] T004 [P] Add isolated RAG unit/integration fixture helpers and fake-provider configuration seams in backend/tests/conftest.py and backend/tests/integration/conftest.py.
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 

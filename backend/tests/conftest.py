@@ -29,6 +29,26 @@ if TYPE_CHECKING:
 BUSINESS_AUDIT_FEATURE = "business-audit"
 
 
+@pytest.fixture
+def rag_fake_provider_config() -> dict[str, object]:
+    """Return deterministic provider settings without constructing a client."""
+
+    return {
+        "provider": "fake",
+        "model": "gemini-embedding-001",
+        "dimension": 1536,
+        "batch_size": 32,
+        "timeout_seconds": 30.0,
+    }
+
+
+@pytest.fixture
+def rag_isolated_state() -> dict[str, object]:
+    """Provide caller-owned state for RAG tests without shared persistence."""
+
+    return {"provider_calls": 0, "indexed_keys": set()}
+
+
 def pytest_configure(config: pytest.Config) -> None:
     """Select and validate test settings before pytest imports application code."""
 
