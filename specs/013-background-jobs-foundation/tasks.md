@@ -31,27 +31,27 @@ start until this phase is complete.
 
 ### Contract, validation, and policy tests first
 
-- [ ] T005 [P] Write unit tests for JSON-compatible job envelopes, payload size/type/version validation, forbidden fields, and unknown payload rejection in `backend/tests/unit/test_background_jobs_contracts.py`.
-- [ ] T006 [P] Write unit tests for duplicate registry registration, unregistered job rejection, handler allowlisting, and definition validation in `backend/tests/unit/test_background_jobs_registry.py`.
-- [ ] T007 [P] Write unit tests for retry classification, bounded exponential backoff, jitter bounds, attempt exhaustion, and delayed `run_after` validation in `backend/tests/unit/test_background_jobs_retry.py`.
-- [ ] T008 [P] Write unit tests for failure-category/message sanitization and structured-log redaction in `backend/tests/unit/test_background_jobs_redaction.py`.
-- [ ] T009 [P] Write migration upgrade/downgrade tests for the durable work table, constraints, partial indexes, payload bounds, and OCC columns in `backend/tests/integration/test_background_job_migration.py`.
+- [X] T005 [P] Write unit tests for JSON-compatible job envelopes, payload size/type/version validation, forbidden fields, and unknown payload rejection in `backend/tests/unit/test_background_jobs_contracts.py`.
+- [X] T006 [P] Write unit tests for duplicate registry registration, unregistered job rejection, handler allowlisting, and definition validation in `backend/tests/unit/test_background_jobs_registry.py`.
+- [X] T007 [P] Write unit tests for retry classification, bounded exponential backoff, jitter bounds, attempt exhaustion, and delayed `run_after` validation in `backend/tests/unit/test_background_jobs_retry.py`.
+- [X] T008 [P] Write unit tests for failure-category/message sanitization and structured-log redaction in `backend/tests/unit/test_background_jobs_redaction.py`.
+- [X] T009 [P] Write migration upgrade/downgrade tests for the durable work table, constraints, partial indexes, payload bounds, and OCC columns in `backend/tests/integration/test_background_job_migration.py`.
 
 ### Shared contract and persistence implementation
 
-- [ ] T010 Implement typed job envelopes, versioned payload schema adapters, JSON serializer/deserializer, safe status projections, and bounded validation in `backend/src/services/background_jobs/contracts.py` and `backend/src/schemas/background_jobs.py`.
-- [ ] T011 Implement failure categories, retry policy/backoff with injectable clock/randomness, sanitized error mapping, and safe structured logging in `backend/src/services/background_jobs/retry.py` and `backend/src/services/background_jobs/logging.py`.
-- [ ] T012 Implement the explicit `BackgroundJobDefinition` registry, registration validation, handler allowlist, retry/idempotency/coalescing metadata, and resource-bound declarations in `backend/src/services/background_jobs/registry.py`.
-- [ ] T013 Implement `BackgroundWorkItem`, register it in `backend/src/models/__init__.py`, and add Alembic revision 015 with state checks, idempotency/coalescing indexes, eligible/recovery/retention indexes, leases, sanitized failures, and `version_number` in `backend/src/models/background_work_item.py` and `backend/src/migrations/versions/015_background_processing_foundation.py`.
-- [ ] T014 [P] Write unit tests for transaction-local work staging, idempotency resolution, bounded coalescing, successor creation for running work, OCC conflicts, and rollback behavior in `backend/tests/unit/test_background_jobs_outbox.py`.
-- [ ] T015 Implement transaction-local staging/coalescing, durable state transitions, lease predicates, manual requeue guards, retention eligibility, and OCC-safe reload behavior in `backend/src/services/background_jobs/outbox.py`.
+- [X] T010 Implement typed job envelopes, versioned payload schema adapters, JSON serializer/deserializer, safe status projections, and bounded validation in `backend/src/services/background_jobs/contracts.py` and `backend/src/schemas/background_jobs.py`.
+- [X] T011 Implement failure categories, retry policy/backoff with injectable clock/randomness, sanitized error mapping, and safe structured logging in `backend/src/services/background_jobs/retry.py` and `backend/src/services/background_jobs/logging.py`.
+- [X] T012 Implement the explicit `BackgroundJobDefinition` registry, registration validation, handler allowlist, retry/idempotency/coalescing metadata, and resource-bound declarations in `backend/src/services/background_jobs/registry.py`.
+- [X] T013 Implement `BackgroundWorkItem`, register it in `backend/src/models/__init__.py`, and add Alembic revision 015 with state checks, idempotency/coalescing indexes, eligible/recovery/retention indexes, leases, sanitized failures, and `version_number` in `backend/src/models/background_work_item.py` and `backend/src/migrations/versions/015_background_processing_foundation.py`.
+- [X] T014 [P] Write unit tests for transaction-local work staging, idempotency resolution, bounded coalescing, successor creation for running work, OCC conflicts, and rollback behavior in `backend/tests/unit/test_background_jobs_outbox.py`.
+- [X] T015 Implement transaction-local staging/coalescing, durable state transitions, lease predicates, manual requeue guards, retention eligibility, and OCC-safe reload behavior in `backend/src/services/background_jobs/outbox.py`.
 
 ### Dispatcher and worker runtime
 
-- [ ] T016 [P] Write unit tests for bounded dispatcher claiming, deterministic ARQ IDs, successful/failed enqueue transitions, expired leases, and competing dispatcher conflicts in `backend/tests/unit/test_background_jobs_dispatcher.py`.
-- [ ] T017 [P] Write unit tests for worker startup/shutdown resources, generic handler dispatch, timeout/cancellation behavior, unknown job rejection, terminal transitions, and stale-worker OCC conflicts in `backend/tests/unit/test_background_jobs_worker.py`.
-- [ ] T018 Implement bounded PostgreSQL claim batches, post-commit Redis enqueue, custom JSON work-ID envelopes, deterministic ARQ `_job_id` assignment, broker failure retry, and safe dispatch reports in `backend/src/services/background_jobs/dispatcher.py`.
-- [ ] T019 Implement startup-owned database/Redis/provider resources, one generic ARQ worker function, bounded concurrency/timeouts, retry/defer integration, graceful shutdown, lease recovery, and resource cleanup in `backend/src/database.py`, `backend/src/services/background_jobs/runtime.py`, and `backend/scripts/background_worker.py`.
+- [X] T016 [P] Write unit tests for bounded dispatcher claiming, deterministic ARQ IDs, successful/failed enqueue transitions, expired leases, and competing dispatcher conflicts in `backend/tests/unit/test_background_jobs_dispatcher.py`.
+- [X] T017 [P] Write unit tests for worker startup/shutdown resources, generic handler dispatch, timeout/cancellation behavior, unknown job rejection, terminal transitions, and stale-worker OCC conflicts in `backend/tests/unit/test_background_jobs_worker.py`.
+- [X] T018 Implement bounded PostgreSQL claim batches, post-commit Redis enqueue, custom JSON work-ID envelopes, deterministic ARQ `_job_id` assignment, broker failure retry, and safe dispatch reports in `backend/src/services/background_jobs/dispatcher.py`.
+- [X] T019 Implement startup-owned database/Redis/provider resources, one generic ARQ worker function, bounded concurrency/timeouts, retry/defer integration, graceful shutdown, lease recovery, and resource cleanup in `backend/src/database.py`, `backend/src/services/background_jobs/runtime.py`, and `backend/scripts/background_worker.py`.
 
 **Checkpoint**: Migration 015 is reversible, contracts reject unsafe work,
 the dispatcher never loses a committed row when Redis is unavailable, and a
@@ -70,18 +70,18 @@ leaves no executable work, and verify Business/Auth Audit behavior is unchanged.
 
 ### Tests for User Story 1 (MANDATORY)
 
-- [ ] T020 [P] [US1] Write unit tests for domain-to-RAG impact mapping, stable source references, relationship/deletion hints, no-op authorization changes, and no network/audit calls in `backend/tests/unit/test_background_mutation_impacts.py`.
-- [ ] T021 [P] [US1] Write integration tests for committed mutation plus outbox, rolled-back mutation with zero work, PostgreSQL-to-Redis dispatch, generic registered-worker execution, provider/Redis unavailability, OCC conflict, and Business/Auth Audit isolation in `backend/tests/integration/test_background_outbox.py`.
+- [X] T020 [P] [US1] Write unit tests for domain-to-RAG impact mapping, stable source references, relationship/deletion hints, no-op authorization changes, and no network/audit calls in `backend/tests/unit/test_background_mutation_impacts.py`.
+- [X] T021 [P] [US1] Write integration tests for committed mutation plus outbox, rolled-back mutation with zero work, PostgreSQL-to-Redis dispatch, generic registered-worker execution, provider/Redis unavailability, OCC conflict, and Business/Auth Audit isolation in `backend/tests/integration/test_background_outbox.py`.
 
 ### Implementation for User Story 1
 
-- [ ] T022 [US1] Implement the shared RAG mutation-impact/dependency staging contract using stable source IDs and bounded old/new references in `backend/src/services/rag/contracts.py` and `backend/src/services/rag/registry.py`.
-- [ ] T023 [US1] Wire Player create/update/activation and Team create/update/TeamPlayer roster mutation paths to stage eligible impacts before existing commits in `backend/src/services/player_service.py` and `backend/src/services/team_service.py`.
-- [ ] T024 [US1] Wire TeamCoach semantic assignment, Match create/update/supported delete, and performance/statistics mutation paths to stage impacts without changing existing domain audit rules in `backend/src/services/coach_service.py`, `backend/src/services/match_service.py`, `backend/src/services/performance_service.py`, and `backend/src/services/stats_service.py`.
-- [ ] T025 [US1] Wire standalone Calendar, recurrence-series, occurrence, and exception create/update/delete paths to stage projected occurrence impacts through the existing Calendar service boundary in `backend/src/services/calendar_service.py` and `backend/src/services/calendar_recurrence.py`.
-- [ ] T026 [US1] Add regression assertions that Player-account/authentication changes and Data Quality reads/remediation do not enqueue implicit work or technical audit events unless an explicit registered semantic impact exists in `backend/tests/unit/test_player_account_service.py`, `backend/tests/unit/test_data_quality_service.py`, and `backend/tests/integration/test_background_outbox.py`.
-- [ ] T027 [US1] Complete cross-session mutation-boundary fixtures and assertions proving requests do not wait for provider calls, external calls occur after commit, and normal Business Audit events remain owned by existing services in `backend/tests/integration/conftest.py` and `backend/tests/integration/test_background_outbox.py`.
-- [ ] T028 [US1] Run the focused User Story 1 unit/integration suite and verify atomic commit, rollback, non-blocking mutation, safe coalescing, and no-audit acceptance criteria in `backend/tests/unit/test_background_mutation_impacts.py` and `backend/tests/integration/test_background_outbox.py`.
+- [X] T022 [US1] Implement the shared RAG mutation-impact/dependency staging contract using stable source IDs and bounded old/new references in `backend/src/services/rag/contracts.py` and `backend/src/services/rag/registry.py`.
+- [X] T023 [US1] Wire Player create/update/activation and Team create/update/TeamPlayer roster mutation paths to stage eligible impacts before existing commits in `backend/src/services/player_service.py` and `backend/src/services/team_service.py`.
+- [X] T024 [US1] Wire TeamCoach semantic assignment, Match create/update/supported delete, and performance/statistics mutation paths to stage impacts without changing existing domain audit rules in `backend/src/services/coach_service.py`, `backend/src/services/match_service.py`, `backend/src/services/performance_service.py`, and `backend/src/services/stats_service.py`.
+- [X] T025 [US1] Wire standalone Calendar, recurrence-series, occurrence, and exception create/update/delete paths to stage projected occurrence impacts through the existing Calendar service boundary in `backend/src/services/calendar_service.py` and `backend/src/services/calendar_recurrence.py`.
+- [X] T026 [US1] Add regression assertions that Player-account/authentication changes and Data Quality reads/remediation do not enqueue implicit work or technical audit events unless an explicit registered semantic impact exists in `backend/tests/unit/test_player_account_service.py`, `backend/tests/unit/test_data_quality_service.py`, and `backend/tests/integration/test_background_outbox.py`.
+- [X] T027 [US1] Complete cross-session mutation-boundary fixtures and assertions proving requests do not wait for provider calls, external calls occur after commit, and normal Business Audit events remain owned by existing services in `backend/tests/integration/conftest.py` and `backend/tests/integration/test_background_outbox.py`.
+- [X] T028 [US1] Run the focused User Story 1 unit/integration suite and verify atomic commit, rollback, non-blocking mutation, safe coalescing, and no-audit acceptance criteria in `backend/tests/unit/test_background_mutation_impacts.py` and `backend/tests/integration/test_background_outbox.py`.
 
 **Checkpoint**: User Story 1 is independently demonstrable through existing
 authenticated mutation/service paths and leaves durable work for a later

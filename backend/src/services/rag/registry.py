@@ -8,7 +8,25 @@ from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
-from src.services.rag.contracts import CanonicalRagDocument, RagSourceDefinition
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.services.background_jobs.outbox import BackgroundJobOutbox
+from src.services.background_jobs.registry import (
+    BackgroundJobDefinition,
+    BackgroundJobRegistry,
+    ResourceBounds,
+)
+from src.services.background_jobs.retry import RetryPolicy
+from src.services.rag.contracts import (
+    MAX_RAG_MUTATION_TARGETS,
+    CanonicalRagDocument,
+    RagMutationImpact,
+    RagMutationSource,
+    RagReconciliationPayloadV1,
+    RagSourceDefinition,
+    RagTargetRef,
+)
 
 _SOURCE_TYPE_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
 _RESERVED_SOURCE_TYPES = frozenset(
@@ -57,6 +75,18 @@ _FORBIDDEN_METADATA_FRAGMENTS = (
     "vector",
     "embedding",
 )
+
+_MUTATION_SOURCE_TYPES: Mapping[RagMutationSource, str] = {
+    RagMutationSource.PLAYER: "player_profile",
+    RagMutationSource.TEAM: "team",
+    RagMutationSource.MATCH: "match",
+    RagMutationSource.MATCH_BATTING_PERFORMANCE: "match_batting_performance",
+    RagMutationSource.MATCH_BOWLING_PERFORMANCE: "match_bowling_performance",
+    RagMutationSource.MATCH_FIELDING_PERFORMANCE: "match_fielding_performance",
+    RagMutationSource.PLAYER_BATTING_STATS: "player_batting_stats",
+    RagMutationSource.PLAYER_BOWLING_STATS: "player_bowling_stats",
+    RagMutationSource.CALENDAR_OCCURRENCE: "calendar_occurrence",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -269,6 +299,47 @@ class RagSourceRegistry[RecordT]:
 
         definition = self.get(source_type)
         return EligibilityDecision(eligible=bool(definition.eligible(record)))
+
+    def resolve_mutation_impact(
+        self,
+        impact: RagMutationImpact,
+    ) -> tuple[RagTargetRef, ...]:
+        """Map bounded domain identities to explicitly registered source targets."""
+
+        if not impact.semantic_change:
+            return ()
+        targets: dict[tuple[str, str], RagTargetRef] = {}
+        for reference in (*impact.current_refs, *impact.previous_refs):
+            source_type = _MUTATION_SOURCE_TYPES[reference.source]
+            self.get(source_type)
+            target = RagTargetRef(
+                source_type=source_type,
+                source_key=reference.source_key,
+            )
+            targets[(target.source_type, target.source_key)] = target
+        if len(targets) > MAX_RAG_MUTATION_TARGETS:
+            raise RegistryValidationError(
+                f"mutation impacts support at most {MAX_RAG_MUTATION_TARGETS} targets"
+            )
+        return tuple(targets[key] for key in sorted(targets))
+
+    def resolve_coalescing_target(self, impact: RagMutationImpact) -> RagTargetRef:
+        """Return the stable logical identity used to coalesce rapid mutations."""
+
+        reference = impact.coalescing_ref
+        if reference is None:
+            refs = (*impact.current_refs, *impact.previous_refs)
+            if not refs:
+                raise RegistryValidationError(
+                    "semantic mutation impact has no coalescing identity"
+                )
+            reference = refs[0]
+        source_type = _MUTATION_SOURCE_TYPES[reference.source]
+        self.get(source_type)
+        return RagTargetRef(
+            source_type=source_type,
+            source_key=reference.source_key,
+        )
 
     def __contains__(self, source_type: object) -> bool:
         return source_type in self._definitions
@@ -496,3 +567,121 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
 
 
 source_registry: RagSourceRegistry[object] = _build_initial_registry()
+
+
+async def _staging_contract_handler(context: object, payload: BaseModel) -> None:
+    """Guard against executing the validation-only Phase 3 staging registry."""
+
+    del context, payload
+    raise RuntimeError("RAG reconciliation execution is not configured")
+
+
+def _coalesce_mutation_payloads(
+    existing: BaseModel,
+    incoming: BaseModel,
+) -> RagReconciliationPayloadV1:
+    """Merge rapid pending mutation targets without retaining stale snapshots."""
+
+    old = RagReconciliationPayloadV1.model_validate(existing)
+    new = RagReconciliationPayloadV1.model_validate(incoming)
+    targets = {
+        (target.source_type, target.source_key): target
+        for target in (*old.targets, *new.targets)
+    }
+    return RagReconciliationPayloadV1(
+        targets=tuple(targets[key] for key in sorted(targets))
+    )
+
+
+def _build_mutation_staging_outbox() -> BackgroundJobOutbox:
+    registry = BackgroundJobRegistry(allowed_handlers={_staging_contract_handler})
+    registry.register(
+        BackgroundJobDefinition(
+            job_type="rag_reconciliation",
+            payload_version=1,
+            payload_model=RagReconciliationPayloadV1,
+            handler=_staging_contract_handler,
+            retry_policy=RetryPolicy(
+                max_attempts=5,
+                base_delay_seconds=5,
+                max_delay_seconds=300,
+                jitter_seconds=5,
+                timeout_seconds=300,
+            ),
+            idempotency_strategy=(
+                "Reload current registered source truth and reconcile stable targets."
+            ),
+            resource_bounds=ResourceBounds(
+                max_concurrency=4,
+                max_batch_size=MAX_RAG_MUTATION_TARGETS,
+            ),
+            manual_retry_allowed=True,
+            coalescer=_coalesce_mutation_payloads,
+        )
+    )
+    return BackgroundJobOutbox(registry)
+
+
+class RagMutationStager:
+    """Translate semantic mutation impacts into transaction-local durable work."""
+
+    def __init__(
+        self,
+        registry: RagSourceRegistry[object],
+        *,
+        outbox: BackgroundJobOutbox | None = None,
+    ) -> None:
+        self.registry = registry
+        self.outbox = outbox or _build_mutation_staging_outbox()
+
+    async def stage(
+        self,
+        session: AsyncSession,
+        impact: RagMutationImpact,
+    ) -> object | None:
+        """Stage bounded work without committing or contacting external services."""
+
+        targets = self.registry.resolve_mutation_impact(impact)
+        if not targets:
+            return None
+        coalescing_target = self.registry.resolve_coalescing_target(impact)
+        payload = RagReconciliationPayloadV1(targets=targets)
+        return await self.outbox.stage(
+            session,
+            "rag_reconciliation",
+            payload,
+            coalescing_key=(
+                f"rag:{coalescing_target.source_type}:"
+                f"{coalescing_target.source_key}"
+            ),
+            correlation_id=impact.correlation_id,
+            source_type=coalescing_target.source_type,
+            source_key=coalescing_target.source_key,
+            safe_metadata={"reason": "mutation", "source_count": len(targets)},
+        )
+
+
+_default_mutation_stager: RagMutationStager | None = None
+
+
+def get_rag_mutation_stager() -> RagMutationStager:
+    """Return the resource-free default transaction-local staging adapter."""
+
+    global _default_mutation_stager
+    if _default_mutation_stager is None:
+        _default_mutation_stager = RagMutationStager(source_registry)
+    return _default_mutation_stager
+
+
+async def stage_rag_mutation_impact(
+    session: object,
+    impact: RagMutationImpact,
+) -> object | None:
+    """Application-service facade for same-transaction mutation staging."""
+
+    # Unit tests for existing application services use lightweight session
+    # doubles. They opt into staging explicitly when that boundary is under
+    # test; production and integration paths always provide a real session.
+    if not isinstance(session, AsyncSession):
+        return None
+    return await get_rag_mutation_stager().stage(session, impact)

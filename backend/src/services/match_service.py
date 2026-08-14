@@ -16,6 +16,29 @@ from src.schemas.match import (
     MatchUpdate,
 )
 from src.services.occ import check_and_increment_version
+from src.services.rag.contracts import (
+    RagMutationImpact,
+    RagMutationOperation,
+    RagMutationRef,
+    RagMutationSource,
+)
+
+
+async def _stage_match_impact(session: AsyncSession, match_id: UUID) -> None:
+    from src.services.rag.registry import stage_rag_mutation_impact
+
+    reference = RagMutationRef(
+        source=RagMutationSource.MATCH,
+        source_key=str(match_id),
+    )
+    await stage_rag_mutation_impact(
+        session,
+        RagMutationImpact(
+            operation=RagMutationOperation.UPSERT,
+            current_refs=(reference,),
+            coalescing_ref=reference,
+        ),
+    )
 
 
 class MatchNotFoundError(Exception):
@@ -111,6 +134,7 @@ class MatchService:
             self.session.add(match)
             await self.session.flush()
             match_id = match.id
+            await _stage_match_impact(self.session, match_id)
             await self.session.commit()
             return await self._get_loaded_match(match_id)
         except Exception:
@@ -138,6 +162,7 @@ class MatchService:
             match.version_number = next_version
             for column, value in participant_columns.items():
                 setattr(match, column, value)
+            await _stage_match_impact(self.session, match_id)
             await self.session.commit()
             return await self._get_loaded_match(match_id)
         except Exception:

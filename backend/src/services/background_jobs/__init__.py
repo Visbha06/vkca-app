@@ -1,5 +1,1 @@
-"""Shared background-processing foundation.
-
-Durable contracts, registry, dispatcher, and worker runtime are added in the
-subsequent foundational phase.
-"""
+"""Durable contracts, outbox, dispatcher, registry, and worker runtime."""

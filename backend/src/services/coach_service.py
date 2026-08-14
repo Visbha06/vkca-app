@@ -30,8 +30,44 @@ from src.services.business_audit_service import (
 )
 from src.services.occ import check_and_increment_version
 from src.services.password_service import PasswordService
+from src.services.rag.contracts import (
+    RagMutationImpact,
+    RagMutationOperation,
+    RagMutationRef,
+    RagMutationSource,
+)
 
 CoachStatus = Literal["active", "inactive", "all"]
+
+
+async def _stage_coaching_context_impact(
+    session: AsyncSession,
+    *,
+    current_team_ids: Sequence[UUID] = (),
+    previous_team_ids: Sequence[UUID] = (),
+) -> None:
+    from src.services.rag.registry import stage_rag_mutation_impact
+
+    current = tuple(
+        RagMutationRef(source=RagMutationSource.TEAM, source_key=str(team_id))
+        for team_id in sorted(set(current_team_ids), key=str)
+    )
+    previous = tuple(
+        RagMutationRef(source=RagMutationSource.TEAM, source_key=str(team_id))
+        for team_id in sorted(set(previous_team_ids), key=str)
+    )
+    references = (*current, *previous)
+    if not references:
+        return
+    await stage_rag_mutation_impact(
+        session,
+        RagMutationImpact(
+            operation=RagMutationOperation.RELATIONSHIP,
+            current_refs=current,
+            previous_refs=previous,
+            coalescing_ref=min(references, key=lambda item: item.source_key),
+        ),
+    )
 
 
 class CoachNotFoundError(Exception):
@@ -153,6 +189,10 @@ class CoachService:
                         "assigned_team_count": len(teams),
                     },
                 )
+            await _stage_coaching_context_impact(
+                self.session,
+                current_team_ids=[team.id for team in teams],
+            )
             await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()
@@ -280,6 +320,17 @@ class CoachService:
         }:
             raise CoachNotFoundError
 
+        previous_active = coach.is_active
+        assigned_team_ids: tuple[UUID, ...] = ()
+        if isinstance(self.session, AsyncSession):
+            assigned_team_ids = tuple(
+                (
+                    await self.session.scalars(
+                        select(TeamCoach.team_id).where(TeamCoach.user_id == coach_id)
+                    )
+                ).all()
+            )
+
         try:
             coach.version_number = await check_and_increment_version(
                 self.session,
@@ -293,6 +344,12 @@ class CoachService:
                     coach.id,
                     reason="user_disabled",
                     target_resource=f"/api/v1/users/{coach.id}/disable",
+                )
+            if previous_active != is_active:
+                await _stage_coaching_context_impact(
+                    self.session,
+                    current_team_ids=assigned_team_ids,
+                    previous_team_ids=assigned_team_ids,
                 )
             await self.session.commit()
         except Exception:
@@ -334,7 +391,7 @@ class CoachService:
                 raise CoachTeamValidationError
 
         previous_team_ids: list[UUID] = []
-        if actor is not None:
+        if actor is not None or isinstance(self.session, AsyncSession):
             previous_team_ids = list(
                 (
                     await self.session.scalars(
@@ -377,6 +434,11 @@ class CoachService:
                         "removed_count": len(previous_ids - next_ids),
                     },
                 )
+            await _stage_coaching_context_impact(
+                self.session,
+                current_team_ids=payload.team_ids,
+                previous_team_ids=previous_team_ids,
+            )
             await self.session.commit()
         except Exception:
             await self.session.rollback()
@@ -442,6 +504,10 @@ class CoachService:
                         "removed_count": 1,
                     },
                 )
+            await _stage_coaching_context_impact(
+                self.session,
+                previous_team_ids=[team_id],
+            )
             await self.session.commit()
         except Exception:
             await self.session.rollback()

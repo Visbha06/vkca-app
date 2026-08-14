@@ -45,7 +45,7 @@ class Settings(BaseSettings):
 
     # Background processing settings. Resources are created by their runtime
     # boundaries, never while Settings is imported.
-    redis_url: RedisDsn = "redis://localhost:6379/0"
+    redis_url: RedisDsn = RedisDsn("redis://localhost:6379/0")
     background_queue_name: str = Field(
         default="vkca-background", min_length=1, max_length=64
     )

@@ -12,8 +12,12 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Protocol
+from typing import Literal, Protocol, Self
 from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+MAX_RAG_MUTATION_TARGETS = 128
 
 
 class RagRunMode(StrEnum):
@@ -51,6 +55,125 @@ class EmbeddingPurpose(StrEnum):
 
     DOCUMENT = "document"
     QUERY = "query"
+
+
+class RagMutationSource(StrEnum):
+    """Stable domain identities that may affect a registered RAG source."""
+
+    PLAYER = "player"
+    TEAM = "team"
+    MATCH = "match"
+    MATCH_BATTING_PERFORMANCE = "match_batting_performance"
+    MATCH_BOWLING_PERFORMANCE = "match_bowling_performance"
+    MATCH_FIELDING_PERFORMANCE = "match_fielding_performance"
+    PLAYER_BATTING_STATS = "player_batting_stats"
+    PLAYER_BOWLING_STATS = "player_bowling_stats"
+    CALENDAR_OCCURRENCE = "calendar_occurrence"
+
+
+class RagMutationOperation(StrEnum):
+    """Why current and/or previous stable identities became dirty."""
+
+    UPSERT = "upsert"
+    DELETE = "delete"
+    RELATIONSHIP = "relationship"
+
+
+class RagMutationRef(BaseModel):
+    """One bounded domain identity; it never contains an authoritative snapshot."""
+
+    source: RagMutationSource
+    source_key: str = Field(min_length=1, max_length=160)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    @field_validator("source_key")
+    @classmethod
+    def normalize_source_key(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized or any(ord(character) < 32 for character in normalized):
+            raise ValueError("RAG mutation source_key must be a safe non-blank value")
+        return normalized
+
+
+class RagTargetRef(BaseModel):
+    """One registered source identity carried by reconciliation work."""
+
+    source_type: str = Field(pattern=r"^[a-z][a-z0-9_]{0,79}$")
+    source_key: str = Field(min_length=1, max_length=160)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    @field_validator("source_key")
+    @classmethod
+    def normalize_source_key(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized or any(ord(character) < 32 for character in normalized):
+            raise ValueError("RAG target source_key must be a safe non-blank value")
+        return normalized
+
+
+class RagReconciliationPayloadV1(BaseModel):
+    """Bounded durable payload that instructs later current-state reconciliation."""
+
+    mode: Literal["targets"] = "targets"
+    reason: Literal["mutation"] = "mutation"
+    targets: tuple[RagTargetRef, ...] = Field(
+        min_length=1,
+        max_length=MAX_RAG_MUTATION_TARGETS,
+    )
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    @model_validator(mode="after")
+    def reject_duplicate_targets(self) -> Self:
+        identities = [
+            (target.source_type, target.source_key) for target in self.targets
+        ]
+        if len(identities) != len(set(identities)):
+            raise ValueError("RAG reconciliation targets must be unique")
+        return self
+
+
+class RagMutationImpact(BaseModel):
+    """Bounded current/previous identities staged by an academy mutation."""
+
+    operation: RagMutationOperation
+    current_refs: tuple[RagMutationRef, ...] = Field(
+        default=(),
+        max_length=MAX_RAG_MUTATION_TARGETS,
+    )
+    previous_refs: tuple[RagMutationRef, ...] = Field(
+        default=(),
+        max_length=MAX_RAG_MUTATION_TARGETS,
+    )
+    coalescing_ref: RagMutationRef | None = None
+    semantic_change: bool = True
+    correlation_id: UUID | None = None
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    @model_validator(mode="after")
+    def validate_bounded_identity_set(self) -> Self:
+        identities = {
+            (reference.source, reference.source_key)
+            for reference in (*self.current_refs, *self.previous_refs)
+        }
+        if self.semantic_change and not identities:
+            raise ValueError("semantic RAG mutation impacts require a stable reference")
+        if len(identities) > MAX_RAG_MUTATION_TARGETS:
+            raise ValueError(
+                f"RAG mutation impacts support at most {MAX_RAG_MUTATION_TARGETS} "
+                "stable references"
+            )
+        if self.coalescing_ref is not None and self.semantic_change:
+            coalescing_identity = (
+                self.coalescing_ref.source,
+                self.coalescing_ref.source_key,
+            )
+            if coalescing_identity not in identities:
+                raise ValueError("coalescing_ref must be included in the impact refs")
+        return self
 
 
 @dataclass(frozen=True, slots=True)

@@ -25,6 +25,29 @@ from src.services.business_audit_service import (
     BusinessAuditService,
 )
 from src.services.occ import StaleVersionError, check_and_increment_version
+from src.services.rag.contracts import (
+    RagMutationImpact,
+    RagMutationOperation,
+    RagMutationRef,
+    RagMutationSource,
+)
+
+
+async def _stage_player_impact(session: AsyncSession, player_id: UUID) -> None:
+    from src.services.rag.registry import stage_rag_mutation_impact
+
+    reference = RagMutationRef(
+        source=RagMutationSource.PLAYER,
+        source_key=str(player_id),
+    )
+    await stage_rag_mutation_impact(
+        session,
+        RagMutationImpact(
+            operation=RagMutationOperation.UPSERT,
+            current_refs=(reference,),
+            coalescing_ref=reference,
+        ),
+    )
 
 
 class PlayerAlreadyExistsError(Exception):
@@ -101,6 +124,7 @@ class PlayerService:
                     ),
                     metadata={"changed_fields": []},
                 )
+            await _stage_player_impact(self.session, player.id)
             await self.session.commit()
         except Exception:
             await self.session.rollback()
@@ -253,6 +277,8 @@ class PlayerService:
                     ),
                     metadata={"changed_fields": sorted(changes)},
                 )
+            if changes:
+                await _stage_player_impact(self.session, player.id)
             await self.session.commit()
         except Exception:
             await self.session.rollback()
