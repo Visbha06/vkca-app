@@ -61,14 +61,26 @@ class AccessScopeResolver(Protocol):
     async def resolve(self, user: User) -> RagAccessScope: ...
 
 
+class SourceRegistry(Protocol):
+    @property
+    def source_types(self) -> tuple[str, ...]: ...
+
+
 def _overlap(column, values: Sequence[object]) -> ColumnElement[bool]:
     return column.overlap(list(values)) if values else false()
 
 
-def build_authorization_predicate(scope: RagAccessScope) -> ColumnElement[bool]:
+def build_authorization_predicate(
+    scope: RagAccessScope,
+    *,
+    registered_source_types: Sequence[str] | None = None,
+) -> ColumnElement[bool]:
     """Build the complete role/source visibility matrix as a SQL predicate."""
 
     if scope.denies_all:
+        return false()
+    allowed_types = frozenset(registered_source_types or REGISTERED_RETRIEVAL_TYPES)
+    if not allowed_types:
         return false()
     if scope.can_read_all_registered_sources:
         active_player = exists(
@@ -78,7 +90,7 @@ def build_authorization_predicate(scope: RagAccessScope) -> ColumnElement[bool]:
             )
         )
         return and_(
-            RagChunk.source_type.in_(REGISTERED_RETRIEVAL_TYPES),
+            RagChunk.source_type.in_(allowed_types),
             or_(
                 ~RagChunk.source_type.in_(PLAYER_SCOPED_TYPES),
                 active_player,
@@ -136,6 +148,7 @@ def build_retrieval_statement(
     query_vector: Sequence[float],
     profile: EmbeddingProfile,
     limit: int,
+    registered_source_types: Sequence[str] | None = None,
 ) -> Select[tuple[object, ...]]:
     """Select safe fields from only authorized candidates before cosine ordering."""
 
@@ -161,7 +174,10 @@ def build_retrieval_statement(
             RagChunk.provider_name == profile.provider_name,
             RagChunk.model_name == profile.model_name,
             RagChunk.embedding_dimension == profile.dimension,
-            build_authorization_predicate(scope),
+            build_authorization_predicate(
+                scope,
+                registered_source_types=registered_source_types,
+            ),
         )
         .order_by(score, RagChunk.id)
         .limit(limit)
@@ -181,6 +197,7 @@ class RagRetrievalService:
         result_limit_max: int,
         timeout_seconds: float,
         scope_resolver: AccessScopeResolver | None = None,
+        registry: SourceRegistry | None = None,
     ) -> None:
         if query_max_characters <= 0:
             raise ValueError("query maximum must be positive")
@@ -194,6 +211,11 @@ class RagRetrievalService:
         self.result_limit_default = result_limit_default
         self.result_limit_max = result_limit_max
         self.scope_resolver = scope_resolver or RagAccessScopeResolver(session)
+        if registry is None:
+            from src.services.rag.registry import source_registry
+
+            registry = source_registry
+        self.registered_source_types = registry.source_types
         self.batcher = EmbeddingBatcher(batch_size=1, timeout_seconds=timeout_seconds)
 
     async def retrieve(
@@ -248,6 +270,7 @@ class RagRetrievalService:
             query_vector=query_embedding.values,
             profile=self.provider.profile,
             limit=limit,
+            registered_source_types=self.registered_source_types,
         )
         rows = (await self.session.execute(statement)).all()
         results = [

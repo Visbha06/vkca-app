@@ -6,6 +6,7 @@ from uuid import uuid4
 from src.enums import BattingStyle, BowlingStyle, PlayerType
 from src.models.player import Player
 from src.services.rag.builders.player import build_player_profile_document
+from src.services.rag.embedding import EmbeddingProviderError
 
 
 def test_profile_builder_never_serializes_private_model_fields() -> None:
@@ -40,3 +41,14 @@ def test_profile_builder_never_serializes_private_model_fields() -> None:
         "arbitrary_json",
     ):
         assert forbidden not in serialized
+
+
+def test_provider_failure_messages_redact_credentials_and_request_bodies() -> None:
+    failure = EmbeddingProviderError(
+        "provider_unavailable",
+        safe_message="request body token=raw-secret vector=[0.1, 0.2]",
+    )
+
+    assert "raw-secret" not in failure.safe_message
+    assert "vector" not in failure.safe_message.casefold()
+    assert "request body" not in failure.safe_message.casefold()

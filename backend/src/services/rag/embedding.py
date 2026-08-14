@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import math
+import re
 from collections.abc import Sequence
 from enum import StrEnum
 from typing import Protocol
@@ -20,6 +21,25 @@ from src.services.rag.contracts import (
 RAG_VECTOR_DIMENSION = 1536
 GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
 FAKE_ADAPTER_VERSION = "fake-v1"
+
+_SENSITIVE_PROVIDER_VALUE = re.compile(
+    r"(?i)\b(api[_-]?key|authorization|password|secret|token|credential)"
+    r"\s*[:=]\s*[^\s,;]+"
+)
+_URL_CREDENTIALS = re.compile(r"([a-z][a-z0-9+.-]*://)[^/@\s]+:[^/@\s]+@", re.I)
+
+
+def sanitize_provider_message(message: str) -> str:
+    """Bound a provider-facing error without preserving credentials or bodies."""
+
+    normalized = " ".join(message.split())
+    normalized = _SENSITIVE_PROVIDER_VALUE.sub(
+        lambda match: f"{match.group(1)}=[redacted]", normalized
+    )
+    normalized = _URL_CREDENTIALS.sub(r"\1[redacted]@", normalized)
+    if "request body" in normalized.casefold() or "vector=" in normalized.casefold():
+        return "Embedding provider rejected the bounded request."
+    return normalized[:500]
 
 
 class EmbeddingErrorCategory(StrEnum):
@@ -50,7 +70,7 @@ class EmbeddingProviderError(RuntimeError):
             if isinstance(category, EmbeddingErrorCategory)
             else EmbeddingErrorCategory(category)
         )
-        self.safe_message = safe_message[:500]
+        self.safe_message = sanitize_provider_message(safe_message)
         self.retryable = retryable
         super().__init__(self.safe_message)
 

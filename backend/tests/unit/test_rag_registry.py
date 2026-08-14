@@ -1,7 +1,9 @@
 """Unit coverage for explicit opt-in RAG source registration."""
 
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock
+from uuid import uuid4
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +24,7 @@ from src.services.rag.registry import (
     MarkMissingDeletedPolicy,
     RagSourceRegistry,
     RegistryValidationError,
+    validate_built_document,
 )
 
 
@@ -95,6 +98,44 @@ def test_deletion_policy_returns_only_previously_known_missing_keys() -> None:
         seen_keys={"current", "shared"},
         previous_keys={"deleted", "shared"},
     ) == ("deleted",)
+
+
+def test_synthetic_registration_declares_targeting_dependencies_and_eligibility():
+    definition = _definition()
+    registry = RagSourceRegistry((definition,))
+
+    assert registry.select(("synthetic_source",)) == (definition,)
+    assert registry.eligibility("synthetic_source", object()).eligible
+    assert definition.dependencies == (SourceDependency("synthetic_relationship"),)
+    assert definition.deletion_policy.reconcile_deleted(
+        seen_keys={"present"}, previous_keys={"missing", "present"}
+    ) == ("missing",)
+
+
+def test_builder_output_must_use_declared_scope_and_safe_metadata() -> None:
+    document = CanonicalRagDocument(
+        document_id=uuid4(),
+        source_type="synthetic_source",
+        source_key="record-1",
+        source_entity_id=None,
+        source_version="1",
+        dependency_fingerprint="dependency-v1",
+        semantic_text="Synthetic safe text",
+        content_hash="hash",
+        provenance={"source_type": "synthetic_source", "email": "nope"},
+        scope=RagScopeMetadata(source_type="synthetic_source"),
+        builder_version="synthetic-v1",
+        prepared_at=datetime.now(UTC),
+    )
+    definition = _definition()
+    definition = replace(
+        definition,
+        source_key=lambda record: "record-1",
+        scope_metadata=lambda record: RagScopeMetadata(source_type="synthetic_source"),
+    )
+
+    with pytest.raises(RegistryValidationError, match="unapproved"):
+        validate_built_document(definition, object(), document)
 
 
 def test_source_definition_has_no_provider_or_persistence_escape_hatch() -> None:

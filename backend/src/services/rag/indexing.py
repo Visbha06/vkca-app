@@ -34,11 +34,13 @@ from src.services.rag.contracts import (
     EmbeddingProfile,
     RagChunkCandidate,
     RagIndexRunReport,
+    RagOperationalStatusReport,
     RagRunCounters,
     RagRunMode,
     RagRunStatus,
     RagSourceDefinition,
     RagSourceStatus,
+    RagSourceStatusSummary,
 )
 from src.services.rag.embedding import (
     RAG_VECTOR_DIMENSION,
@@ -46,6 +48,7 @@ from src.services.rag.embedding import (
     EmbeddingProvider,
     EmbeddingProviderError,
 )
+from src.services.rag.registry import validate_built_document
 
 DEFAULT_SOURCE_LEASE_SECONDS = 300
 MAX_FAILURE_MESSAGE_LENGTH = 500
@@ -519,16 +522,20 @@ def report_from_run(run: RagIndexRun) -> RagIndexRunReport:
         started_at=run.started_at,
         finished_at=run.finished_at,
         counters=RagRunCounters(
-            source_records_inspected=run.source_records_inspected,
-            documents_prepared=run.documents_prepared,
-            chunks_generated=run.chunks_generated,
-            embeddings_created=run.embeddings_created,
-            unchanged_skipped=run.unchanged_skipped,
-            deleted_or_ineligible=run.deleted_or_ineligible,
-            failed_sources=run.failed_sources,
+            source_records_inspected=run.source_records_inspected or 0,
+            documents_prepared=run.documents_prepared or 0,
+            chunks_generated=run.chunks_generated or 0,
+            embeddings_created=run.embeddings_created or 0,
+            unchanged_skipped=run.unchanged_skipped or 0,
+            deleted_or_ineligible=run.deleted_or_ineligible or 0,
+            failed_sources=run.failed_sources or 0,
         ),
         failure_code=run.failure_code,
-        failure_message=run.failure_message,
+        failure_message=(
+            sanitize_technical_message(run.failure_message)
+            if run.failure_message
+            else None
+        ),
     )
 
 
@@ -758,6 +765,93 @@ class RagIndexingService:
 
         return await self.run(RagRunMode.REPAIR)
 
+    async def inspect_status(
+        self,
+        *,
+        run_id: UUID | None = None,
+        source_type: str | None = None,
+        limit: int = 100,
+        now: datetime | None = None,
+    ) -> RagOperationalStatusReport:
+        """Read bounded operational rows without selecting documents or chunks.
+
+        This is intentionally a projection over ``RagIndexRun`` and
+        ``RagSourceState`` only.  Keeping document/chunk tables out of this
+        method prevents accidental exposure of canonical text or vectors in
+        normal operator diagnostics.
+        """
+
+        if not 1 <= limit <= 100:
+            raise ValueError("RAG status limit must be between 1 and 100")
+        selected_type = (
+            normalize_text(source_type).casefold() if source_type is not None else None
+        )
+        if source_type is not None and not selected_type:
+            raise ValueError("RAG status source_type must not be blank")
+
+        run_statement = select(RagIndexRun).order_by(
+            RagIndexRun.started_at.desc(), RagIndexRun.id
+        ).limit(limit)
+        if run_id is not None:
+            run_statement = run_statement.where(RagIndexRun.id == run_id)
+        if selected_type is not None:
+            run_statement = run_statement.where(
+                RagIndexRun.source_type == selected_type
+            )
+        runs = tuple((await self.session.scalars(run_statement)).all())
+
+        state_statement = select(RagSourceState).order_by(
+            RagSourceState.source_type, RagSourceState.source_key
+        ).limit(limit)
+        if selected_type is not None:
+            state_statement = state_statement.where(
+                RagSourceState.source_type == selected_type
+            )
+        states = tuple((await self.session.scalars(state_statement)).all())
+        inspected_at = now or datetime.now(UTC)
+        counts: dict[str, int] = {}
+        summaries: list[RagSourceStatusSummary] = []
+        for state in states:
+            status = RagSourceStatus(state.status)
+            counts[status.value] = counts.get(status.value, 0) + 1
+            recoverable = status in {
+                RagSourceStatus.PENDING,
+                RagSourceStatus.STALE,
+                RagSourceStatus.FAILED,
+            }
+            if status is RagSourceStatus.INDEXING and (
+                state.lease_expires_at is None or state.lease_expires_at <= inspected_at
+            ):
+                recoverable = True
+            summaries.append(
+                RagSourceStatusSummary(
+                    source_type=state.source_type,
+                    source_key=state.source_key,
+                    status=status,
+                    observed_source_version=state.observed_source_version,
+                    builder_version=state.builder_version,
+                    provider_name=state.provider_name,
+                    model_name=state.model_name,
+                    embedding_dimension=state.embedding_dimension,
+                    last_attempt_at=state.last_attempt_at,
+                    last_success_at=state.last_success_at,
+                    failure_code=state.failure_code,
+                    failure_message=(
+                        sanitize_technical_message(state.failure_message)
+                        if state.failure_message
+                        else None
+                    ),
+                    recoverable=recoverable,
+                )
+            )
+        return RagOperationalStatusReport(
+            runs=tuple(report_from_run(run) for run in runs),
+            sources=tuple(summaries),
+            source_filter=selected_type,
+            status_counts=dict(sorted(counts.items())),
+            recoverable_source_count=sum(item.recoverable for item in summaries),
+        )
+
     async def run(
         self,
         mode: RagRunMode,
@@ -966,14 +1060,7 @@ class RagIndexingService:
                 continue
 
             document = definition.build(loaded)  # type: ignore[union-attr]
-            if document.source_type != source_type or document.source_key != source_key:
-                raise ValueError(
-                    "registered builder returned a mismatched RAG source identity"
-                )
-            if document.builder_version != definition.builder_version:  # type: ignore[union-attr]
-                raise ValueError(
-                    "registered builder output does not match its declared version"
-                )
+            validate_built_document(definition, loaded, document)  # type: ignore[arg-type]
             profile = self.provider.profile
             state = existing_state or await self.state.create_source_state(
                 source_type=source_type,

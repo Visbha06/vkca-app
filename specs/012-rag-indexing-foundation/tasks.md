@@ -171,16 +171,16 @@ synthetic model produces no derived records.
 
 **Tests must be added first and should fail before implementation.**
 
-- [ ] T061 [P] [US4] Add source-registry contract tests for a valid synthetic registration, required extension metadata, targeted selection, dependency declaration, eligibility, and deletion callbacks in backend/tests/unit/test_rag_registry.py.
-- [ ] T062 [P] [US4] Add exclusion tests proving an SQLAlchemy model without a registry entry creates no documents, chunks, embeddings, or retrieval candidates in backend/tests/unit/test_rag_registry_exclusion.py.
-- [ ] T063 [P] [US4] Add boundary tests rejecting synthetic builders that access provider SDKs, write vector persistence directly, store User-ID ACLs, serialize unapproved fields, or bypass shared authorization in backend/tests/unit/test_rag_extension_boundaries.py.
+- [X] T061 [P] [US4] Add source-registry contract tests for a valid synthetic registration, required extension metadata, targeted selection, dependency declaration, eligibility, and deletion callbacks in backend/tests/unit/test_rag_registry.py.
+- [X] T062 [P] [US4] Add exclusion tests proving an SQLAlchemy model without a registry entry creates no documents, chunks, embeddings, or retrieval candidates in backend/tests/unit/test_rag_registry_exclusion.py.
+- [X] T063 [P] [US4] Add boundary tests rejecting synthetic builders that access provider SDKs, write vector persistence directly, store User-ID ACLs, serialize unapproved fields, or bypass shared authorization in backend/tests/unit/test_rag_extension_boundaries.py.
 
 ### Implementation for User Story 4
 
-- [ ] T064 [US4] Add a synthetic registered source fixture with an allowlisted builder, deterministic source version, provenance, scope metadata, eligibility, dependency fingerprint, and deletion policy in backend/tests/fixtures/rag_synthetic.py.
-- [ ] T065 [US4] Generalize registry dispatch and source loading/building/reconciliation so new registered adapters flow through the existing canonical, chunk, provider, persistence, and authorization contracts without source-type conditionals in backend/src/services/rag/registry.py, backend/src/services/rag/indexing.py, and backend/src/services/rag/retrieval.py.
-- [ ] T066 [US4] Add synthetic-source integration coverage for full build, incremental change, deletion, targeted mode, fake embedding, persistence, and protected retrieval without changing core pipeline code in backend/tests/integration/test_rag_extensibility.py.
-- [ ] T067 [US4] Add a registry extension regression test proving builder-version changes target only the synthetic source type and leave unrelated initial source states and embeddings untouched in backend/tests/integration/test_rag_extensibility.py.
+- [X] T064 [US4] Add a synthetic registered source fixture with an allowlisted builder, deterministic source version, provenance, scope metadata, eligibility, dependency fingerprint, and deletion policy in backend/tests/fixtures/rag_synthetic.py.
+- [X] T065 [US4] Generalize registry dispatch and source loading/building/reconciliation so new registered adapters flow through the existing canonical, chunk, provider, persistence, and authorization contracts without source-type conditionals in backend/src/services/rag/registry.py, backend/src/services/rag/indexing.py, and backend/src/services/rag/retrieval.py.
+- [X] T066 [US4] Add synthetic-source integration coverage for full build, incremental change, deletion, targeted mode, fake embedding, persistence, and protected retrieval without changing core pipeline code in backend/tests/integration/test_rag_extensibility.py.
+- [X] T067 [US4] Add a registry extension regression test proving builder-version changes target only the synthetic source type and leave unrelated initial source states and embeddings untouched in backend/tests/integration/test_rag_extensibility.py.
 
 **Checkpoint**: User Story 4 is independently demonstrable by adding one
 registered fixture and observing unchanged core pipeline behavior.
@@ -198,16 +198,16 @@ redacted output.
 
 **Tests must be added first and should fail before implementation.**
 
-- [ ] T068 [P] [US5] Add status/report unit tests for run counters, source states, timestamps, compatibility failures, stale/failed/ineligible/deleted states, bounded messages, and omission of bodies/chunks/vectors/secrets in backend/tests/unit/test_rag_status.py.
-- [ ] T069 [P] [US5] Add operational status integration tests for successful, skipped, partial-failure, interrupted, repair, model-mismatch, and deletion scenarios in backend/tests/integration/test_rag_status.py.
+- [X] T068 [P] [US5] Add status/report unit tests for run counters, source states, timestamps, compatibility failures, stale/failed/ineligible/deleted states, bounded messages, and omission of bodies/chunks/vectors/secrets in backend/tests/unit/test_rag_status.py.
+- [X] T069 [P] [US5] Add operational status integration tests for successful, skipped, partial-failure, interrupted, repair, model-mismatch, and deletion scenarios in backend/tests/integration/test_rag_status.py.
 
 ### Implementation for User Story 5
 
-- [ ] T070 [US5] Implement status queries and bounded run/source summaries over RagIndexRun and RagSourceState without selecting semantic bodies or vectors in backend/src/services/rag/indexing.py.
-- [ ] T071 [US5] Implement the --status command, sanitized failure categories, aggregate counters, source filters, documented exit statuses, and repair guidance in backend/scripts/rag_index.py.
-- [ ] T072 [US5] Implement redacted provider/application logging and error mapping that excludes request bodies, vectors, credentials, raw provider errors, sensitive source values, and audit payloads in backend/src/services/rag/embedding.py, backend/src/services/rag/indexing.py, and backend/src/routes/rag.py.
-- [ ] T073 [US5] Implement status-aware stale, failed, indexing, current, ineligible, and deleted transitions plus interrupted-run recovery inspection in backend/src/services/rag/indexing.py.
-- [ ] T074 [US5] Add status response and command-output regression coverage proving no canonical text, full chunks, vectors, secrets, or unapproved fields appear in backend/tests/unit/test_rag_privacy.py and backend/tests/integration/test_rag_status.py.
+- [X] T070 [US5] Implement status queries and bounded run/source summaries over RagIndexRun and RagSourceState without selecting semantic bodies or vectors in backend/src/services/rag/indexing.py.
+- [X] T071 [US5] Implement the --status command, sanitized failure categories, aggregate counters, source filters, documented exit statuses, and repair guidance in backend/scripts/rag_index.py.
+- [X] T072 [US5] Implement redacted provider/application logging and error mapping that excludes request bodies, vectors, credentials, raw provider errors, sensitive source values, and audit payloads in backend/src/services/rag/embedding.py, backend/src/services/rag/indexing.py, and backend/src/routes/rag.py.
+- [X] T073 [US5] Implement status-aware stale, failed, indexing, current, ineligible, and deleted transitions plus interrupted-run recovery inspection in backend/src/services/rag/indexing.py.
+- [X] T074 [US5] Add status response and command-output regression coverage proving no canonical text, full chunks, vectors, secrets, or unapproved fields appear in backend/tests/unit/test_rag_privacy.py and backend/tests/integration/test_rag_status.py.
 
 **Checkpoint**: User Story 5 is independently demonstrable through safe status
 inspection and repair of recoverable derived-state failures.

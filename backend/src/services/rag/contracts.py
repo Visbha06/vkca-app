@@ -371,6 +371,36 @@ class RagIndexRunReport:
     failure_message: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class RagSourceStatusSummary:
+    """Safe per-source operational state; intentionally excludes corpus data."""
+
+    source_type: str
+    source_key: str
+    status: RagSourceStatus
+    observed_source_version: str | None
+    builder_version: str
+    provider_name: str
+    model_name: str
+    embedding_dimension: int
+    last_attempt_at: datetime | None
+    last_success_at: datetime | None
+    failure_code: str | None
+    failure_message: str | None
+    recoverable: bool
+
+
+@dataclass(frozen=True, slots=True)
+class RagOperationalStatusReport:
+    """Bounded run/source status suitable for CLI output and operator support."""
+
+    runs: tuple[RagIndexRunReport, ...]
+    sources: tuple[RagSourceStatusSummary, ...]
+    source_filter: str | None
+    status_counts: Mapping[str, int]
+    recoverable_source_count: int
+
+
 # Concise aliases for callers that do not need the RAG prefix in local names.
 CanonicalDocument = CanonicalRagDocument
 ChunkCandidate = RagChunkCandidate

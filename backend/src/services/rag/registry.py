@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import inspect
 import re
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -29,6 +30,33 @@ _RESERVED_SOURCE_TYPES = frozenset(
 
 class RegistryValidationError(ValueError):
     """A source cannot safely participate in the shared RAG pipeline."""
+
+
+_FORBIDDEN_EXTENSION_NAMES = frozenset(
+    {
+        "embedding",
+        "embed_documents",
+        "embed_query",
+        "google",
+        "provider",
+        "session",
+        "sqlalchemy",
+        "vector",
+    }
+)
+_FORBIDDEN_METADATA_FRAGMENTS = (
+    "password",
+    "token",
+    "secret",
+    "credential",
+    "session",
+    "csrf",
+    "email",
+    "user_id",
+    "acl",
+    "vector",
+    "embedding",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +130,70 @@ def validate_source_definition[RecordT](
     dependency_names = [dependency.name for dependency in definition.dependencies]
     if len(dependency_names) != len(set(dependency_names)):
         raise RegistryValidationError("source dependency names must be unique")
+
+    # Source adapters are deliberately pure preparation code.  The runtime
+    # contracts also make direct persistence impossible, but rejecting obvious
+    # SDK/session/vector captures gives extension authors an early, actionable
+    # failure instead of silently bypassing the shared pipeline.
+    try:
+        names = set(definition.build.__code__.co_names)
+        names.update(inspect.getclosurevars(definition.build).nonlocals)
+    except (AttributeError, TypeError):
+        names = set()
+    forbidden = sorted(
+        name for name in names if name.casefold() in _FORBIDDEN_EXTENSION_NAMES
+    )
+    if forbidden:
+        raise RegistryValidationError(
+            "source builders must not access provider, vector, or persistence "
+            "boundaries: " + ", ".join(forbidden)
+        )
+
+
+def _validate_safe_mapping(value: object, *, context: str) -> None:
+    """Reject fields that cannot cross from a source builder into RAG state."""
+
+    if isinstance(value, Mapping):
+        for key, nested in value.items():
+            normalized_key = str(key).strip().casefold()
+            if any(
+                fragment in normalized_key
+                for fragment in _FORBIDDEN_METADATA_FRAGMENTS
+            ):
+                raise RegistryValidationError(
+                    f"{context} contains an unapproved sensitive field"
+                )
+            _validate_safe_mapping(nested, context=context)
+    elif isinstance(value, (tuple, list, set, frozenset)):
+        for nested in value:
+            _validate_safe_mapping(nested, context=context)
+
+
+def validate_built_document[RecordT](
+    definition: RagSourceDefinition[RecordT],
+    record: RecordT,
+    document: CanonicalRagDocument,
+) -> None:
+    """Validate a registered builder output before any chunk/provider work."""
+
+    source_key = str(definition.source_key(record)).strip()
+    if (
+        document.source_type != definition.source_type
+        or document.source_key != source_key
+    ):
+        raise RegistryValidationError(
+            "registered builder returned a mismatched RAG source identity"
+        )
+    if document.builder_version != definition.builder_version:
+        raise RegistryValidationError(
+            "registered builder output does not match its declared version"
+        )
+    if document.scope != definition.scope_metadata(record):
+        raise RegistryValidationError(
+            "registered builder bypassed its declared authorization metadata"
+        )
+    _validate_safe_mapping(document.provenance, context="RAG provenance")
+    _validate_safe_mapping(document.scope.relationship_labels, context="RAG scope")
 
 
 class RagSourceRegistry[RecordT]:
