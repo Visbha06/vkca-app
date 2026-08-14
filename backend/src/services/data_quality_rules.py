@@ -123,9 +123,7 @@ class EvaluationContext:
     coach_assignments: tuple[CoachAssignmentProjection, ...] = field(
         default_factory=tuple
     )
-    calendar_series: tuple[CalendarSeriesProjection, ...] = field(
-        default_factory=tuple
-    )
+    calendar_series: tuple[CalendarSeriesProjection, ...] = field(default_factory=tuple)
     calendar_exceptions: tuple[CalendarExceptionProjection, ...] = field(
         default_factory=tuple
     )
@@ -198,9 +196,7 @@ def build_finding_id(
         else:
             flattened.extend(str(value) for value in identifier)
     stable_identifiers = sorted(set(flattened))
-    rule_value = (
-        rule_id.value if isinstance(rule_id, QualityRuleId) else str(rule_id)
-    )
+    rule_value = rule_id.value if isinstance(rule_id, QualityRuleId) else str(rule_id)
     return ":".join((rule_value, *stable_identifiers))
 
 
@@ -293,9 +289,7 @@ def _roster_normalization_action(
     players = {player.player_id: player for player in context.players}
     if not MINIMUM_ROSTER_SIZE <= len(memberships) <= MAXIMUM_ROSTER_SIZE:
         return None
-    if len({membership.player_id for membership in memberships}) != len(
-        memberships
-    ):
+    if len({membership.player_id for membership in memberships}) != len(memberships):
         return None
     if any(
         membership.player_id not in players
@@ -652,9 +646,7 @@ def _normalized_team_name_conflicts(
 def _teams_without_coaches(
     context: EvaluationContext,
 ) -> list[DataQualityFinding]:
-    assigned_team_ids = {
-        assignment.team_id for assignment in context.coach_assignments
-    }
+    assigned_team_ids = {assignment.team_id for assignment in context.coach_assignments}
     return [
         _finding(
             QualityRuleId.TEAM_NO_ASSIGNED_COACH,
@@ -910,8 +902,7 @@ def _stale_occurrence_exceptions(
                 entity_type=QualityEntityType.OCCURRENCE_EXCEPTION,
                 entity_id=exception.exception_id,
                 entity_label=(
-                    f"{series.event_name} — "
-                    f"{exception.original_date.isoformat()}"
+                    f"{series.event_name} — {exception.original_date.isoformat()}"
                 ),
                 explanation=(
                     f"The saved exception for {series.event_name} on "
@@ -957,11 +948,7 @@ def _select_rule(
     """Keep a shared family evaluator independently scoped to one rule."""
 
     def selected(context: EvaluationContext) -> list[DataQualityFinding]:
-        return [
-            finding
-            for finding in evaluator(context)
-            if finding.rule_id == rule_id
-        ]
+        return [finding for finding in evaluator(context) if finding.rule_id == rule_id]
 
     return selected
 

@@ -241,9 +241,7 @@ def build_quality_projection_session(
     """Build an async session with deterministic results for projection loaders."""
 
     session = AsyncMock(spec=AsyncSession)
-    session.execute.side_effect = [
-        _mock_query_result(rows) for rows in row_sets
-    ]
+    session.execute.side_effect = [_mock_query_result(rows) for rows in row_sets]
     return session
 
 

@@ -34,9 +34,7 @@ class QualityAction(StrEnum):
 
     NORMALIZE_ROSTER_ORDER = "normalize_roster_order"
     REMOVE_INACTIVE_PLAYER = "remove_inactive_player"
-    REMOVE_INACTIVE_ASSISTANT_ASSIGNMENT = (
-        "remove_inactive_assistant_assignment"
-    )
+    REMOVE_INACTIVE_ASSISTANT_ASSIGNMENT = "remove_inactive_assistant_assignment"
 
 
 class QualityRuleId(StrEnum):
@@ -44,9 +42,7 @@ class QualityRuleId(StrEnum):
 
     PLAYER_ACTIVE_UNASSIGNED = "player.active_unassigned"
     PLAYER_INACTIVE_ROSTERED = "player.inactive_rostered"
-    PLAYER_NORMALIZED_IDENTITY_DUPLICATE = (
-        "player.normalized_identity_duplicate"
-    )
+    PLAYER_NORMALIZED_IDENTITY_DUPLICATE = "player.normalized_identity_duplicate"
     TEAM_ROSTER_BELOW_MINIMUM = "team.roster_below_minimum"
     TEAM_ROSTER_ABOVE_MAXIMUM = "team.roster_above_maximum"
     ROSTER_ORDER_NON_POSITIVE = "roster.order_non_positive"
@@ -59,12 +55,8 @@ class QualityRuleId(StrEnum):
     COACH_INACTIVE_ASSIGNED = "coach.inactive_assigned"
     COACH_ACTIVE_ASSISTANT_UNASSIGNED = "coach.active_assistant_unassigned"
     COACH_ASSIGNMENT_INVALID_ROLE = "coach.assignment_invalid_role"
-    CALENDAR_RECURRENCE_END_BEFORE_START = (
-        "calendar.recurrence_end_before_start"
-    )
-    CALENDAR_STALE_OCCURRENCE_EXCEPTION = (
-        "calendar.stale_occurrence_exception"
-    )
+    CALENDAR_RECURRENCE_END_BEFORE_START = "calendar.recurrence_end_before_start"
+    CALENDAR_STALE_OCCURRENCE_EXCEPTION = "calendar.stale_occurrence_exception"
 
 
 class QualityEntityType(StrEnum):

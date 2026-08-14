@@ -62,6 +62,7 @@ async def request_as_role() -> RequestAsRole:
         transport=transport,
         base_url="http://testserver",
     ) as client:
+
         async def request(
             role: UserRole,
             method: str,
@@ -127,9 +128,7 @@ async def test_non_head_coaches_are_forbidden_on_every_data_quality_endpoint(
 
     assert response.status_code == 403, response.text
     async with AsyncSessionFactory() as session:
-        business_after = await session.scalar(
-            select(func.count(BusinessAuditEvent.id))
-        )
+        business_after = await session.scalar(select(func.count(BusinessAuditEvent.id)))
         security_after = await session.scalar(
             select(func.count(AuthAuditLog.id)).where(
                 AuthAuditLog.event_type == "authorization_denial",

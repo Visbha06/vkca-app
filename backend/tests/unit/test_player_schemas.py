@@ -192,8 +192,7 @@ def test_player_account_requests_are_strict_and_reassignment_is_not_a_noop() -> 
     user_id = uuid4()
 
     assert (
-        PlayerAccountLinkRequest(user_id=user_id, version_number=3).user_id
-        == user_id
+        PlayerAccountLinkRequest(user_id=user_id, version_number=3).user_id == user_id
     )
     assert PlayerAccountUnlinkRequest(version_number=4).version_number == 4
 

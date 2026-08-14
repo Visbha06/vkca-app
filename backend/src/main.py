@@ -13,6 +13,7 @@ from src.routes.data_quality import router as data_quality_router
 from src.routes.matches import router as matches_router
 from src.routes.performances import router as performances_router
 from src.routes.players import router as players_router
+from src.routes.rag import router as rag_router
 from src.routes.stats import router as stats_router
 from src.routes.teams import router as teams_router
 from src.routes.users import router as users_router
@@ -28,6 +29,7 @@ api_router.include_router(dashboard_router)
 api_router.include_router(matches_router)
 api_router.include_router(performances_router)
 api_router.include_router(players_router)
+api_router.include_router(rag_router)
 api_router.include_router(stats_router)
 api_router.include_router(teams_router)
 api_router.include_router(users_router)

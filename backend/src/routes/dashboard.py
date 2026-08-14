@@ -20,12 +20,8 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
     responses={
         status.HTTP_401_UNAUTHORIZED: {"model": RoleAwareApiErrorResponse},
         status.HTTP_403_FORBIDDEN: {"model": RoleAwareApiErrorResponse},
-        status.HTTP_422_UNPROCESSABLE_CONTENT: {
-            "model": RoleAwareApiErrorResponse
-        },
-        status.HTTP_500_INTERNAL_SERVER_ERROR: {
-            "model": RoleAwareApiErrorResponse
-        },
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"model": RoleAwareApiErrorResponse},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": RoleAwareApiErrorResponse},
     },
 )
 async def get_dashboard(

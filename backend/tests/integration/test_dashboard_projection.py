@@ -312,8 +312,7 @@ async def test_projection_reuses_effective_calendar_scope_and_stays_bounded(
         assert moved_event.event_date == moved.replacement_date
         deleted_occurrence_id = f"{series.id}:{deleted.original_date.isoformat()}"
         assert all(
-            item.occurrence_id != deleted_occurrence_id
-            for item in assistant_events
+            item.occurrence_id != deleted_occurrence_id for item in assistant_events
         )
         assert unlinked.dashboard_state == "unlinked"
         assert unlinked.upcoming_events.status == "unlinked"

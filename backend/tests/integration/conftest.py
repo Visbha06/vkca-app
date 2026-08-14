@@ -51,6 +51,19 @@ from tests.integration.role_aware_dashboard_fixtures import (
 )
 
 
+@pytest.fixture
+def rag_integration_provider_config() -> dict[str, object]:
+    """Expose the fake-provider seam used by isolated RAG integration tests."""
+
+    return {
+        "provider": "fake",
+        "model": "gemini-embedding-001",
+        "dimension": 1536,
+        "batch_size": 32,
+        "timeout_seconds": 30.0,
+    }
+
+
 @dataclass(slots=True)
 class SqlQueryCounter:
     """Statements observed inside one explicitly bounded test block."""

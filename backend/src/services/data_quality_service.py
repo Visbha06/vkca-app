@@ -192,8 +192,7 @@ class DataQualityService:
             matches = (
                 command.action == remediation.action
                 and command.team_id == remediation.team_id
-                and command.expected_team_version
-                == remediation.expected_team_version
+                and command.expected_team_version == remediation.expected_team_version
             )
         elif isinstance(command, RemoveInactivePlayerRequest) and isinstance(
             remediation,
@@ -203,8 +202,7 @@ class DataQualityService:
                 command.action == remediation.action
                 and command.team_id == remediation.team_id
                 and command.player_id == remediation.player_id
-                and command.expected_team_version
-                == remediation.expected_team_version
+                and command.expected_team_version == remediation.expected_team_version
             )
         elif isinstance(
             command,
@@ -217,8 +215,7 @@ class DataQualityService:
                 command.action == remediation.action
                 and command.coach_id == remediation.coach_id
                 and command.team_id == remediation.team_id
-                and command.expected_coach_version
-                == remediation.expected_coach_version
+                and command.expected_coach_version == remediation.expected_coach_version
             )
 
         if not matches:
@@ -313,9 +310,7 @@ class DataQualityService:
             critical_count=severity_counts[QualitySeverity.CRITICAL],
             warning_count=severity_counts[QualitySeverity.WARNING],
             info_count=severity_counts[QualitySeverity.INFO],
-            domain_counts={
-                domain: domain_counts[domain] for domain in QualityDomain
-            },
+            domain_counts={domain: domain_counts[domain] for domain in QualityDomain},
         )
 
     async def _load_players(self) -> tuple[PlayerProjection, ...]:
@@ -426,8 +421,7 @@ class DataQualityService:
                 )
         return (
             tuple(
-                coaches_by_id[coach_id]
-                for coach_id in sorted(coaches_by_id, key=str)
+                coaches_by_id[coach_id] for coach_id in sorted(coaches_by_id, key=str)
             ),
             tuple(assignments),
         )
@@ -496,8 +490,7 @@ class DataQualityService:
                 )
         return (
             tuple(
-                series_by_id[series_id]
-                for series_id in sorted(series_by_id, key=str)
+                series_by_id[series_id] for series_id in sorted(series_by_id, key=str)
             ),
             tuple(exceptions),
         )

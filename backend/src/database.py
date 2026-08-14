@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from src.config import get_settings
+from src.models import Base
 
 settings = get_settings()
 
@@ -21,6 +22,10 @@ AsyncSessionFactory = async_sessionmaker(
     class_=AsyncSession,
     expire_on_commit=False,
 )
+
+# Importing ``Base`` through ``src.models`` registers every mapped table before
+# migrations, metadata inspection, or test fixtures consume this module.
+model_metadata = Base.metadata
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:

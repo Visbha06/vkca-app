@@ -166,9 +166,7 @@ class DataQualityPageResponse(DataQualitySchema):
     def validate_pagination_metadata(self) -> Self:
         """Keep the bounded page and its navigation metadata consistent."""
 
-        expected_pages = (
-            self.total_findings + self.page_size - 1
-        ) // self.page_size
+        expected_pages = (self.total_findings + self.page_size - 1) // self.page_size
         if self.total_pages != expected_pages:
             raise ValueError(f"total_pages must equal {expected_pages}")
         if len(self.findings) > self.page_size:

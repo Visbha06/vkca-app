@@ -124,8 +124,8 @@ async def test_unique_link_reassignment_and_audit_cardinality() -> None:
         )
         assert sorted(event.action_type for event in events) == sorted(
             [
-            AuditActionType.PLAYER_ACCOUNT_LINKED.value,
-            AuditActionType.PLAYER_ACCOUNT_REASSIGNED.value,
+                AuditActionType.PLAYER_ACCOUNT_LINKED.value,
+                AuditActionType.PLAYER_ACCOUNT_REASSIGNED.value,
             ]
         )
         assert reassigned.account is not None

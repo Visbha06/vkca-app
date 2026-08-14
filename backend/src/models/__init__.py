@@ -19,6 +19,10 @@ from src.models.match_fielding_performance import MatchFieldingPerformance
 from src.models.player import Player
 from src.models.player_batting_stats import PlayerBattingStats
 from src.models.player_bowling_stats import PlayerBowlingStats
+from src.models.rag_chunk import RagChunk
+from src.models.rag_document import RagDocument
+from src.models.rag_index_run import RagIndexRun
+from src.models.rag_source_state import RagSourceState
 from src.models.team import Team
 from src.models.team_coach import TeamCoach
 from src.models.team_player import TeamPlayer
@@ -41,6 +45,10 @@ __all__ = [
     "Player",
     "PlayerBattingStats",
     "PlayerBowlingStats",
+    "RagChunk",
+    "RagDocument",
+    "RagIndexRun",
+    "RagSourceState",
     "RecurrenceSeries",
     "Team",
     "TeamCoach",

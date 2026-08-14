@@ -168,9 +168,7 @@ async def test_calendar_projection_filters_deduplicates_and_orders(mocker) -> No
         "all-academy",
         "relevant",
     ]
-    calendar.get_range.assert_awaited_once_with(
-        date(2026, 8, 10), date(2026, 9, 23)
-    )
+    calendar.get_range.assert_awaited_once_with(date(2026, 8, 10), date(2026, 9, 23))
 
 
 @pytest.mark.asyncio
