@@ -7,6 +7,7 @@ import asyncio
 import json
 import random
 from collections.abc import Sequence
+from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -21,14 +22,15 @@ from src.services.background_jobs.contracts import (
     json_job_serializer,
 )
 from src.services.background_jobs.dispatcher import BackgroundJobDispatcher
+from src.services.background_jobs.handlers.rag_reconciliation import (
+    build_rag_manual_trigger,
+)
 from src.services.background_jobs.outbox import (
     BackgroundJobOutbox,
     BackgroundWorkNotFoundError,
 )
 from src.services.background_jobs.registry import build_background_job_registry
 from src.services.background_jobs.retry import RetryPolicy
-from src.services.rag.contracts import RagReconciliationPayloadV1, RagTargetRef
-from src.services.rag.registry import source_registry
 
 MAX_MANUAL_RETRIES = 3
 
@@ -37,6 +39,22 @@ def _bounded_limit(value: str) -> int:
     parsed = int(value)
     if not 1 <= parsed <= 500:
         raise argparse.ArgumentTypeError("limit must be between 1 and 500")
+    return parsed
+
+
+def _run_after(value: str) -> datetime:
+    """Parse one bounded timezone-aware ISO-8601 eligibility timestamp."""
+
+    if len(value) > 64:
+        raise argparse.ArgumentTypeError("run_after must be a bounded ISO timestamp")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "run_after must be an ISO-8601 timestamp"
+        ) from error
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise argparse.ArgumentTypeError("run_after must include a timezone")
     return parsed
 
 
@@ -64,14 +82,24 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
     trigger = commands.add_parser(
         "trigger-rag",
-        help="stage one approved targeted RAG reconciliation",
+        help="stage one approved targeted or incremental/repair RAG reconciliation",
     )
-    trigger.add_argument("--source-type", required=True)
-    trigger.add_argument("--source-key", required=True)
+    trigger_shape = trigger.add_mutually_exclusive_group(required=True)
+    trigger_shape.add_argument("--safety", action="store_true")
+    trigger_shape.add_argument("--source-type")
+    trigger.add_argument("--source-key")
+    trigger.add_argument("--run-after", type=_run_after)
 
     args = parser.parse_args(argv)
     if args.command == "status" and args.limit > 100:
         parser.error("status --limit must be between 1 and 100")
+    if args.command == "trigger-rag":
+        if args.safety and args.source_key is not None:
+            parser.error("trigger-rag --safety does not accept --source-key")
+        if args.source_type is not None and args.source_key is None:
+            parser.error("trigger-rag --source-key is required with --source-type")
+        if args.source_type is None and not args.safety:
+            parser.error("trigger-rag requires --safety or a source type and key")
     return args
 
 
@@ -132,30 +160,23 @@ async def _run(args: argparse.Namespace) -> object:
         )
 
     if args.command == "trigger-rag":
-        target = RagTargetRef(
+        registry.get_manual_trigger("trigger-rag")
+        trigger = build_rag_manual_trigger(
+            safety=args.safety,
             source_type=args.source_type,
             source_key=args.source_key,
         )
-        source_registry.validate_targets((target,))
-        payload = RagReconciliationPayloadV1(
-            mode="targets",
-            reason="manual",
-            targets=(target,),
-        )
-        coalescing_key = f"rag:{target.source_type}:{target.source_key}"
         async with AsyncSessionFactory() as session:
             async with session.begin():
-                staged = await outbox.stage(
+                staged = await outbox.stage_manual_trigger(
                     session,
-                    "rag_reconciliation",
-                    payload,
-                    coalescing_key=coalescing_key,
-                    source_type=target.source_type,
-                    source_key=target.source_key,
-                    safe_metadata={
-                        "reason": payload.reason,
-                        "trigger": "operator",
-                    },
+                    "trigger-rag",
+                    trigger.payload,
+                    coalescing_key=trigger.coalescing_key,
+                    source_type=trigger.source_type,
+                    source_key=trigger.source_key,
+                    safe_metadata=trigger.safe_metadata,
+                    run_after=args.run_after,
                 )
         return BackgroundCommandReport(
             command="trigger-rag",

@@ -119,7 +119,7 @@ class RagReconciliationPayloadV1(BaseModel):
     """Bounded durable payload that instructs later current-state reconciliation."""
 
     mode: Literal["targets", "incremental_safety"] = "targets"
-    reason: Literal["mutation", "manual", "safety"] = "mutation"
+    reason: Literal["mutation", "manual", "repair", "safety"] = "mutation"
     targets: tuple[RagTargetRef, ...] = Field(
         default=(),
         max_length=MAX_RAG_MUTATION_TARGETS,

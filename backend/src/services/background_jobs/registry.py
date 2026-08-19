@@ -27,6 +27,7 @@ type PayloadCoalescer = Callable[[BaseModel, BaseModel], BaseModel | object]
 type RetryClassifier = Callable[[BaseException], FailureClassification]
 
 _JOB_TYPE_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
+_MANUAL_TRIGGER_PATTERN = re.compile(r"^[a-z][a-z0-9-]{0,79}$")
 
 
 class BackgroundJobRegistryError(ValueError):
@@ -127,6 +128,22 @@ class BackgroundJobRegistry:
             )
         return definition
 
+    def get_manual_trigger(self, trigger: str) -> BackgroundJobDefinition:
+        """Resolve one explicitly registered operator trigger.
+
+        Trigger names are registry metadata rather than client-selected job
+        types, so an operator command cannot become an arbitrary execution
+        path merely by supplying a different string.
+        """
+
+        normalized = trigger.strip()
+        for definition in self._definitions.values():
+            if definition.manual_trigger == normalized:
+                return definition
+        raise UnregisteredBackgroundJobError(
+            f"Background manual trigger '{normalized}' is not registered."
+        )
+
     def validate_payload(
         self,
         job_type: str,
@@ -195,11 +212,20 @@ class BackgroundJobRegistry:
             raise InvalidBackgroundJobDefinitionError(
                 "concurrency_key must be non-blank and bounded when provided."
             )
-        if definition.manual_trigger is not None and not (
-            1 <= len(definition.manual_trigger.strip()) <= 80
+        if (
+            definition.manual_trigger is not None
+            and not _MANUAL_TRIGGER_PATTERN.fullmatch(definition.manual_trigger)
         ):
             raise InvalidBackgroundJobDefinitionError(
-                "manual_trigger must be non-blank and bounded when provided."
+                "manual_trigger must be a bounded lowercase command identifier."
+            )
+        if definition.manual_trigger is not None and any(
+            registered.manual_trigger == definition.manual_trigger
+            for registered in self._definitions.values()
+        ):
+            raise DuplicateBackgroundJobError(
+                f"Background manual trigger '{definition.manual_trigger}' is "
+                "already registered."
             )
 
 

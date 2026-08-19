@@ -245,6 +245,30 @@ class BackgroundJobOutbox:
             now=now,
         )
 
+    async def stage_manual_trigger(
+        self,
+        session: AsyncSession,
+        trigger: str,
+        payload: object,
+        **stage_options: Any,
+    ) -> BackgroundWorkItem:
+        """Stage an allowlisted operator trigger through normal validation.
+
+        The caller still provides a typed payload assembled by that trigger's
+        fixed CLI shape.  This method deliberately accepts no arbitrary job
+        type, keeping manual work on the same registry/outbox boundary as
+        automatic staging.
+        """
+
+        definition = self.registry.get_manual_trigger(trigger)
+        return await self.stage(
+            session,
+            definition.job_type,
+            payload,
+            payload_version=definition.payload_version,
+            **stage_options,
+        )
+
     async def reload(
         self,
         session: AsyncSession,

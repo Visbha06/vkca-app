@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from pydantic import BaseModel
 
 from src.services.background_jobs.retry import (
@@ -15,6 +17,7 @@ from src.services.rag.contracts import (
     MAX_RAG_MUTATION_TARGETS,
     RagReconciliationPayloadV1,
     RagRunStatus,
+    RagTargetRef,
 )
 from src.services.rag.indexing import RagIndexingService
 from src.services.rag.registry import source_registry
@@ -22,6 +25,62 @@ from src.services.rag.registry import source_registry
 
 class RagReconciliationExecutionError(RuntimeError):
     """A safe retryable RAG run outcome did not fully reconcile its targets."""
+
+
+@dataclass(frozen=True, slots=True)
+class RagManualTriggerRequest:
+    """Validated, minimal operator intent for the registered RAG trigger."""
+
+    payload: RagReconciliationPayloadV1
+    coalescing_key: str
+    source_type: str | None
+    source_key: str | None
+    safe_metadata: dict[str, object]
+
+
+def build_rag_manual_trigger(
+    *,
+    safety: bool,
+    source_type: str | None = None,
+    source_key: str | None = None,
+) -> RagManualTriggerRequest:
+    """Create one approved targeted or incremental/repair trigger request."""
+
+    if safety:
+        if source_type is not None or source_key is not None:
+            raise ValueError("RAG safety triggers do not accept source targets.")
+        payload = RagReconciliationPayloadV1(
+            mode="incremental_safety",
+            reason="repair",
+        )
+        return RagManualTriggerRequest(
+            payload=payload,
+            coalescing_key="rag:incremental-safety",
+            source_type=None,
+            source_key=None,
+            safe_metadata={
+                "reason": payload.reason,
+                "trigger": "operator",
+                "trigger_kind": "incremental_safety",
+            },
+        )
+
+    if source_type is None or source_key is None:
+        raise ValueError("Targeted RAG triggers require a source type and key.")
+    target = RagTargetRef(source_type=source_type, source_key=source_key)
+    source_registry.validate_targets((target,))
+    payload = RagReconciliationPayloadV1(
+        mode="targets",
+        reason="manual",
+        targets=(target,),
+    )
+    return RagManualTriggerRequest(
+        payload=payload,
+        coalescing_key=f"rag:{target.source_type}:{target.source_key}",
+        source_type=target.source_type,
+        source_key=target.source_key,
+        safe_metadata={"reason": payload.reason, "trigger": "operator"},
+    )
 
 
 def classify_rag_reconciliation_failure(
@@ -93,6 +152,8 @@ async def rag_reconciliation_handler(context: object, payload: BaseModel) -> Non
         )
         if typed_payload.mode == "targets":
             reports = await service.reconcile_targets(typed_payload.targets)
+        elif typed_payload.reason == "repair":
+            reports = (await service.run_repair(),)
         else:
             reports = (await service.run_incremental(),)
 

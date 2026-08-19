@@ -157,14 +157,14 @@ unregistered type or unsupported version never runs.
 
 ### Tests for User Story 4 (MANDATORY)
 
-- [ ] T046 [P] [US4] Write unit tests for synthetic job registration, typed payload validation, delayed eligibility, declared retry/idempotency semantics, resource bounds, and unknown type/version rejection in `backend/tests/unit/test_background_jobs_extensibility.py`.
-- [ ] T047 [P] [US4] Write integration tests proving a synthetic job uses the existing PostgreSQL/Redis/ARQ path without dispatcher or worker changes and that delayed work becomes eligible in `backend/tests/integration/test_background_job_extensibility.py`.
+- [X] T046 [P] [US4] Write unit tests for synthetic job registration, typed payload validation, delayed eligibility, declared retry/idempotency semantics, resource bounds, and unknown type/version rejection in `backend/tests/unit/test_background_jobs_extensibility.py`.
+- [X] T047 [P] [US4] Write integration tests proving a synthetic job uses the existing PostgreSQL/Redis/ARQ path without dispatcher or worker changes and that delayed work becomes eligible in `backend/tests/integration/test_background_job_extensibility.py`.
 
 ### Implementation for User Story 4
 
-- [ ] T048 [US4] Complete the generic registry extension contract and validated future `run_after`/manual-trigger path without adding a scheduler or new queue system in `backend/src/services/background_jobs/registry.py`, `backend/src/services/background_jobs/outbox.py`, and `backend/scripts/background_jobs.py`.
-- [ ] T049 [US4] Add the approved incremental/repair RAG safety trigger as a registered extension point that reuses existing `RagIndexingService` behavior in `backend/src/services/background_jobs/handlers/rag_reconciliation.py` and `backend/scripts/background_jobs.py`.
-- [ ] T050 [US4] Run the focused User Story 4 extensibility suite and verify future-job onboarding requires only a versioned payload, handler, policy declaration, registration, and tests in `backend/tests/unit/test_background_jobs_extensibility.py` and `backend/tests/integration/test_background_job_extensibility.py`.
+- [X] T048 [US4] Complete the generic registry extension contract and validated future `run_after`/manual-trigger path without adding a scheduler or new queue system in `backend/src/services/background_jobs/registry.py`, `backend/src/services/background_jobs/outbox.py`, and `backend/scripts/background_jobs.py`.
+- [X] T049 [US4] Add the approved incremental/repair RAG safety trigger as a registered extension point that reuses existing `RagIndexingService` behavior in `backend/src/services/background_jobs/handlers/rag_reconciliation.py` and `backend/scripts/background_jobs.py`.
+- [X] T050 [US4] Run the focused User Story 4 extensibility suite and verify future-job onboarding requires only a versioned payload, handler, policy declaration, registration, and tests in `backend/tests/unit/test_background_jobs_extensibility.py` and `backend/tests/integration/test_background_job_extensibility.py`.
 
 **Checkpoint**: User Story 4 is independently demonstrable with a synthetic
 job and does not require a new queue, worker runtime, persistence model, or

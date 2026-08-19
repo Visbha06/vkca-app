@@ -297,5 +297,5 @@ def test_operator_argument_parser_enforces_bounded_shapes() -> None:
     assert trigger.command == "trigger-rag"
     with pytest.raises(SystemExit):
         parse_args(["status", "--limit", "501"])
-    with pytest.raises(SystemExit):
-        parse_args(["trigger-rag", "--safety"])
+    safety = parse_args(["trigger-rag", "--safety"])
+    assert safety.safety is True
