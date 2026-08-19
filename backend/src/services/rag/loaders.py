@@ -6,7 +6,7 @@ from collections import defaultdict
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -70,6 +70,18 @@ class SourcePageFetcher[RecordT](Protocol):
     ) -> FetchedSourcePage[RecordT]: ...
 
 
+class SourceTargetFetcher[RecordT](Protocol):
+    """Load only explicitly requested authoritative source identities."""
+
+    async def __call__(
+        self,
+        session: AsyncSession,
+        *,
+        source_keys: tuple[str, ...],
+        limit: int,
+    ) -> FetchedSourcePage[RecordT]: ...
+
+
 class RelationshipDependencyLoader[RecordT](Protocol):
     """Load all declared relationships for the whole page in bounded queries."""
 
@@ -108,6 +120,7 @@ class BoundedSetBasedLoader[RecordT]:
         self,
         *,
         fetch_page: SourcePageFetcher[RecordT],
+        fetch_targets: SourceTargetFetcher[RecordT] | None = None,
         source_key: Callable[[RecordT], object],
         source_version: Callable[[RecordT], object | None],
         source_fingerprint: SourceFingerprintHook[RecordT],
@@ -128,6 +141,7 @@ class BoundedSetBasedLoader[RecordT]:
                 "declared relationships require one set-based dependency loader"
             )
         self.fetch_page = fetch_page
+        self.fetch_targets = fetch_targets
         self.source_key = source_key
         self.source_version = source_version
         self.source_fingerprint = source_fingerprint
@@ -168,10 +182,60 @@ class BoundedSetBasedLoader[RecordT]:
             )
         self._validate_cursor(page.next_cursor)
 
+        return await self._prepare_page(typed_session, page)
+
+    async def load_targets(
+        self,
+        session: object,
+        *,
+        source_keys: Sequence[str],
+        limit: int,
+    ) -> SourceLoadBatch[LoadedSourceRecord[RecordT]]:
+        """Load only bounded requested keys; never traverse an unrelated corpus."""
+
+        if self.fetch_targets is None:
+            raise LoaderContractError("source loader does not support stable targets")
+        if limit <= 0:
+            raise LoaderContractError("loader target limit must be positive")
+        normalized_keys = tuple(str(key).strip() for key in source_keys)
+        if not normalized_keys or any(not key for key in normalized_keys):
+            raise LoaderContractError("loader target keys must not be blank")
+        if len(normalized_keys) != len(set(normalized_keys)):
+            raise LoaderContractError("loader target keys must be unique")
+        bounded_limit = min(limit, self.max_batch_size)
+        if len(normalized_keys) > bounded_limit:
+            raise LoaderContractError("loader target keys exceed the bounded limit")
+        typed_session = cast(AsyncSession, session)
+        page = await self.fetch_targets(
+            typed_session,
+            source_keys=normalized_keys,
+            limit=bounded_limit,
+        )
+        if page.next_cursor is not None:
+            raise LoaderContractError("targeted source fetches must not paginate")
+        if len(page.records) > bounded_limit:
+            raise LoaderContractError(
+                "targeted source fetcher returned more than its batch limit"
+            )
+        prepared = await self._prepare_page(typed_session, page)
+        requested = set(normalized_keys)
+        if any(item.source_key not in requested for item in prepared.items):
+            raise LoaderContractError(
+                "targeted source fetcher returned an unrequested key"
+            )
+        return prepared
+
+    async def _prepare_page(
+        self,
+        session: AsyncSession,
+        page: FetchedSourcePage[RecordT],
+    ) -> SourceLoadBatch[LoadedSourceRecord[RecordT]]:
+        """Load declared relationships and normalize one already-bounded page."""
+
         relationships_by_key: Mapping[str, Mapping[str, object]] = {}
         if self.load_relationships is not None and page.records:
             relationships_by_key = await self.load_relationships(
-                typed_session,
+                session,
                 page.records,
                 self.dependencies,
             )
@@ -278,6 +342,179 @@ def _model_cursor_page[ModelT](model: type[ModelT]) -> SourcePageFetcher[ModelT]
         )
 
     return fetch
+
+
+def _uuid_target_keys(source_keys: Sequence[str]) -> tuple[UUID, ...]:
+    try:
+        return tuple(UUID(source_key) for source_key in source_keys)
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise LoaderContractError(
+            "registered model targets require UUID source keys"
+        ) from exc
+
+
+def _model_target_page[ModelT](model: type[ModelT]) -> SourceTargetFetcher[ModelT]:
+    async def fetch(
+        session: AsyncSession,
+        *,
+        source_keys: tuple[str, ...],
+        limit: int,
+    ) -> FetchedSourcePage[ModelT]:
+        if len(source_keys) > limit:
+            raise LoaderContractError("targeted model query exceeds its bound")
+        identifiers = _uuid_target_keys(source_keys)
+        rows = tuple(
+            (
+                await session.scalars(
+                    select(model)
+                    .where(model.id.in_(identifiers))  # type: ignore[attr-defined]
+                    .order_by(model.id)  # type: ignore[attr-defined]
+                    .execution_options(populate_existing=True)
+                )
+            ).all()
+        )
+        return FetchedSourcePage(records=rows)
+
+    return fetch
+
+
+async def _bounded_target_ids(
+    session: AsyncSession,
+    statement: Any,
+    *,
+    limit: int,
+) -> tuple[str, ...]:
+    if not 1 <= limit <= MAX_SOURCE_BATCH_SIZE:
+        raise LoaderContractError("dependency target limit is outside its bound")
+    bounded = statement.limit(limit + 1)
+    identifiers = tuple((await session.scalars(bounded)).all())
+    if len(identifiers) > limit:
+        raise LoaderContractError("declared dependency closure exceeds its bound")
+    return tuple(str(identifier) for identifier in identifiers)
+
+
+async def _players_for_team_dependency(
+    session: object,
+    *,
+    trigger_source_type: str,
+    trigger_source_keys: tuple[str, ...],
+    limit: int,
+) -> tuple[str, ...]:
+    if trigger_source_type != "team":
+        return ()
+    team_ids = _uuid_target_keys(trigger_source_keys)
+    statement = (
+        select(TeamPlayer.player_id)
+        .where(TeamPlayer.team_id.in_(team_ids))
+        .distinct()
+        .order_by(TeamPlayer.player_id)
+    )
+    return await _bounded_target_ids(
+        cast(AsyncSession, session), statement, limit=limit
+    )
+
+
+async def _teams_for_player_dependency(
+    session: object,
+    *,
+    trigger_source_type: str,
+    trigger_source_keys: tuple[str, ...],
+    limit: int,
+) -> tuple[str, ...]:
+    if trigger_source_type != "player_profile":
+        return ()
+    player_ids = _uuid_target_keys(trigger_source_keys)
+    statement = (
+        select(TeamPlayer.team_id)
+        .where(TeamPlayer.player_id.in_(player_ids))
+        .distinct()
+        .order_by(TeamPlayer.team_id)
+    )
+    return await _bounded_target_ids(
+        cast(AsyncSession, session), statement, limit=limit
+    )
+
+
+async def _matches_for_team_dependency(
+    session: object,
+    *,
+    trigger_source_type: str,
+    trigger_source_keys: tuple[str, ...],
+    limit: int,
+) -> tuple[str, ...]:
+    if trigger_source_type != "team":
+        return ()
+    team_ids = _uuid_target_keys(trigger_source_keys)
+    statement = (
+        select(Match.id)
+        .where((Match.home_team_id.in_(team_ids)) | (Match.away_team_id.in_(team_ids)))
+        .distinct()
+        .order_by(Match.id)
+    )
+    return await _bounded_target_ids(
+        cast(AsyncSession, session), statement, limit=limit
+    )
+
+
+def _performance_dependency_resolver(model: type[object]):
+    async def resolve(
+        session: object,
+        *,
+        trigger_source_type: str,
+        trigger_source_keys: tuple[str, ...],
+        limit: int,
+    ) -> tuple[str, ...]:
+        identifiers = _uuid_target_keys(trigger_source_keys)
+        if trigger_source_type == "player_profile":
+            predicate = model.player_id.in_(identifiers)  # type: ignore[attr-defined]
+        elif trigger_source_type == "match":
+            predicate = model.match_id.in_(identifiers)  # type: ignore[attr-defined]
+        else:
+            return ()
+        statement = (
+            select(model.id)  # type: ignore[attr-defined]
+            .where(predicate)
+            .distinct()
+            .order_by(model.id)  # type: ignore[attr-defined]
+        )
+        return await _bounded_target_ids(
+            cast(AsyncSession, session), statement, limit=limit
+        )
+
+    return resolve
+
+
+def _statistics_dependency_resolver(model: type[object]):
+    async def resolve(
+        session: object,
+        *,
+        trigger_source_type: str,
+        trigger_source_keys: tuple[str, ...],
+        limit: int,
+    ) -> tuple[str, ...]:
+        identifiers = _uuid_target_keys(trigger_source_keys)
+        if trigger_source_type == "player_profile":
+            statement = (
+                select(model.id)  # type: ignore[attr-defined]
+                .where(model.player_id.in_(identifiers))  # type: ignore[attr-defined]
+                .distinct()
+                .order_by(model.id)  # type: ignore[attr-defined]
+            )
+        elif trigger_source_type == "team":
+            statement = (
+                select(model.id)  # type: ignore[attr-defined]
+                .join(TeamPlayer, TeamPlayer.player_id == model.player_id)  # type: ignore[attr-defined]
+                .where(TeamPlayer.team_id.in_(identifiers))
+                .distinct()
+                .order_by(model.id)  # type: ignore[attr-defined]
+            )
+        else:
+            return ()
+        return await _bounded_target_ids(
+            cast(AsyncSession, session), statement, limit=limit
+        )
+
+    return resolve
 
 
 def _model_version(record: object) -> object | None:
@@ -545,6 +782,7 @@ def _loader[RecordT](
         fetch = fetch_active
     return BoundedSetBasedLoader(
         fetch_page=fetch,
+        fetch_targets=_model_target_page(model),
         source_key=lambda record: _attribute(record, "id"),
         source_version=_model_version,
         source_fingerprint=_model_fingerprint,
@@ -557,45 +795,101 @@ def _loader[RecordT](
 player_profile_loader = _loader(
     Player,
     active_only=True,
-    dependencies=(SourceDependency("team_memberships"),),
+    dependencies=(
+        SourceDependency(
+            "team_memberships",
+            trigger_source_types=("team",),
+            target_resolver=_players_for_team_dependency,
+        ),
+    ),
     relationship_loader=_player_relationships,
 )
 team_loader = _loader(
     Team,
     dependencies=(
-        SourceDependency("active_roster"),
+        SourceDependency(
+            "active_roster",
+            trigger_source_types=("player_profile",),
+            target_resolver=_teams_for_player_dependency,
+        ),
         SourceDependency("coaching_context"),
     ),
     relationship_loader=_team_relationships,
 )
 match_loader = _loader(
     Match,
-    dependencies=(SourceDependency("explicit_participants"),),
+    dependencies=(
+        SourceDependency(
+            "explicit_participants",
+            trigger_source_types=("team",),
+            target_resolver=_matches_for_team_dependency,
+        ),
+    ),
     relationship_loader=_match_relationships,
 )
 batting_performance_loader = _loader(
     MatchBattingPerformance,
-    dependencies=(SourceDependency("player_match"),),
+    dependencies=(
+        SourceDependency(
+            "player_match",
+            trigger_source_types=("player_profile", "match"),
+            target_resolver=_performance_dependency_resolver(MatchBattingPerformance),
+        ),
+    ),
     relationship_loader=_performance_relationships,
 )
 bowling_performance_loader = _loader(
     MatchBowlingPerformance,
-    dependencies=(SourceDependency("player_match"),),
+    dependencies=(
+        SourceDependency(
+            "player_match",
+            trigger_source_types=("player_profile", "match"),
+            target_resolver=_performance_dependency_resolver(MatchBowlingPerformance),
+        ),
+    ),
     relationship_loader=_performance_relationships,
 )
 fielding_performance_loader = _loader(
     MatchFieldingPerformance,
-    dependencies=(SourceDependency("player_match"),),
+    dependencies=(
+        SourceDependency(
+            "player_match",
+            trigger_source_types=("player_profile", "match"),
+            target_resolver=_performance_dependency_resolver(MatchFieldingPerformance),
+        ),
+    ),
     relationship_loader=_performance_relationships,
 )
 batting_statistics_loader = _loader(
     PlayerBattingStats,
-    dependencies=(SourceDependency("player"), SourceDependency("team_memberships")),
+    dependencies=(
+        SourceDependency(
+            "player",
+            trigger_source_types=("player_profile",),
+            target_resolver=_statistics_dependency_resolver(PlayerBattingStats),
+        ),
+        SourceDependency(
+            "team_memberships",
+            trigger_source_types=("team",),
+            target_resolver=_statistics_dependency_resolver(PlayerBattingStats),
+        ),
+    ),
     relationship_loader=_statistics_relationships,
 )
 bowling_statistics_loader = _loader(
     PlayerBowlingStats,
-    dependencies=(SourceDependency("player"), SourceDependency("team_memberships")),
+    dependencies=(
+        SourceDependency(
+            "player",
+            trigger_source_types=("player_profile",),
+            target_resolver=_statistics_dependency_resolver(PlayerBowlingStats),
+        ),
+        SourceDependency(
+            "team_memberships",
+            trigger_source_types=("team",),
+            target_resolver=_statistics_dependency_resolver(PlayerBowlingStats),
+        ),
+    ),
     relationship_loader=_statistics_relationships,
 )
 
@@ -603,20 +897,22 @@ bowling_statistics_loader = _loader(
 class CalendarOccurrenceLoader:
     """Bounded page loader over CalendarService's effective occurrence projection."""
 
-    async def load_batch(
-        self, session: object, *, cursor: str | None, limit: int
-    ) -> SourceLoadBatch[LoadedSourceRecord[CalendarEventInstance]]:
-        if limit <= 0:
-            raise LoaderContractError("loader batch limit must be positive")
+    async def _project(
+        self,
+        session: object,
+    ) -> tuple[CalendarEventInstance, ...]:
         now = datetime.now(UTC)
         occurrences = await load_projected_calendar_occurrences(
             CalendarService(cast(AsyncSession, session), now=now), now=now
         )
-        ordered = tuple(sorted(occurrences, key=lambda item: item.occurrence_id))
-        bounded_limit = min(limit, MAX_SOURCE_BATCH_SIZE)
-        page = tuple(
-            item for item in ordered if cursor is None or item.occurrence_id > cursor
-        )[:bounded_limit]
+        return tuple(sorted(occurrences, key=lambda item: item.occurrence_id))
+
+    @staticmethod
+    def _prepare(
+        page: Sequence[CalendarEventInstance],
+        *,
+        next_cursor: str | None = None,
+    ) -> SourceLoadBatch[LoadedSourceRecord[CalendarEventInstance]]:
         records = tuple(
             LoadedSourceRecord(
                 record=item,
@@ -638,12 +934,47 @@ class CalendarOccurrenceLoader:
             )
             for item in page
         )
-        return SourceLoadBatch(
-            items=records,
+        return SourceLoadBatch(items=records, next_cursor=next_cursor)
+
+    async def load_batch(
+        self, session: object, *, cursor: str | None, limit: int
+    ) -> SourceLoadBatch[LoadedSourceRecord[CalendarEventInstance]]:
+        if limit <= 0:
+            raise LoaderContractError("loader batch limit must be positive")
+        ordered = await self._project(session)
+        bounded_limit = min(limit, MAX_SOURCE_BATCH_SIZE)
+        page = tuple(
+            item for item in ordered if cursor is None or item.occurrence_id > cursor
+        )[:bounded_limit]
+        return self._prepare(
+            page,
             next_cursor=(
                 page[-1].occurrence_id if len(page) == bounded_limit else None
             ),
         )
+
+    async def load_targets(
+        self,
+        session: object,
+        *,
+        source_keys: Sequence[str],
+        limit: int,
+    ) -> SourceLoadBatch[LoadedSourceRecord[CalendarEventInstance]]:
+        """Filter the existing bounded effective-occurrence projection by stable key."""
+
+        if not 1 <= len(source_keys) <= min(limit, MAX_SOURCE_BATCH_SIZE):
+            raise LoaderContractError("calendar target keys exceed the bounded limit")
+        normalized = tuple(str(key).strip() for key in source_keys)
+        if any(not key for key in normalized) or len(normalized) != len(
+            set(normalized)
+        ):
+            raise LoaderContractError(
+                "calendar target keys must be unique and non-blank"
+            )
+        requested = set(normalized)
+        projected = await self._project(session)
+        page = tuple(item for item in projected if item.occurrence_id in requested)
+        return self._prepare(page)
 
 
 calendar_occurrence_loader = CalendarOccurrenceLoader()

@@ -46,6 +46,7 @@ class DispatchReport(BaseModel):
     claimed: int = Field(default=0, ge=0, le=500)
     enqueued: int = Field(default=0, ge=0, le=500)
     retrying: int = Field(default=0, ge=0, le=500)
+    dead: int = Field(default=0, ge=0, le=500)
     conflicts: int = Field(default=0, ge=0, le=500)
     work_ids: list[UUID] = Field(default_factory=list, max_length=500)
 
@@ -58,5 +59,37 @@ class WorkerExecutionReport(BaseModel):
     work_id: UUID
     state: BackgroundWorkState
     failure_category: str | None = None
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class BackgroundJobStatusReport(BaseModel):
+    """Bounded status rows plus aggregate state counts without stored payloads."""
+
+    counts: dict[str, int] = Field(default_factory=dict)
+    items: list[BackgroundJobStatus] = Field(default_factory=list, max_length=100)
+    limit: int = Field(ge=1, le=100)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class BackgroundRecoveryReport(BaseModel):
+    """Safe outcome of one bounded expired-lease recovery pass."""
+
+    recovered: int = Field(default=0, ge=0, le=500)
+    retrying: int = Field(default=0, ge=0, le=500)
+    dead: int = Field(default=0, ge=0, le=500)
+    conflicts: int = Field(default=0, ge=0, le=500)
+    work_ids: list[UUID] = Field(default_factory=list, max_length=500)
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class BackgroundCommandReport(BaseModel):
+    """Minimal output for one approved retry or trigger command."""
+
+    command: str = Field(min_length=1, max_length=40)
+    work_id: UUID
+    state: BackgroundWorkState
 
     model_config = ConfigDict(extra="forbid", frozen=True)

@@ -473,6 +473,11 @@ async def test_worker_startup_and_shutdown_own_resources(mocker: Any) -> None:
     provider.aclose.assert_awaited_once()
     database.close.assert_awaited_once()
     assert BACKGROUND_RESOURCES_KEY not in context
+    with pytest.raises(RuntimeError, match="not initialized"):
+        await run_background_work(
+            context,
+            {"contract_version": 1, "work_id": str(uuid4())},
+        )
 
 
 @pytest.mark.asyncio

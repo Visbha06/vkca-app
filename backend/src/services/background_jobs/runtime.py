@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import logging
 import math
 import random
 from collections.abc import Callable, MutableMapping
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime
+from time import perf_counter
 from typing import Any, Final, Protocol, cast
 from uuid import UUID, uuid4
 
@@ -28,6 +31,7 @@ from src.services.background_jobs.contracts import (
     UnregisteredBackgroundJobError,
     decode_job_envelope,
 )
+from src.services.background_jobs.logging import redact_structured_fields
 from src.services.background_jobs.outbox import (
     BackgroundJobOutbox,
     BackgroundWorkNotFoundError,
@@ -48,6 +52,11 @@ from src.services.background_jobs.retry import (
 )
 
 BACKGROUND_RESOURCES_KEY: Final = "background_resources"
+_EXECUTION_STARTED: ContextVar[float | None] = ContextVar(
+    "background_execution_started",
+    default=None,
+)
+logger = logging.getLogger(__name__)
 
 
 class WorkerDatabaseResources(Protocol):
@@ -112,6 +121,20 @@ class BackgroundWorkerRuntime:
         self.random_uniform = random_uniform
 
     async def execute(
+        self,
+        envelope: BackgroundJobEnvelopeV1 | dict[str, object] | bytes | str,
+        *,
+        defer_retry: bool = False,
+    ) -> WorkerExecutionReport:
+        """Execute one work item while measuring its bounded worker outcome."""
+
+        token = _EXECUTION_STARTED.set(perf_counter())
+        try:
+            return await self._execute(envelope, defer_retry=defer_retry)
+        finally:
+            _EXECUTION_STARTED.reset(token)
+
+    async def _execute(
         self,
         envelope: BackgroundJobEnvelopeV1 | dict[str, object] | bytes | str,
         *,
@@ -211,6 +234,12 @@ class BackgroundWorkerRuntime:
                 running,
                 definition.retry_policy,
                 now=self._now(),
+            )
+            self._log_outcome(
+                running,
+                outcome="cancelled",
+                failure_category=FailureCategory.TIMEOUT.value,
+                retry_status="recovery_persisted",
             )
             raise
         except Exception as error:
@@ -409,11 +438,60 @@ class BackgroundWorkerRuntime:
         failure_category: str | None = None,
         work_id: UUID | None = None,
     ) -> WorkerExecutionReport:
-        return WorkerExecutionReport(
+        report = WorkerExecutionReport(
             work_id=item.id if work_id is None else work_id,
             state=self._state(item.state),
             failure_category=failure_category or item.last_failure_category,
         )
+        self._log_outcome(
+            item,
+            outcome=report.state.value,
+            failure_category=report.failure_category,
+        )
+        return report
+
+    @staticmethod
+    def _log_outcome(
+        item: BackgroundWorkItem,
+        *,
+        outcome: str,
+        failure_category: str | None,
+        retry_status: str | None = None,
+    ) -> None:
+        """Emit one safe execution outcome with no payload or exception text."""
+
+        state = BackgroundWorkState(item.state)
+        started = _EXECUTION_STARTED.get()
+        duration_ms = (
+            round((perf_counter() - started) * 1_000, 3) if started is not None else 0.0
+        )
+        fields = redact_structured_fields(
+            {
+                "event": "background_job_execution",
+                "work_id": str(item.id),
+                "job_type": item.job_type,
+                "attempt": item.execution_attempt_count,
+                "duration_ms": duration_ms,
+                "outcome": outcome,
+                "retry_status": retry_status
+                or (
+                    "scheduled"
+                    if state is BackgroundWorkState.RETRYING
+                    else "terminal"
+                    if state is BackgroundWorkState.DEAD
+                    else "not_retrying"
+                ),
+                "failure_category": failure_category,
+                "correlation_id": (
+                    str(item.correlation_id)
+                    if item.correlation_id is not None
+                    else None
+                ),
+                "source_type": item.source_type,
+                "source_key": item.source_key,
+            }
+        )
+        logger.info("background_job_execution", extra={"background_job": fields})
 
 
 async def _maybe_await(value: object) -> object:
@@ -430,20 +508,24 @@ async def worker_startup(ctx: MutableMapping[object, object]) -> None:
         Callable[[object], object],
         ctx.get("database_factory") or create_database_resources,
     )
-    registry_factory = cast(
-        Callable[[], object],
-        ctx.get("registry_factory") or build_background_job_registry,
-    )
+    registry_factory = cast(Callable[[], object] | None, ctx.get("registry_factory"))
     provider_factory = cast(Callable[[], object] | None, ctx.get("provider_factory"))
 
     database = cast(
         WorkerDatabaseResources,
         await _maybe_await(database_factory(str(settings.database_url))),
     )
-    registry = await _maybe_await(registry_factory())
-    provider = (
-        await _maybe_await(provider_factory()) if provider_factory is not None else None
+    registry = await _maybe_await(
+        registry_factory()
+        if registry_factory is not None
+        else build_background_job_registry(settings=settings)
     )
+    if provider_factory is not None:
+        provider = await _maybe_await(provider_factory())
+    else:
+        from src.services.rag.embedding import create_embedding_provider
+
+        provider = create_embedding_provider(settings)
     if not isinstance(registry, BackgroundJobRegistry):
         raise TypeError("registry_factory must return BackgroundJobRegistry")
     worker_id = str(ctx.get("worker_id") or f"worker:{uuid4()}")

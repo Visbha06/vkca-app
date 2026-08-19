@@ -13,13 +13,19 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.models.background_work_item import BackgroundWorkItem
-from src.schemas.background_jobs import BackgroundJobStatus
+from src.schemas.background_jobs import (
+    BackgroundJobStatus,
+    BackgroundJobStatusReport,
+    BackgroundRecoveryReport,
+)
 from src.services.background_jobs.contracts import (
     ACTIVE_COALESCING_STATES,
     DISPATCH_ELIGIBLE_STATES,
     BackgroundPayloadValidationError,
     BackgroundWorkConflictError,
     BackgroundWorkState,
+    IncompatiblePayloadVersionError,
+    UnregisteredBackgroundJobError,
     validate_json_object,
 )
 from src.services.background_jobs.logging import sanitize_failure
@@ -614,6 +620,8 @@ class BackgroundJobOutbox:
                 "state": BackgroundWorkState.PENDING,
                 "run_after": reference,
                 "manual_retry_count": current.manual_retry_count + 1,
+                "dispatch_attempt_count": 0,
+                "execution_attempt_count": 0,
                 "arq_job_id": None,
                 "terminal_at": None,
                 "retention_until": None,
@@ -628,7 +636,7 @@ class BackgroundJobOutbox:
         *,
         limit: int,
         now: datetime | None = None,
-    ) -> list[BackgroundWorkItem]:
+    ) -> BackgroundRecoveryReport:
         """Make expired dispatcher/worker claims eligible again in a bounded batch."""
 
         if not 1 <= limit <= 500:
@@ -652,32 +660,114 @@ class BackgroundJobOutbox:
         )
         candidates = list((await session.execute(statement)).scalars().all())
         recovered: list[BackgroundWorkItem] = []
+        retrying = 0
+        dead = 0
+        conflicts = 0
         for candidate in candidates:
             try:
-                recovered.append(
-                    await self._transition(
-                        session,
-                        candidate.id,
-                        expected_version=candidate.version_number,
-                        expected_states=(_state(candidate.state),),
-                        expected_lease_owner=candidate.lease_owner,
-                        require_expired_lease=True,
-                        now=reference,
-                        values={
-                            "state": BackgroundWorkState.RETRYING,
-                            "run_after": reference,
-                            "lease_owner": None,
-                            "lease_expires_at": None,
-                            "last_failure_category": FailureCategory.TIMEOUT.value,
-                            "last_failure_message": sanitize_failure(
-                                FailureCategory.TIMEOUT
-                            ).message,
-                        },
+                state = _state(candidate.state)
+                try:
+                    definition = self.registry.get(
+                        candidate.job_type,
+                        payload_version=candidate.payload_version,
                     )
+                except UnregisteredBackgroundJobError:
+                    category = FailureCategory.UNREGISTERED_JOB
+                    exhausted = True
+                except IncompatiblePayloadVersionError:
+                    category = FailureCategory.INCOMPATIBLE_PAYLOAD_VERSION
+                    exhausted = True
+                else:
+                    attempt_count = (
+                        candidate.execution_attempt_count
+                        if state is BackgroundWorkState.RUNNING
+                        else candidate.dispatch_attempt_count
+                    )
+                    exhausted = attempt_count >= definition.retry_policy.max_attempts
+                    category = (
+                        FailureCategory.RETRY_LIMIT_EXHAUSTED
+                        if exhausted
+                        else FailureCategory.TIMEOUT
+                    )
+                failure = sanitize_failure(category)
+                values: dict[str, object] = {
+                    "lease_owner": None,
+                    "lease_expires_at": None,
+                    "last_failure_category": failure.category.value,
+                    "last_failure_message": failure.message,
+                }
+                if exhausted:
+                    values.update(
+                        state=BackgroundWorkState.DEAD,
+                        terminal_at=reference,
+                        retention_until=reference
+                        + timedelta(days=self.dead_retention_days),
+                    )
+                else:
+                    values.update(
+                        state=BackgroundWorkState.RETRYING,
+                        run_after=reference,
+                    )
+                recovered_item = await self._transition(
+                    session,
+                    candidate.id,
+                    expected_version=candidate.version_number,
+                    expected_states=(state,),
+                    expected_lease_owner=candidate.lease_owner,
+                    require_expired_lease=True,
+                    now=reference,
+                    values=values,
                 )
+                recovered.append(recovered_item)
+                if exhausted:
+                    dead += 1
+                else:
+                    retrying += 1
             except BackgroundWorkConflictError:
+                conflicts += 1
                 continue
-        return recovered
+        return BackgroundRecoveryReport(
+            recovered=len(recovered),
+            retrying=retrying,
+            dead=dead,
+            conflicts=conflicts,
+            work_ids=[item.id for item in recovered],
+        )
+
+    async def inspect_status(
+        self,
+        session: AsyncSession,
+        *,
+        states: Sequence[BackgroundWorkState] | None = None,
+        limit: int = 50,
+    ) -> BackgroundJobStatusReport:
+        """Return aggregate state counts and bounded allowlisted row projections."""
+
+        if not 1 <= limit <= 100:
+            raise ValueError("status limit must be between 1 and 100")
+        selected_states = tuple(states or ())
+        if len(selected_states) != len(set(selected_states)):
+            raise ValueError("status state filters must be unique")
+        count_rows = (
+            await session.execute(
+                select(BackgroundWorkItem.state, func.count(BackgroundWorkItem.id))
+                .group_by(BackgroundWorkItem.state)
+                .order_by(BackgroundWorkItem.state)
+            )
+        ).all()
+        statement = select(BackgroundWorkItem)
+        if selected_states:
+            statement = statement.where(BackgroundWorkItem.state.in_(selected_states))
+        statement = statement.order_by(
+            BackgroundWorkItem.created_at.desc(),
+            BackgroundWorkItem.id,
+        ).limit(limit)
+        items = tuple((await session.scalars(statement)).all())
+        return BackgroundJobStatusReport(
+            counts={str(state): int(count) for state, count in count_rows},
+            items=[self.project_status(item) for item in items],
+            limit=limit,
+        )
 
     async def retention_eligible(
         self,

@@ -7,6 +7,7 @@ import re
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
+from typing import Any, cast
 
 from pydantic import BaseModel
 
@@ -206,10 +207,51 @@ def build_background_job_registry(
     definitions: Iterable[BackgroundJobDefinition] = (),
     *,
     allowed_handlers: Iterable[JobHandler] = (),
+    settings: object | None = None,
 ) -> BackgroundJobRegistry:
-    """Build a registry explicitly; importing this module creates no resources."""
+    """Build the application registry without creating provider/network resources."""
 
-    registry = BackgroundJobRegistry(allowed_handlers=allowed_handlers)
-    for definition in definitions:
+    from src.config import get_settings
+    from src.services.background_jobs.handlers.rag_reconciliation import (
+        classify_rag_reconciliation_failure,
+        coalesce_rag_reconciliation_payloads,
+        rag_reconciliation_handler,
+    )
+    from src.services.rag.contracts import (
+        MAX_RAG_MUTATION_TARGETS,
+        RagReconciliationPayloadV1,
+    )
+
+    selected_settings = cast(Any, settings or get_settings())
+    application_definition = BackgroundJobDefinition(
+        job_type="rag_reconciliation",
+        payload_version=1,
+        payload_model=RagReconciliationPayloadV1,
+        handler=rag_reconciliation_handler,
+        retry_policy=RetryPolicy(
+            max_attempts=int(selected_settings.background_max_attempts),
+            base_delay_seconds=float(selected_settings.background_retry_base_seconds),
+            max_delay_seconds=float(selected_settings.background_retry_max_seconds),
+            jitter_seconds=float(selected_settings.background_retry_jitter_seconds),
+            timeout_seconds=float(selected_settings.background_job_timeout_seconds),
+        ),
+        idempotency_strategy=(
+            "Reload current registered source truth and reconcile stable targets."
+        ),
+        resource_bounds=ResourceBounds(
+            max_concurrency=int(selected_settings.background_worker_max_jobs),
+            max_batch_size=MAX_RAG_MUTATION_TARGETS,
+        ),
+        manual_retry_allowed=True,
+        coalescer=coalesce_rag_reconciliation_payloads,
+        retry_classifier=classify_rag_reconciliation_failure,
+        concurrency_key="rag-indexing",
+        manual_trigger="trigger-rag",
+    )
+    configured_definitions = (application_definition, *tuple(definitions))
+    registry = BackgroundJobRegistry(
+        allowed_handlers={rag_reconciliation_handler, *tuple(allowed_handlers)}
+    )
+    for definition in configured_definitions:
         registry.register(definition)
     return registry

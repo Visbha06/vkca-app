@@ -8,6 +8,7 @@ preparation, chunking, embedding, persistence, and operational reporting.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -18,6 +19,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 MAX_RAG_MUTATION_TARGETS = 128
+_SOURCE_TYPE_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
 
 
 class RagRunMode(StrEnum):
@@ -116,10 +118,10 @@ class RagTargetRef(BaseModel):
 class RagReconciliationPayloadV1(BaseModel):
     """Bounded durable payload that instructs later current-state reconciliation."""
 
-    mode: Literal["targets"] = "targets"
-    reason: Literal["mutation"] = "mutation"
+    mode: Literal["targets", "incremental_safety"] = "targets"
+    reason: Literal["mutation", "manual", "safety"] = "mutation"
     targets: tuple[RagTargetRef, ...] = Field(
-        min_length=1,
+        default=(),
         max_length=MAX_RAG_MUTATION_TARGETS,
     )
 
@@ -127,6 +129,8 @@ class RagReconciliationPayloadV1(BaseModel):
 
     @model_validator(mode="after")
     def reject_duplicate_targets(self) -> Self:
+        if self.mode == "targets" and not self.targets:
+            raise ValueError("targeted RAG reconciliation requires at least one target")
         identities = [
             (target.source_type, target.source_key) for target in self.targets
         ]
@@ -384,12 +388,43 @@ class SourceDependency:
 
     name: str
     required: bool = True
+    trigger_source_types: tuple[str, ...] = ()
+    target_resolver: RagDependencyTargetResolver | None = None
 
     def __post_init__(self) -> None:
         normalized = self.name.strip()
         if not normalized:
             raise ValueError("source dependency name must not be blank")
         object.__setattr__(self, "name", normalized)
+        normalized_triggers = tuple(
+            source_type.strip() for source_type in self.trigger_source_types
+        )
+        if len(normalized_triggers) != len(set(normalized_triggers)):
+            raise ValueError("source dependency trigger types must be unique")
+        for source_type in normalized_triggers:
+            if not _SOURCE_TYPE_PATTERN.fullmatch(source_type):
+                raise ValueError(
+                    "source dependency trigger types must be bounded identifiers"
+                )
+        if bool(normalized_triggers) is not bool(self.target_resolver):
+            raise ValueError(
+                "source dependency triggers and target_resolver must be "
+                "declared together"
+            )
+        object.__setattr__(self, "trigger_source_types", normalized_triggers)
+
+
+class RagDependencyTargetResolver(Protocol):
+    """Resolve dependent registered source keys from bounded authoritative IDs."""
+
+    async def __call__(
+        self,
+        session: object,
+        *,
+        trigger_source_type: str,
+        trigger_source_keys: tuple[str, ...],
+        limit: int,
+    ) -> tuple[str, ...]: ...
 
 
 @dataclass(frozen=True, slots=True)
