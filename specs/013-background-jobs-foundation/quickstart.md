@@ -169,8 +169,8 @@ uv run pytest tests/unit/test_background_jobs_contracts.py \
 
 VKCA_ENV=test REDIS_URL=redis://127.0.0.1:6379/0 \
   uv run pytest tests/integration/test_background_outbox.py \
-  tests/integration/test_background_dispatch.py \
-  tests/integration/test_background_worker.py \
+  tests/integration/test_background_failure_recovery.py \
+  tests/integration/test_background_job_extensibility.py \
   tests/integration/test_background_rag_reconciliation.py -q
 
 uv run ruff check src tests

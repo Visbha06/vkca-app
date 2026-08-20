@@ -130,18 +130,14 @@ async def test_committed_mutation_dispatches_and_executes_without_audit_pollutio
     assert work.payload == {
         "mode": "targets",
         "reason": "mutation",
-        "targets": [
-            {"source_type": "player_profile", "source_key": str(player_id)}
-        ],
+        "targets": [{"source_type": "player_profile", "source_key": str(player_id)}],
     }
     provider.assert_not_awaited()
 
     broker = RecordingBroker()
     dispatch_report = await _dispatcher(broker).dispatch_once()
     assert dispatch_report.enqueued == 1
-    assert broker.envelopes == [
-        {"contract_version": 1, "work_id": str(work_id)}
-    ]
+    assert broker.envelopes == [{"contract_version": 1, "work_id": str(work_id)}]
 
     handled: list[RagReconciliationPayloadV1] = []
 

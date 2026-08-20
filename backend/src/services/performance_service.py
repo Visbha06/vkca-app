@@ -33,8 +33,7 @@ async def _stage_performance_impacts(
     from src.services.rag.registry import stage_rag_mutation_impact
 
     unique = {
-        (reference.source, reference.source_key): reference
-        for reference in references
+        (reference.source, reference.source_key): reference for reference in references
     }
     ordered = tuple(unique[key] for key in sorted(unique, key=lambda item: str(item)))
     if not ordered:

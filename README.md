@@ -2,7 +2,7 @@
 
 A full-stack cricket academy management platform for **VK Cricket Academy**, built to centralize academy operations, player development, team administration, scheduling, and coaching workflows.
 
-VKCA App combines a modern React frontend with a FastAPI backend and PostgreSQL database. The application is designed around role-aware workflows for Head Coaches, Assistant Coaches, and Players, with an emphasis on accessibility, security, responsive interaction, and reliable academy data.
+VKCA App combines a modern React frontend with a FastAPI backend, PostgreSQL database, and durable Redis/ARQ background processing. The application is designed around role-aware workflows for Head Coaches, Assistant Coaches, and Players, with an emphasis on accessibility, security, responsive interaction, and reliable academy data.
 
 > **Project status:** 🚧 Under active development
 
@@ -137,6 +137,7 @@ These APIs provide the foundation for future match-management and performance-an
 - Argon2
 - JSON Web Tokens
 - pgvector
+- ARQ
 - Pytest
 - Ruff
 - mypy
@@ -146,6 +147,7 @@ These APIs provide the foundation for future match-management and performance-an
 
 - Docker Compose
 - PostgreSQL 16 with pgvector
+- Redis 7
 - Uvicorn
 - `uv` for Python dependency management
 - Spec-driven development with feature specifications under `specs/`
@@ -169,10 +171,16 @@ FastAPI
    ├── Routes
    ├── Services
    ├── Repositories
-   └── SQLAlchemy
-          │
-          ▼
-      PostgreSQL
+   ├── SQLAlchemy ───────────────► PostgreSQL
+   │                                  │
+   │                         durable outbox intent
+   │                                  ▼
+   └────────────────────────────► Redis / ARQ
+                                      │
+                                      ▼
+                              dedicated worker
+                                      │
+                                      └────► registered services
 ```
 
 The frontend groups domain behavior into feature modules, while the backend separates routing, business logic, persistence, validation, and database models.
@@ -343,12 +351,12 @@ PASSWORD_MAX_LENGTH=128
 
 > Never commit `.env`.
 
-### 3. Start PostgreSQL
+### 3. Start PostgreSQL and Redis
 
 From the repository root:
 
 ```bash
-docker compose up -d db
+docker compose up -d db redis
 ```
 
 Verify it is running:
@@ -357,7 +365,9 @@ Verify it is running:
 docker compose ps
 ```
 
-The default local configuration exposes PostgreSQL on port `5455`.
+The default local configuration exposes PostgreSQL on port `5455` and Redis on
+port `6379`. PostgreSQL is authoritative; Redis is a disposable execution
+broker for committed background-work references.
 
 ### 4. Install backend dependencies
 
@@ -392,7 +402,24 @@ OpenAPI schema:  http://localhost:8000/openapi.json
 Health check:    http://localhost:8000/api/v1/health
 ```
 
-### 7. Install frontend dependencies
+### 7. Start the background worker
+
+In another terminal, from `backend/`:
+
+```bash
+uv run python -m scripts.background_worker
+```
+
+The worker consumes only explicitly registered jobs. Domain mutations commit
+their minimal work intent to PostgreSQL first, so Redis or provider downtime
+delays derived-data freshness without rolling back academy data. To run the
+worker in Docker instead, use this from the repository root:
+
+```bash
+docker compose up -d db redis worker
+```
+
+### 8. Install frontend dependencies
 
 In another terminal:
 
@@ -401,7 +428,7 @@ cd frontend
 npm install
 ```
 
-### 8. Start the frontend
+### 9. Start the frontend
 
 ```bash
 npm run dev
@@ -584,6 +611,35 @@ docker compose down -v
 ```
 
 > **Warning:** `docker compose down -v` permanently deletes the local development database.
+
+---
+
+## Background Processing
+
+Inspect, dispatch, recover, or retry durable work from `backend/` with bounded
+operator commands:
+
+```bash
+uv run python -m scripts.background_jobs status --limit 50
+uv run python -m scripts.background_jobs dispatch --limit 50
+uv run python -m scripts.background_jobs recover --limit 50
+uv run python -m scripts.background_jobs retry --work-id <uuid>
+```
+
+Approved RAG reconciliation triggers use stable registered source references:
+
+```bash
+uv run python -m scripts.background_jobs trigger-rag \
+  --source-type player_profile --source-key <stable-source-key>
+uv run python -m scripts.background_jobs trigger-rag --safety
+```
+
+These commands emit sanitized operational projections and never accept
+arbitrary job payloads. The existing `scripts.rag_index` CLI remains available
+for independent full, targeted, incremental, repair, and status recovery.
+Architecture, retry behavior, configuration, extension guidance, and the
+verified local workflow are documented in
+[`docs/background-jobs.md`](docs/background-jobs.md).
 
 ---
 

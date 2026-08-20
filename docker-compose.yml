@@ -35,7 +35,7 @@ services:
     environment:
       REDIS_URL: redis://redis:6379/0
     working_dir: /app
-    command: ["uv", "run", "python", "-m", "scripts.background_worker"]
+    command: ["python", "-m", "scripts.background_worker"]
     depends_on:
       db:
         condition: service_started

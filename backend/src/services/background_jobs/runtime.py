@@ -319,7 +319,10 @@ class BackgroundWorkerRuntime:
             async with self.session_factory() as session:
                 async with session.begin():
                     if decision.disposition is RetryDisposition.RETRY:
-                        assert decision.run_after is not None
+                        if decision.run_after is None:
+                            raise RuntimeError(
+                                "Retry decisions must include a run_after timestamp."
+                            )
                         item = await self.outbox.mark_retrying(
                             session,
                             running.id,
@@ -378,7 +381,10 @@ class BackgroundWorkerRuntime:
             async with self.session_factory() as session:
                 async with session.begin():
                     if decision.disposition is RetryDisposition.RETRY:
-                        assert decision.run_after is not None
+                        if decision.run_after is None:
+                            raise RuntimeError(
+                                "Retry decisions must include a run_after timestamp."
+                            )
                         await self.outbox.mark_retrying(
                             session,
                             running.id,

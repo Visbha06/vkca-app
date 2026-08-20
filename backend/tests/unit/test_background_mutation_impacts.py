@@ -125,9 +125,7 @@ async def test_staging_uses_bounded_targets_without_commit_network_or_audit(
     assert call.args[2].model_dump(mode="json") == {
         "mode": "targets",
         "reason": "mutation",
-        "targets": [
-            {"source_type": "player_profile", "source_key": str(player_id)}
-        ],
+        "targets": [{"source_type": "player_profile", "source_key": str(player_id)}],
     }
     assert call.kwargs["coalescing_key"] == f"rag:player_profile:{player_id}"
     assert call.kwargs["source_type"] == "player_profile"

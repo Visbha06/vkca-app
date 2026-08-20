@@ -175,12 +175,12 @@ recovery mechanism.
 **Purpose**: Validate the complete feature, document actual behavior, and run
 all constitution and security gates after the stories are complete.
 
-- [ ] T051 Run the complete isolated 20-step quickstart and implement any missing assertions in `backend/tests/integration/quickstart/test_013_quickstart_flow.py` according to `specs/013-background-jobs-foundation/quickstart.md`.
-- [ ] T052 Write verified implementation documentation covering architecture, dependency rationale, outbox semantics, retries, dead work, Redis outage behavior, RAG synchronization, configuration, local Docker workflow, commands, and future job extension in `docs/background-jobs.md`.
-- [ ] T053 Update the local development workflow references for PostgreSQL, Redis, FastAPI, and the worker in `README.md` without changing the existing RAG CLI recovery documentation.
-- [ ] T054 Run Ruff, mypy, mandatory unit tests, migration/integration tests, the quickstart, and the Spec 013 Playwright journey across `backend/src`, `backend/tests`, and `frontend/e2e/background-jobs-foundation-flow.spec.ts`.
-- [ ] T055 Perform the final security, privacy, audit-isolation, dead-code, and redundancy review across `backend/src/services/background_jobs`, `backend/src/models/background_work_item.py`, `backend/src/services/rag`, `backend/scripts/background_jobs.py`, and `backend/scripts/background_worker.py`; remove any introduced unused or duplicate implementation.
-- [ ] T056 Verify migration-before-runtime deployment order, Docker Compose startup/shutdown, safe status/log output, no unresolved task/spec markers, and `git diff --check` for the completed feature in `backend/src/migrations/versions/015_background_processing_foundation.py`, `docker-compose.yml`, `docs/background-jobs.md`, and `specs/013-background-jobs-foundation/`.
+- [X] T051 Run the complete isolated 20-step quickstart and implement any missing assertions in `backend/tests/integration/quickstart/test_013_quickstart_flow.py` according to `specs/013-background-jobs-foundation/quickstart.md`.
+- [X] T052 Write verified implementation documentation covering architecture, dependency rationale, outbox semantics, retries, dead work, Redis outage behavior, RAG synchronization, configuration, local Docker workflow, commands, and future job extension in `docs/background-jobs.md`.
+- [X] T053 Update the local development workflow references for PostgreSQL, Redis, FastAPI, and the worker in `README.md` without changing the existing RAG CLI recovery documentation.
+- [X] T054 Run Ruff, mypy, mandatory unit tests, migration/integration tests, the quickstart, and the Spec 013 Playwright journey across `backend/src`, `backend/tests`, and `frontend/e2e/background-jobs-foundation-flow.spec.ts`.
+- [X] T055 Perform the final security, privacy, audit-isolation, dead-code, and redundancy review across `backend/src/services/background_jobs`, `backend/src/models/background_work_item.py`, `backend/src/services/rag`, `backend/scripts/background_jobs.py`, and `backend/scripts/background_worker.py`; remove any introduced unused or duplicate implementation.
+- [X] T056 Verify migration-before-runtime deployment order, Docker Compose startup/shutdown, safe status/log output, no unresolved task/spec markers, and `git diff --check` for the completed feature in `backend/src/migrations/versions/015_background_processing_foundation.py`, `docker-compose.yml`, `docs/background-jobs.md`, and `specs/013-background-jobs-foundation/`.
 
 ## Dependencies & Execution Order
 
