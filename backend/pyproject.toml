@@ -10,6 +10,9 @@ dependencies = [
     # Argon2id password hashing; the standard library has no password KDF API.
     "argon2-cffi>=25.1.0",
     "asyncpg>=0.31.0",
+    # ARQ provides the Redis-backed async worker runtime; application-owned
+    # code remains responsible for durable state and processing policy.
+    "arq==0.28.0",
     "fastapi>=0.139.0",
     # Official Gemini embedding SDK; isolates provider protocol work from raw HTTP.
     "google-genai==1.45.0",

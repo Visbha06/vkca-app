@@ -18,6 +18,34 @@ from src.models.player_batting_stats import PlayerBattingStats
 from src.models.player_bowling_stats import PlayerBowlingStats
 from src.schemas.performance import BatchPerformanceResponse, PlayerPerformance
 from src.services.occ import StaleVersionError
+from src.services.rag.contracts import (
+    RagMutationImpact,
+    RagMutationOperation,
+    RagMutationRef,
+    RagMutationSource,
+)
+
+
+async def _stage_performance_impacts(
+    session: AsyncSession,
+    references: list[RagMutationRef],
+) -> None:
+    from src.services.rag.registry import stage_rag_mutation_impact
+
+    unique = {
+        (reference.source, reference.source_key): reference for reference in references
+    }
+    ordered = tuple(unique[key] for key in sorted(unique, key=lambda item: str(item)))
+    if not ordered:
+        return
+    await stage_rag_mutation_impact(
+        session,
+        RagMutationImpact(
+            operation=RagMutationOperation.UPSERT,
+            current_refs=ordered,
+            coalescing_ref=ordered[0],
+        ),
+    )
 
 
 class MatchNotFoundError(Exception):
@@ -52,6 +80,8 @@ class PerformanceService:
         bowling_records = 0
         fielding_records = 0
         stats_players: set[UUID] = set()
+        performance_sources: list[tuple[RagMutationSource, Any]] = []
+        statistic_refs: list[RagMutationRef] = []
 
         transaction = (
             self.session.begin_nested()
@@ -79,29 +109,44 @@ class PerformanceService:
 
                 for item in performances:
                     if item.batting is not None:
-                        self.session.add(
-                            MatchBattingPerformance(
-                                player_id=item.player_id,
-                                match_id=match_id,
-                                **item.batting.model_dump(),
+                        batting_record = MatchBattingPerformance(
+                            player_id=item.player_id,
+                            match_id=match_id,
+                            **item.batting.model_dump(),
+                        )
+                        self.session.add(batting_record)
+                        performance_sources.append(
+                            (
+                                RagMutationSource.MATCH_BATTING_PERFORMANCE,
+                                batting_record,
                             )
                         )
                         batting_records += 1
                     if item.bowling is not None:
-                        self.session.add(
-                            MatchBowlingPerformance(
-                                player_id=item.player_id,
-                                match_id=match_id,
-                                **item.bowling.model_dump(),
+                        bowling_record = MatchBowlingPerformance(
+                            player_id=item.player_id,
+                            match_id=match_id,
+                            **item.bowling.model_dump(),
+                        )
+                        self.session.add(bowling_record)
+                        performance_sources.append(
+                            (
+                                RagMutationSource.MATCH_BOWLING_PERFORMANCE,
+                                bowling_record,
                             )
                         )
                         bowling_records += 1
                     if item.fielding is not None:
-                        self.session.add(
-                            MatchFieldingPerformance(
-                                player_id=item.player_id,
-                                match_id=match_id,
-                                **item.fielding.model_dump(),
+                        fielding_record = MatchFieldingPerformance(
+                            player_id=item.player_id,
+                            match_id=match_id,
+                            **item.fielding.model_dump(),
+                        )
+                        self.session.add(fielding_record)
+                        performance_sources.append(
+                            (
+                                RagMutationSource.MATCH_FIELDING_PERFORMANCE,
+                                fielding_record,
                             )
                         )
                         fielding_records += 1
@@ -110,17 +155,40 @@ class PerformanceService:
 
                 for item in performances:
                     if item.batting is not None:
-                        await self._recalculate_batting_stats(
+                        stats_id = await self._recalculate_batting_stats(
                             item.player_id,
                             match.format,
+                        )
+                        statistic_refs.append(
+                            RagMutationRef(
+                                source=RagMutationSource.PLAYER_BATTING_STATS,
+                                source_key=str(stats_id),
+                            )
                         )
                         stats_players.add(item.player_id)
                     if item.bowling is not None or item.fielding is not None:
-                        await self._recalculate_bowling_stats(
+                        stats_id = await self._recalculate_bowling_stats(
                             item.player_id,
                             match.format,
                         )
+                        statistic_refs.append(
+                            RagMutationRef(
+                                source=RagMutationSource.PLAYER_BOWLING_STATS,
+                                source_key=str(stats_id),
+                            )
+                        )
                         stats_players.add(item.player_id)
+                performance_refs = [
+                    RagMutationRef(
+                        source=source,
+                        source_key=str(record.id),
+                    )
+                    for source, record in performance_sources
+                ]
+                await _stage_performance_impacts(
+                    self.session,
+                    [*performance_refs, *statistic_refs],
+                )
             if self.session.in_transaction():
                 await self.session.commit()
         except Exception:
@@ -140,7 +208,7 @@ class PerformanceService:
         self,
         player_id: UUID,
         match_format: MatchFormat,
-    ) -> None:
+    ) -> UUID:
         """Recompute one player's batting totals from source performances."""
 
         await self._lock_stats_key(PlayerBattingStats, player_id, match_format)
@@ -176,7 +244,7 @@ class PerformanceService:
         )
         totals = (await self.session.execute(statement)).mappings().one()
         values = {key: int(value) for key, value in totals.items()}
-        await self._upsert_stats(
+        return await self._upsert_stats(
             PlayerBattingStats,
             player_id,
             match_format,
@@ -187,7 +255,7 @@ class PerformanceService:
         self,
         player_id: UUID,
         match_format: MatchFormat,
-    ) -> None:
+    ) -> UUID:
         """Recompute one player's bowling totals and fielding catches."""
 
         await self._lock_stats_key(PlayerBowlingStats, player_id, match_format)
@@ -264,7 +332,7 @@ class PerformanceService:
             "wides": int(totals["wides"]),
             "catches": int(catches or 0),
         }
-        await self._upsert_stats(
+        return await self._upsert_stats(
             PlayerBowlingStats,
             player_id,
             match_format,
@@ -290,7 +358,7 @@ class PerformanceService:
         player_id: UUID,
         match_format: MatchFormat,
         values: Mapping[str, Any],
-    ) -> None:
+    ) -> UUID:
         """Insert aggregates or update them with a version-guarded write."""
 
         model_type: Any = model
@@ -303,11 +371,14 @@ class PerformanceService:
             .with_for_update()
         )
         if existing is None:
-            self.session.add(
-                model_type(player_id=player_id, format=match_format, **dict(values))
+            created = model_type(
+                player_id=player_id,
+                format=match_format,
+                **dict(values),
             )
+            self.session.add(created)
             await self.session.flush()
-            return
+            return created.id
 
         incoming_version = existing.version_number
         statement = (
@@ -330,3 +401,4 @@ class PerformanceService:
                 existing.id,
                 incoming_version,
             )
+        return existing.id

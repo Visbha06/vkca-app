@@ -45,11 +45,17 @@ def test_evaluation_is_deterministic_and_summary_remains_global_when_filtered() 
 
 @pytest.mark.asyncio
 async def test_projection_loading_uses_a_fixed_query_budget(
-    quality_projection_session_builder, projection_query_count_assertion
+    quality_projection_session_builder,
+    projection_query_count_assertion,
+    mocker,
 ) -> None:
+    background_staging = mocker.patch(
+        "src.services.rag.registry.stage_rag_mutation_impact"
+    )
     session = quality_projection_session_builder([], [], [], [], [])
 
     context = await DataQualityService(session).load_context()
 
     assert context == EvaluationContext()
     projection_query_count_assertion(session)
+    background_staging.assert_not_called()

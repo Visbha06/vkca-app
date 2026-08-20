@@ -109,6 +109,10 @@ async def test_link_account_is_occ_safe_and_records_exactly_one_event(
         "src.services.player_account_service.BusinessAuditService",
         return_value=audit,
     )
+    background_staging = mocker.patch(
+        "src.services.rag.registry.stage_rag_mutation_impact",
+        new=AsyncMock(),
+    )
 
     response = await PlayerAccountService(session).link_account(
         player.id,
@@ -128,6 +132,7 @@ async def test_link_account_is_occ_safe_and_records_exactly_one_event(
     )
     session.commit.assert_awaited_once_with()
     session.rollback.assert_not_awaited()
+    background_staging.assert_not_awaited()
 
 
 @pytest.mark.asyncio

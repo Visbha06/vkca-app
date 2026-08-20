@@ -19,6 +19,7 @@ from src.services.rag.builders.calendar import (
 from src.services.rag.canonical import stable_component_hash
 from src.services.rag.contracts import (
     RagSourceDefinition,
+    RagTargetRef,
     SourceDependency,
     SourceLoadBatch,
 )
@@ -71,6 +72,25 @@ class MutableOccurrenceLoader:
             items=loaded,
             next_cursor=page[-1].occurrence_id if len(page) == limit else None,
         )
+
+    async def load_targets(
+        self,
+        session,
+        *,
+        source_keys: tuple[str, ...],
+        limit: int,
+    ):
+        del session
+        requested = set(source_keys[:limit])
+        selected = tuple(
+            item for item in self.occurrences if item.occurrence_id in requested
+        )
+        original = self.occurrences
+        try:
+            self.occurrences = selected
+            return await self.load_batch(None, cursor=None, limit=limit)
+        finally:
+            self.occurrences = original
 
 
 def _occurrence(
@@ -150,6 +170,10 @@ async def test_calendar_projection_reconciles_effective_changes_and_missing_keys
             timeout_seconds=30,
             registry=_registry(loader),
         )
+        target = RagTargetRef(
+            source_type="calendar_occurrence",
+            source_key=occurrence_id,
+        )
         first = await service.run_targeted("calendar_occurrence")
         document = await session.scalar(
             select(RagDocument).where(RagDocument.source_key == occurrence_id)
@@ -172,7 +196,7 @@ async def test_calendar_projection_reconciles_effective_changes_and_missing_keys
                 exception_version=1,
             ),
         )
-        moved = await service.run_incremental()
+        (moved,) = await service.reconcile_targets((target,))
         await session.refresh(document)
         assert moved.counters.embeddings_created == 1
         assert document.id == document_id
@@ -194,7 +218,7 @@ async def test_calendar_projection_reconciles_effective_changes_and_missing_keys
                 exception_version=2,
             ),
         )
-        replaced = await service.run_incremental()
+        (replaced,) = await service.reconcile_targets((target,))
         await session.refresh(document)
         assert replaced.counters.embeddings_created == 1
         assert "Replacement practice" in document.semantic_text
@@ -204,7 +228,7 @@ async def test_calendar_projection_reconciles_effective_changes_and_missing_keys
         # A deleted or out-of-horizon projected key is reconciled without a provider.
         calls_before_removal = provider.document_call_count
         loader.occurrences = ()
-        removed = await service.run_incremental()
+        (removed,) = await service.reconcile_targets((target,))
         state = await session.scalar(
             select(RagSourceState).where(
                 RagSourceState.source_type == "calendar_occurrence",

@@ -28,7 +28,9 @@ from src.services.rag.canonical import (
     derive_document_id,
     derive_source_id,
 )
+from src.services.rag.contracts import RagTargetRef
 from src.services.rag.embedding import FakeEmbeddingProvider
+from src.services.rag.indexing import RagIndexingService
 from src.services.rag.retrieval import RagRetrievalService
 
 
@@ -326,6 +328,44 @@ async def test_role_and_source_visibility_matrix_is_enforced_in_the_candidate_qu
         assert "player-a2" not in linked
         assert "performance-a2" not in linked
         assert unlinked == set()
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_targeted_refresh_is_immediately_subject_to_protected_retrieval_scope():
+    async with AsyncSessionFactory() as session:
+        seed = await _seed_scope_corpus(session)
+        player = seed["player_a1"]
+        player.bio = "Fresh targeted authorization detail"
+        player.version_number += 1
+        await session.commit()
+
+        reports = await RagIndexingService(
+            session,
+            provider=seed["provider"],
+            batch_size=8,
+            timeout_seconds=30,
+        ).reconcile_targets(
+            (
+                RagTargetRef(
+                    source_type="player_profile",
+                    source_key=str(player.id),
+                ),
+            )
+        )
+        assert reports and all(report.status.value == "completed" for report in reports)
+
+        key = str(player.id)
+        assert key in await _visible_keys(session, seed["provider"], seed["head"])
+        assert key in await _visible_keys(
+            session, seed["provider"], seed["assistant_a"]
+        )
+        assert key in await _visible_keys(session, seed["provider"], seed["linked"])
+        assert key not in await _visible_keys(
+            session, seed["provider"], seed["assistant_b"]
+        )
+        assert key not in await _visible_keys(
+            session, seed["provider"], seed["unlinked"]
+        )
 
 
 @pytest.mark.asyncio(loop_scope="session")

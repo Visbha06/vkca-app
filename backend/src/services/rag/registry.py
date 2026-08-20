@@ -8,7 +8,19 @@ from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
-from src.services.rag.contracts import CanonicalRagDocument, RagSourceDefinition
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.services.background_jobs.outbox import BackgroundJobOutbox
+from src.services.background_jobs.registry import build_background_job_registry
+from src.services.rag.contracts import (
+    MAX_RAG_MUTATION_TARGETS,
+    CanonicalRagDocument,
+    RagMutationImpact,
+    RagMutationSource,
+    RagReconciliationPayloadV1,
+    RagSourceDefinition,
+    RagTargetRef,
+)
 
 _SOURCE_TYPE_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
 _RESERVED_SOURCE_TYPES = frozenset(
@@ -57,6 +69,18 @@ _FORBIDDEN_METADATA_FRAGMENTS = (
     "vector",
     "embedding",
 )
+
+_MUTATION_SOURCE_TYPES: Mapping[RagMutationSource, str] = {
+    RagMutationSource.PLAYER: "player_profile",
+    RagMutationSource.TEAM: "team",
+    RagMutationSource.MATCH: "match",
+    RagMutationSource.MATCH_BATTING_PERFORMANCE: "match_batting_performance",
+    RagMutationSource.MATCH_BOWLING_PERFORMANCE: "match_bowling_performance",
+    RagMutationSource.MATCH_FIELDING_PERFORMANCE: "match_fielding_performance",
+    RagMutationSource.PLAYER_BATTING_STATS: "player_batting_stats",
+    RagMutationSource.PLAYER_BOWLING_STATS: "player_bowling_stats",
+    RagMutationSource.CALENDAR_OCCURRENCE: "calendar_occurrence",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -269,6 +293,161 @@ class RagSourceRegistry[RecordT]:
 
         definition = self.get(source_type)
         return EligibilityDecision(eligible=bool(definition.eligible(record)))
+
+    def resolve_mutation_impact(
+        self,
+        impact: RagMutationImpact,
+    ) -> tuple[RagTargetRef, ...]:
+        """Map bounded domain identities to explicitly registered source targets."""
+
+        if not impact.semantic_change:
+            return ()
+        targets: dict[tuple[str, str], RagTargetRef] = {}
+        for reference in (*impact.current_refs, *impact.previous_refs):
+            source_type = _MUTATION_SOURCE_TYPES[reference.source]
+            self.get(source_type)
+            target = RagTargetRef(
+                source_type=source_type,
+                source_key=reference.source_key,
+            )
+            targets[(target.source_type, target.source_key)] = target
+        if len(targets) > MAX_RAG_MUTATION_TARGETS:
+            raise RegistryValidationError(
+                f"mutation impacts support at most {MAX_RAG_MUTATION_TARGETS} targets"
+            )
+        return tuple(targets[key] for key in sorted(targets))
+
+    def resolve_coalescing_target(self, impact: RagMutationImpact) -> RagTargetRef:
+        """Return the stable logical identity used to coalesce rapid mutations."""
+
+        reference = impact.coalescing_ref
+        if reference is None:
+            refs = (*impact.current_refs, *impact.previous_refs)
+            if not refs:
+                raise RegistryValidationError(
+                    "semantic mutation impact has no coalescing identity"
+                )
+            reference = refs[0]
+        source_type = _MUTATION_SOURCE_TYPES[reference.source]
+        self.get(source_type)
+        return RagTargetRef(
+            source_type=source_type,
+            source_key=reference.source_key,
+        )
+
+    def validate_targets(
+        self,
+        targets: Iterable[RagTargetRef],
+    ) -> tuple[RagTargetRef, ...]:
+        """Validate bounded stable targets against this registry's allowlist."""
+
+        validated: list[RagTargetRef] = []
+        seen: set[tuple[str, str]] = set()
+        for raw_target in targets:
+            target = RagTargetRef.model_validate(raw_target)
+            self.get(target.source_type)
+            identity = (target.source_type, target.source_key)
+            if identity in seen:
+                continue
+            seen.add(identity)
+            validated.append(target)
+        if not validated:
+            raise RegistryValidationError("RAG reconciliation requires a target")
+        if len(validated) > MAX_RAG_MUTATION_TARGETS:
+            raise RegistryValidationError(
+                f"RAG reconciliation supports at most {MAX_RAG_MUTATION_TARGETS} "
+                "targets"
+            )
+        return tuple(validated)
+
+    async def resolve_dependency_closure(
+        self,
+        session: object,
+        targets: Iterable[RagTargetRef],
+    ) -> tuple[RagTargetRef, ...]:
+        """Add dependents declared on source definitions from current rows.
+
+        Resolvers receive only the original authoritative mutation targets. A
+        dependent document target is not recursively reinterpreted as another
+        domain mutation, which keeps Player/Team relationships narrow and avoids
+        artificial dependency cycles.
+        """
+
+        roots = self.validate_targets(targets)
+        roots_by_type: dict[str, tuple[str, ...]] = {}
+        for source_type in sorted({target.source_type for target in roots}):
+            roots_by_type[source_type] = tuple(
+                target.source_key
+                for target in roots
+                if target.source_type == source_type
+            )
+        resolved = list(roots)
+        seen = {(target.source_type, target.source_key) for target in roots}
+        for definition in self.select():
+            for dependency in definition.dependencies:
+                resolver = dependency.target_resolver
+                if resolver is None:
+                    continue
+                for trigger_source_type in dependency.trigger_source_types:
+                    trigger_keys = roots_by_type.get(trigger_source_type)
+                    if not trigger_keys:
+                        continue
+                    remaining = MAX_RAG_MUTATION_TARGETS - len(resolved)
+                    if remaining <= 0:
+                        raise RegistryValidationError(
+                            "RAG dependency closure exceeds its bounded target limit"
+                        )
+                    dependent_keys = await resolver(
+                        session,
+                        trigger_source_type=trigger_source_type,
+                        trigger_source_keys=trigger_keys,
+                        limit=remaining,
+                    )
+                    for source_key in dependent_keys:
+                        target = RagTargetRef(
+                            source_type=definition.source_type,
+                            source_key=source_key,
+                        )
+                        identity = (target.source_type, target.source_key)
+                        if identity in seen:
+                            continue
+                        seen.add(identity)
+                        resolved.append(target)
+                        if len(resolved) > MAX_RAG_MUTATION_TARGETS:
+                            raise RegistryValidationError(
+                                "RAG dependency closure exceeds its bounded "
+                                "target limit"
+                            )
+        roots_count = len(roots)
+        return (
+            *roots,
+            *sorted(
+                resolved[roots_count:],
+                key=lambda item: (
+                    item.source_type,
+                    item.source_key,
+                ),
+            ),
+        )
+
+    def select_targets(
+        self,
+        targets: Iterable[RagTargetRef],
+    ) -> tuple[tuple[RagSourceDefinition[RecordT], tuple[str, ...]], ...]:
+        """Group validated stable keys by registered source definition."""
+
+        validated = self.validate_targets(targets)
+        grouped: list[tuple[RagSourceDefinition[RecordT], tuple[str, ...]]] = []
+        for source_type in sorted({target.source_type for target in validated}):
+            keys = tuple(
+                sorted(
+                    target.source_key
+                    for target in validated
+                    if target.source_type == source_type
+                )
+            )
+            grouped.append((self.get(source_type), keys))
+        return tuple(grouped)
 
     def __contains__(self, source_type: object) -> bool:
         return source_type in self._definitions
@@ -496,3 +675,71 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
 
 
 source_registry: RagSourceRegistry[object] = _build_initial_registry()
+
+
+def _build_mutation_staging_outbox() -> BackgroundJobOutbox:
+    return BackgroundJobOutbox(build_background_job_registry())
+
+
+class RagMutationStager:
+    """Translate semantic mutation impacts into transaction-local durable work."""
+
+    def __init__(
+        self,
+        registry: RagSourceRegistry[object],
+        *,
+        outbox: BackgroundJobOutbox | None = None,
+    ) -> None:
+        self.registry = registry
+        self.outbox = outbox or _build_mutation_staging_outbox()
+
+    async def stage(
+        self,
+        session: AsyncSession,
+        impact: RagMutationImpact,
+    ) -> object | None:
+        """Stage bounded work without committing or contacting external services."""
+
+        targets = self.registry.resolve_mutation_impact(impact)
+        if not targets:
+            return None
+        coalescing_target = self.registry.resolve_coalescing_target(impact)
+        payload = RagReconciliationPayloadV1(targets=targets)
+        return await self.outbox.stage(
+            session,
+            "rag_reconciliation",
+            payload,
+            coalescing_key=(
+                f"rag:{coalescing_target.source_type}:{coalescing_target.source_key}"
+            ),
+            correlation_id=impact.correlation_id,
+            source_type=coalescing_target.source_type,
+            source_key=coalescing_target.source_key,
+            safe_metadata={"reason": "mutation", "source_count": len(targets)},
+        )
+
+
+_default_mutation_stager: RagMutationStager | None = None
+
+
+def get_rag_mutation_stager() -> RagMutationStager:
+    """Return the resource-free default transaction-local staging adapter."""
+
+    global _default_mutation_stager
+    if _default_mutation_stager is None:
+        _default_mutation_stager = RagMutationStager(source_registry)
+    return _default_mutation_stager
+
+
+async def stage_rag_mutation_impact(
+    session: object,
+    impact: RagMutationImpact,
+) -> object | None:
+    """Application-service facade for same-transaction mutation staging."""
+
+    # Unit tests for existing application services use lightweight session
+    # doubles. They opt into staging explicitly when that boundary is under
+    # test; production and integration paths always provide a real session.
+    if not isinstance(session, AsyncSession):
+        return None
+    return await get_rag_mutation_stager().stage(session, impact)

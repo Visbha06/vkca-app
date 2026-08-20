@@ -1,5 +1,6 @@
 """Application service for atomic team and roster operations."""
 
+from collections.abc import Sequence
 from uuid import UUID
 
 from sqlalchemy import delete, func, select
@@ -24,6 +25,42 @@ from src.services.business_audit_service import (
     BusinessAuditService,
 )
 from src.services.occ import check_and_increment_version
+from src.services.rag.contracts import (
+    RagMutationImpact,
+    RagMutationOperation,
+    RagMutationRef,
+    RagMutationSource,
+)
+
+
+def _team_ref(team_id: UUID) -> RagMutationRef:
+    return RagMutationRef(source=RagMutationSource.TEAM, source_key=str(team_id))
+
+
+def _player_ref(player_id: UUID) -> RagMutationRef:
+    return RagMutationRef(source=RagMutationSource.PLAYER, source_key=str(player_id))
+
+
+async def _stage_team_impact(
+    session: AsyncSession,
+    team_id: UUID,
+    *,
+    current_player_ids: Sequence[UUID] = (),
+    previous_player_ids: Sequence[UUID] = (),
+    operation: RagMutationOperation = RagMutationOperation.RELATIONSHIP,
+) -> None:
+    from src.services.rag.registry import stage_rag_mutation_impact
+
+    team = _team_ref(team_id)
+    await stage_rag_mutation_impact(
+        session,
+        RagMutationImpact(
+            operation=operation,
+            current_refs=(team, *(_player_ref(item) for item in current_player_ids)),
+            previous_refs=tuple(_player_ref(item) for item in previous_player_ids),
+            coalescing_ref=team,
+        ),
+    )
 
 
 class TeamNotFoundError(Exception):
@@ -158,6 +195,12 @@ class TeamService:
                         "roster_count": len(payload.player_ids),
                     },
                 )
+            await _stage_team_impact(
+                self.session,
+                team.id,
+                current_player_ids=payload.player_ids,
+                operation=RagMutationOperation.UPSERT,
+            )
             await self.session.refresh(team)
             response = self._team_response(team, len(payload.player_ids))
             await self.session.commit()
@@ -183,7 +226,7 @@ class TeamService:
             previous_name = team.name
             previous_age_group = team.age_group
             previous_player_ids: list[UUID] = []
-            if actor is not None:
+            if actor is not None or isinstance(self.session, AsyncSession):
                 previous_player_ids = list(
                     (
                         await self.session.scalars(
@@ -246,6 +289,12 @@ class TeamService:
                     ),
                     metadata=audit_metadata,
                 )
+            await _stage_team_impact(
+                self.session,
+                team.id,
+                current_player_ids=payload.player_ids,
+                previous_player_ids=previous_player_ids,
+            )
             await self.session.refresh(team)
             response = self._team_response(team, len(payload.player_ids))
             await self.session.commit()
@@ -371,6 +420,11 @@ class TeamService:
                         "new_roster_position": membership.roster_order,
                     },
                 )
+            await _stage_team_impact(
+                self.session,
+                team.id,
+                current_player_ids=[player_id],
+            )
             await self.session.commit()
         except IntegrityError as exc:
             await self.session.rollback()
@@ -453,6 +507,11 @@ class TeamService:
                         "changed_positions": changed_player_ids,
                     },
                 )
+            await _stage_team_impact(
+                self.session,
+                team.id,
+                operation=RagMutationOperation.UPSERT,
+            )
             await self.session.commit()
         except Exception:
             await self.session.rollback()
@@ -529,6 +588,11 @@ class TeamService:
                         "prior_roster_position": membership.roster_order,
                     },
                 )
+            await _stage_team_impact(
+                self.session,
+                team.id,
+                previous_player_ids=[player_id],
+            )
             await self.session.commit()
         except Exception:
             await self.session.rollback()

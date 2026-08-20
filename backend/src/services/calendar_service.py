@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -56,6 +56,46 @@ from src.services.calendar_recurrence import (
     recurrence_summary,
     validate_calendar_range,
 )
+from src.services.rag.contracts import (
+    RagMutationImpact,
+    RagMutationOperation,
+    RagMutationRef,
+    RagMutationSource,
+)
+
+
+def _calendar_ref(occurrence_id: str) -> RagMutationRef:
+    return RagMutationRef(
+        source=RagMutationSource.CALENDAR_OCCURRENCE,
+        source_key=occurrence_id,
+    )
+
+
+async def _stage_calendar_impact(
+    session: AsyncSession,
+    *,
+    current_occurrence_ids: Sequence[str] = (),
+    previous_occurrence_ids: Sequence[str] = (),
+    operation: RagMutationOperation,
+) -> None:
+    from src.services.rag.registry import stage_rag_mutation_impact
+
+    current = tuple(_calendar_ref(item) for item in sorted(set(current_occurrence_ids)))
+    previous = tuple(
+        _calendar_ref(item) for item in sorted(set(previous_occurrence_ids))
+    )
+    references = (*current, *previous)
+    if not references:
+        return
+    await stage_rag_mutation_impact(
+        session,
+        RagMutationImpact(
+            operation=operation,
+            current_refs=current,
+            previous_refs=previous,
+            coalescing_ref=min(references, key=lambda item: item.source_key),
+        ),
+    )
 
 
 class CalendarEventNotFoundError(LookupError):
@@ -240,6 +280,11 @@ class CalendarService:
                     target=target,
                     metadata=metadata,
                 )
+            await _stage_calendar_impact(
+                self.session,
+                current_occurrence_ids=self._rag_occurrence_ids(event),
+                operation=RagMutationOperation.UPSERT,
+            )
             response = self._definition_response(event)
             await self.session.commit()
             return response
@@ -291,6 +336,11 @@ class CalendarService:
                         ),
                     },
                 )
+            await _stage_calendar_impact(
+                self.session,
+                current_occurrence_ids=(str(event.id),),
+                operation=RagMutationOperation.UPSERT,
+            )
             await self.session.commit()
             return response
         except Exception:
@@ -326,6 +376,7 @@ class CalendarService:
                     event.end_time,
                 ),
             }
+            previous_occurrence_ids = (str(event.id),)
             await self.session.delete(event)
             if actor is not None:
                 await BusinessAuditService(self.session).record(
@@ -334,6 +385,11 @@ class CalendarService:
                     target=target,
                     metadata=metadata,
                 )
+            await _stage_calendar_impact(
+                self.session,
+                previous_occurrence_ids=previous_occurrence_ids,
+                operation=RagMutationOperation.DELETE,
+            )
             await self.session.commit()
         except Exception:
             await self.session.rollback()
@@ -431,6 +487,12 @@ class CalendarService:
                     ),
                     metadata=metadata,
                 )
+            await _stage_calendar_impact(
+                self.session,
+                current_occurrence_ids=(occurrence_id,),
+                previous_occurrence_ids=(occurrence_id,),
+                operation=RagMutationOperation.UPSERT,
+            )
             await self.session.commit()
             return instance
         except Exception:
@@ -490,6 +552,11 @@ class CalendarService:
                     ),
                     metadata={"original_date": original_date},
                 )
+            await _stage_calendar_impact(
+                self.session,
+                previous_occurrence_ids=(occurrence_id,),
+                operation=RagMutationOperation.DELETE,
+            )
             await self.session.commit()
         except Exception:
             await self.session.rollback()
@@ -506,6 +573,7 @@ class CalendarService:
 
         try:
             event, series = await self._load_series_for_update(series_id)
+            previous_occurrence_ids = self._rag_occurrence_ids(event)
             self._check_version(event.version_number, payload.version_number)
             self._validate_mutation_schedule(
                 payload,
@@ -552,6 +620,12 @@ class CalendarService:
                         "scope": self._scope_label(payload.scope),
                     },
                 )
+            await _stage_calendar_impact(
+                self.session,
+                current_occurrence_ids=self._rag_occurrence_ids(event),
+                previous_occurrence_ids=previous_occurrence_ids,
+                operation=RagMutationOperation.RELATIONSHIP,
+            )
             await self.session.commit()
             return response
         except Exception:
@@ -569,6 +643,7 @@ class CalendarService:
 
         try:
             event, series = await self._load_series_for_update(series_id)
+            previous_occurrence_ids = self._rag_occurrence_ids(event)
             self._check_version(event.version_number, payload.version_number)
             target = AuditTargetContext(
                 AuditEntityType.RECURRENCE_SERIES,
@@ -594,6 +669,11 @@ class CalendarService:
                     target=target,
                     metadata=metadata,
                 )
+            await _stage_calendar_impact(
+                self.session,
+                previous_occurrence_ids=previous_occurrence_ids,
+                operation=RagMutationOperation.DELETE,
+            )
             await self.session.commit()
         except Exception:
             await self.session.rollback()
@@ -869,6 +949,9 @@ class CalendarService:
             end_date=recurrence.end_date,
             occurrence_count=recurrence.occurrence_count,
         )
+        # Keep the newly-created collection loaded so transaction-local RAG
+        # projection never attempts async lazy IO during the mutation.
+        series.exceptions = []
         cls._apply_series_rule(series, first_date, recurrence)
         return series
 
@@ -1344,6 +1427,55 @@ class CalendarService:
             instance.start_time if instance.start_time is not None else time.min,
             instance.occurrence_id,
         )
+
+    def _rag_occurrence_ids(self, event: CalendarEvent) -> tuple[str, ...]:
+        """Project the same bounded effective occurrence identities used by RAG."""
+
+        series = event.recurrence_series
+        if series is None:
+            return (str(event.id),)
+        range_start = self._academy_today()
+        range_end = range_start + timedelta(days=MAX_CALENDAR_RANGE_DATES - 1)
+        original_dates = set(
+            expand_recurrence(
+                first_date=event.first_date,
+                frequency=series.frequency,
+                termination=series.termination,
+                range_start=range_start,
+                range_end=range_end,
+                end_date=series.end_date,
+                occurrence_count=series.occurrence_count,
+            )
+        )
+        exceptions = {
+            exception.original_date: exception
+            for exception in (series.exceptions or [])
+            if self._series_occurs_on(
+                series,
+                event.first_date,
+                exception.original_date,
+            )
+        }
+        for original_date, exception in exceptions.items():
+            if (
+                exception.replacement_date is not None
+                and range_start <= exception.replacement_date <= range_end
+            ):
+                original_dates.add(original_date)
+        occurrence_ids: list[str] = []
+        for original_date in sorted(original_dates):
+            candidate_exception = exceptions.get(original_date)
+            if candidate_exception is not None and candidate_exception.is_deleted:
+                continue
+            effective_date = (
+                candidate_exception.replacement_date
+                if candidate_exception is not None
+                and candidate_exception.replacement_date is not None
+                else original_date
+            )
+            if range_start <= effective_date <= range_end:
+                occurrence_ids.append(f"{series.id}:{original_date.isoformat()}")
+        return tuple(occurrence_ids)
 
     def _academy_today(self) -> date:
         from src.services.calendar_recurrence import academy_today

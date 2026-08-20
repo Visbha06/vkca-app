@@ -179,6 +179,13 @@ async def business_audit_transaction_session() -> AsyncIterator[AsyncSession]:
                 await transaction.rollback()
 
 
+@pytest.fixture
+def background_session_factory():
+    """Expose sequential cross-session boundaries on the isolated connection."""
+
+    return AsyncSessionFactory
+
+
 @pytest_asyncio.fixture(loop_scope="session")
 async def authenticated_client(
     client: httpx.AsyncClient,

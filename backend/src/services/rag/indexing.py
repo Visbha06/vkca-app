@@ -41,6 +41,7 @@ from src.services.rag.contracts import (
     RagSourceDefinition,
     RagSourceStatus,
     RagSourceStatusSummary,
+    RagTargetRef,
 )
 from src.services.rag.embedding import (
     RAG_VECTOR_DIMENSION,
@@ -81,6 +82,17 @@ class _SourceRegistry(Protocol):
     def select(
         self, source_types: Sequence[str] | None = None
     ) -> tuple[RagSourceDefinition[object], ...]: ...
+
+    async def resolve_dependency_closure(
+        self,
+        session: object,
+        targets: Sequence[RagTargetRef],
+    ) -> tuple[RagTargetRef, ...]: ...
+
+    def select_targets(
+        self,
+        targets: Sequence[RagTargetRef],
+    ) -> tuple[tuple[RagSourceDefinition[object], tuple[str, ...]], ...]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -755,6 +767,18 @@ class RagIndexingService:
 
         return await self.run(RagRunMode.TARGETED, source_type=source_type)
 
+    async def reconcile_targets(
+        self,
+        targets: Sequence[RagTargetRef],
+    ) -> tuple[RagIndexRunReport, ...]:
+        """Reconcile stable keys plus declared dependents without corpus traversal."""
+
+        closure = await self.registry.resolve_dependency_closure(self.session, targets)
+        reports: list[RagIndexRunReport] = []
+        for definition, source_keys in self.registry.select_targets(closure):
+            reports.append(await self._run_target_keys(definition, source_keys))
+        return tuple(reports)
+
     async def run_incremental(self) -> RagIndexRunReport:
         """Reconcile changed, missing, stale, and ineligible registered sources."""
 
@@ -911,6 +935,75 @@ class RagIndexingService:
             await self.session.commit()
             return report_from_run(persisted_run)
 
+    async def _run_target_keys(
+        self,
+        definition: RagSourceDefinition[object],
+        source_keys: tuple[str, ...],
+    ) -> RagIndexRunReport:
+        """Run one bounded source-family target group with narrow deletion checks."""
+
+        load_targets = getattr(definition.loader, "load_targets", None)
+        if not callable(load_targets):
+            raise ValueError(
+                f"registered source {definition.source_type!r} does not support "
+                "stable target loading"
+            )
+        run = await self.state.start_run(
+            RagRunMode.TARGETED,
+            source_type=definition.source_type,
+        )
+        run_id = run.id
+        await self.session.commit()
+        counters = RagRunCounters()
+        try:
+            page = await load_targets(
+                self.session,
+                source_keys=source_keys,
+                limit=len(source_keys),
+            )
+            loaded_keys = {definition.source_key(loaded) for loaded in page.items}
+            await self._process_page(
+                run,
+                definition,
+                page.items,
+                counters,
+                mode=RagRunMode.TARGETED,
+                cursor=None,
+                limit=len(source_keys),
+                targeted_keys=source_keys,
+            )
+            await self._reconcile_requested_missing(
+                definition,
+                requested_keys=set(source_keys),
+                seen_keys=loaded_keys,
+                counters=counters,
+            )
+            status = (
+                RagRunStatus.PARTIAL
+                if counters.failed_sources
+                else RagRunStatus.COMPLETED
+            )
+            await self.state.finish_run(run, status=status, counters=counters)
+            await self.session.commit()
+            return report_from_run(run)
+        except Exception as error:
+            await self.session.rollback()
+            failure = failure_from_exception(error)
+            persisted_run = await self.session.get(RagIndexRun, run_id)
+            if persisted_run is None:
+                persisted_run = await self.state.start_run(
+                    RagRunMode.TARGETED,
+                    source_type=definition.source_type,
+                )
+            await self.state.finish_run(
+                persisted_run,
+                status=RagRunStatus.FAILED,
+                counters=counters,
+                failure=failure,
+            )
+            await self.session.commit()
+            return report_from_run(persisted_run)
+
     async def _traverse_definition(
         self,
         run: RagIndexRun,
@@ -1033,6 +1126,7 @@ class RagIndexingService:
         mode: RagRunMode,
         cursor: str | None,
         limit: int,
+        targeted_keys: Sequence[str] | None = None,
     ) -> None:
         source_type = definition.source_type  # type: ignore[union-attr]
         source_keys = tuple(
@@ -1161,11 +1255,21 @@ class RagIndexingService:
                 return
 
         try:
-            fresh_page = await definition.loader.load_batch(  # type: ignore[union-attr]
-                self.session,
-                cursor=cursor,
-                limit=limit,
-            )
+            if targeted_keys is None:
+                fresh_page = await definition.loader.load_batch(  # type: ignore[union-attr]
+                    self.session,
+                    cursor=cursor,
+                    limit=limit,
+                )
+            else:
+                load_targets = getattr(definition.loader, "load_targets", None)
+                if not callable(load_targets):
+                    raise ValueError("registered source does not support target reload")
+                fresh_page = await load_targets(
+                    self.session,
+                    source_keys=targeted_keys,
+                    limit=limit,
+                )
         except Exception as error:
             await self.session.rollback()
             await self._fail_plans(plans, run, failure_from_exception(error))
@@ -1303,6 +1407,50 @@ class RagIndexingService:
                 )
             except RagClaimConflictError:
                 continue
+        await self.session.commit()
+
+    async def _reconcile_requested_missing(
+        self,
+        definition: RagSourceDefinition[object],
+        *,
+        requested_keys: set[str],
+        seen_keys: set[str],
+        counters: RagRunCounters,
+    ) -> None:
+        """Invalidate only requested keys absent from current authoritative loading."""
+
+        missing = requested_keys - seen_keys
+        if not missing:
+            return
+        states = tuple(
+            (
+                await self.session.scalars(
+                    select(RagSourceState).where(
+                        RagSourceState.source_type == definition.source_type,
+                        RagSourceState.source_key.in_(missing),
+                    )
+                )
+            ).all()
+        )
+        previous_keys = {state.source_key for state in states}
+        deleted_keys = definition.deletion_policy.reconcile_deleted(
+            seen_keys=seen_keys,
+            previous_keys=previous_keys,
+        )
+        states_by_key = {state.source_key: state for state in states}
+        for source_key in deleted_keys:
+            state = states_by_key[source_key]
+            if RagSourceStatus(state.status) is RagSourceStatus.DELETED:
+                continue
+            try:
+                await self.state.mark_source_unsearchable(
+                    state.id,
+                    expected_version=state.version_number,
+                    status=RagSourceStatus.DELETED,
+                )
+                counters.add(deleted_or_ineligible=1)
+            except RagClaimConflictError:
+                counters.add(failed_sources=1)
         await self.session.commit()
 
     async def _reconcile_missing(
