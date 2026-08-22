@@ -194,7 +194,9 @@ describe('EventFormModal', () => {
     expect(screen.getByLabelText('Event name')).toHaveValue('Occurrence-only name')
     fireEvent.click(screen.getByRole('radio', { name: 'Entire series' }))
     expect(screen.getByLabelText('Event name')).toHaveValue('Wednesday practice')
-    expect(screen.getByLabelText('Academy date')).toHaveValue('2026-08-05')
+    expect(
+      screen.getByRole('button', { name: 'Academy date' }),
+    ).toHaveTextContent('August 5, 2026')
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() => expect(mockedUpdateSeries).toHaveBeenCalledOnce())
