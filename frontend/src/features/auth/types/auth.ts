@@ -21,7 +21,6 @@ export interface AuthUser {
 
 export interface AuthState {
   user: AuthUser | null
-  accessToken: string | null
   isAuthenticated: boolean
   isInitializing: boolean
   isLoginPending: boolean

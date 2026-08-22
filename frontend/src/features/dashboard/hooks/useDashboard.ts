@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { isAbortError } from '@shared/api/errors'
 import { fetchDashboard } from '../api/dashboardApi'
 import type { DashboardResponse } from '../types/dashboard'
-
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === 'AbortError'
-}
 
 export function useDashboard() {
   const [result, setResult] = useState<DashboardResponse | null>(null)

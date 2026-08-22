@@ -25,14 +25,13 @@ function requestHeaders(fetchMock: ReturnType<typeof vi.fn>, callIndex: number) 
 
 function createAuthenticatedClient() {
   const redirect = vi.fn()
-  const onAccessTokenRefreshed = vi.fn()
   const onSessionExpired = vi.fn()
   const client = new ApiClient(API_BASE_URL, redirect)
 
-  client.setAuthHandlers({ onAccessTokenRefreshed, onSessionExpired })
+  client.setAuthHandlers({ onSessionExpired })
   client.setAccessToken('expired-access-token')
 
-  return { client, onAccessTokenRefreshed, onSessionExpired, redirect }
+  return { client, onSessionExpired, redirect }
 }
 
 beforeEach(() => {
@@ -53,7 +52,7 @@ describe('ApiClient token refresh interceptor', () => {
       )
       .mockResolvedValueOnce(jsonResponse({ players: ['Anika'] }))
     vi.stubGlobal('fetch', fetchMock)
-    const { client, onAccessTokenRefreshed, onSessionExpired, redirect } =
+    const { client, onSessionExpired, redirect } =
       createAuthenticatedClient()
 
     await expect(client.request(PROTECTED_PATH)).resolves.toEqual({
@@ -73,8 +72,7 @@ describe('ApiClient token refresh interceptor', () => {
     expect(requestHeaders(fetchMock, 2).get('Authorization')).toBe(
       'Bearer fresh-access-token',
     )
-    expect(onAccessTokenRefreshed).toHaveBeenCalledOnce()
-    expect(onAccessTokenRefreshed).toHaveBeenCalledWith('fresh-access-token')
+    expect(client.getAccessToken()).toBe('fresh-access-token')
     expect(onSessionExpired).not.toHaveBeenCalled()
     expect(redirect).not.toHaveBeenCalled()
   })

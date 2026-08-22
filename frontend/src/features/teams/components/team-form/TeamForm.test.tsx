@@ -270,7 +270,9 @@ describe('TeamFormModal edit safeguards', () => {
       target: { value: 'Changed locally' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Close edit team' }))
-    expect(screen.getByText('You have unsaved changes')).toBeVisible()
+    expect(
+      screen.getByRole('alertdialog', { name: 'You have unsaved changes' }),
+    ).toBeVisible()
 
     fireEvent.click(screen.getByRole('button', { name: 'Continue editing' }))
     expect(screen.getByLabelText('Team name')).toHaveValue('Changed locally')

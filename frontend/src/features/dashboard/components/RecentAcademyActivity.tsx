@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { formatBusinessAuditShortDate } from '@features/audit/utils/businessAuditTime'
 import type { DashboardContext } from '../types/dashboard'
 
 interface RecentAcademyActivityProps {
@@ -39,7 +40,7 @@ export default function RecentAcademyActivity({
                 {event.target_label === null ? '' : ` · ${event.target_label}`}
               </p>
               <time dateTime={event.created_at} className="mt-2 block text-xs font-medium text-slate-500">
-                {new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short' }).format(new Date(event.created_at))}
+                {formatBusinessAuditShortDate(event.created_at)}
               </time>
             </li>
           ))}

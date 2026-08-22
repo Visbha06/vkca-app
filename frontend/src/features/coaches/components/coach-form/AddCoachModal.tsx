@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchTeams } from '@features/teams/api/teamApi'
 import type { TeamResponse } from '@features/teams/types/team'
 import { ApiClientError } from '@shared/api/client'
+import { isAbortError } from '@shared/api/errors'
 import { useUnsavedChanges } from '@shared/hooks/useUnsavedChanges'
 import ModalDialog from '@shared/components/overlays/ModalDialog'
 import { createCoach } from '../../api/coachApi'
@@ -16,10 +17,6 @@ import TemporaryPasswordDisplay from './TemporaryPasswordDisplay'
 interface AddCoachModalProps {
   onClose: () => void
   onCreated: (coach: CoachResponse) => void
-}
-
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === 'AbortError'
 }
 
 export default function AddCoachModal({

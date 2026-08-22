@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiClientError } from '@shared/api/client'
+import { isAbortError } from '@shared/api/errors'
 import {
   applyDataQualityRemediation,
   fetchDataQuality,
@@ -20,10 +21,6 @@ const LOAD_ERROR = 'Unable to load data quality. Please try again.'
 const REMEDIATION_ERROR = 'Unable to apply this remediation. No change was made.'
 const REMEDIATION_CONFLICT =
   'This finding changed before the remediation was applied. Current findings were refreshed.'
-
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === 'AbortError'
-}
 
 function buildRemediationRequest(
   finding: DataQualityFinding,

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import ModalDialog from '@shared/components/overlays/ModalDialog'
+import UnsavedChangesPrompt from '@shared/components/overlays/UnsavedChangesPrompt'
 import type {
   CalendarEventCreatePayload,
   CalendarEventInstance,
@@ -8,7 +9,6 @@ import type {
 import EventForm from './EventForm'
 import EventFormModalHeader from './EventFormModalHeader'
 import SeriesExceptionWarning from './SeriesExceptionWarning'
-import UnsavedChangesConfirmation from './UnsavedChangesConfirmation'
 
 interface EventFormModalContentProps {
   academyToday: string
@@ -78,7 +78,11 @@ export default function EventFormModalContent({
       testId="calendar-event-form-modal"
     >
       {showDiscardConfirmation ? (
-        <UnsavedChangesConfirmation
+        <UnsavedChangesPrompt
+          title="Discard unsaved changes?"
+          titleId="calendar-unsaved-title"
+          description="Discarding will remove the calendar changes you made in this form."
+          descriptionId="calendar-unsaved-description"
           onContinueEditing={onContinueEditing}
           onDiscard={onDiscard}
         />

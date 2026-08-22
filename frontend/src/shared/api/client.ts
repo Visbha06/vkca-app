@@ -21,7 +21,6 @@ const NON_REFRESHABLE_PATHS = new Set([
 export const SESSION_EXPIRED_LOGIN_PATH = '/login?reason=session-expired'
 
 interface AuthHandlers {
-  onAccessTokenRefreshed: (accessToken: string) => void
   onSessionExpired: () => void
 }
 
@@ -203,7 +202,6 @@ export class ApiClient {
       }
 
       this.setAccessToken(body.access_token)
-      this.authHandlers?.onAccessTokenRefreshed(body.access_token)
       return body.access_token
     } catch (error) {
       this.handleSessionExpired()

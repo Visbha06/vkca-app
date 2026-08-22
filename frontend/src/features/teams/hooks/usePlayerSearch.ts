@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchPlayers, type PlayerResponse } from '@features/players'
-
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === 'AbortError'
-}
+import { isAbortError } from '@shared/api/errors'
 
 export default function usePlayerSearch(
   query: string,

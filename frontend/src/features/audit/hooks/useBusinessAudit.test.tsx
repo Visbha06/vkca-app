@@ -16,7 +16,7 @@ vi.mock('../api/businessAuditApi', () => ({
 
 const auth: AuthContextValue = {
   user: { id: 'head', first_name: 'Asha', last_name: 'Coach', email: 'a@test', role: 'head coach', is_active: true, created_at: '', updated_at: '', session: { session_id: '', created_at: '', last_used_at: '', expires_at: '' } },
-  accessToken: 'token', isAuthenticated: true, isInitializing: false, isLoginPending: false, isLogoutPending: false,
+  isAuthenticated: true, isInitializing: false, isLoginPending: false, isLogoutPending: false,
   login: vi.fn(), logout: vi.fn(), refreshSession: vi.fn(), updateUser: vi.fn(),
 }
 const wrapper = ({ children }: { children: React.ReactNode }) => <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>

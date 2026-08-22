@@ -12,7 +12,6 @@ afterEach(cleanup)
 
 const authValue: AuthContextValue = {
   user: null,
-  accessToken: null,
   isAuthenticated: true,
   isInitializing: false,
   isLoginPending: false,

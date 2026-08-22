@@ -35,7 +35,6 @@ async function renderRoute(
   const router = createMemoryRouter(appRoutes, { initialEntries: [path] })
   const authValue: AuthContextValue = {
     user,
-    accessToken: path === '/login' ? null : 'test-token',
     isAuthenticated: path !== '/login',
     isInitializing: false,
     isLoginPending: false,

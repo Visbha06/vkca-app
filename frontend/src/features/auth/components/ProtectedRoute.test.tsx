@@ -21,7 +21,6 @@ function LocationProbe() {
 function renderProtected(overrides: Partial<AuthContextValue> = {}) {
   const value: AuthContextValue = {
     user: null,
-    accessToken: null,
     isAuthenticated: false,
     isInitializing: false,
     isLoginPending: false,
@@ -55,7 +54,6 @@ function renderProtected(overrides: Partial<AuthContextValue> = {}) {
 function renderGuest(overrides: Partial<AuthContextValue> = {}) {
   const value: AuthContextValue = {
     user: null,
-    accessToken: null,
     isAuthenticated: false,
     isInitializing: false,
     isLoginPending: false,
@@ -117,7 +115,7 @@ describe('GuestRoute', () => {
   })
 
   it('redirects authenticated visitors to the preserved destination', async () => {
-    renderGuest({ isAuthenticated: true, accessToken: 'test-token' })
+    renderGuest({ isAuthenticated: true })
 
     expect(await screen.findByText('Location: /players')).toBeInTheDocument()
   })

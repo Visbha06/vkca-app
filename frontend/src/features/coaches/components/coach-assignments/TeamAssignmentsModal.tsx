@@ -3,12 +3,13 @@ import type { UserRole } from '@features/auth/types/auth'
 import { fetchTeams } from '@features/teams/api/teamApi'
 import type { TeamResponse } from '@features/teams/types/team'
 import { ApiClientError } from '@shared/api/client'
+import { isAbortError } from '@shared/api/errors'
 import ModalDialog from '@shared/components/overlays/ModalDialog'
+import UnsavedChangesPrompt from '@shared/components/overlays/UnsavedChangesPrompt'
 import { useUnsavedChanges } from '@shared/hooks/useUnsavedChanges'
 import { updateTeamAssignments } from '../../api/coachApi'
 import type { CoachResponse } from '../../types/coach'
 import useConflictHandler from '../../hooks/useConflictHandler'
-import AssignmentCloseConfirmation from './AssignmentCloseConfirmation'
 import TeamAssignmentsForm from './TeamAssignmentsForm'
 
 interface TeamAssignmentsModalProps {
@@ -17,10 +18,6 @@ interface TeamAssignmentsModalProps {
   onClose: () => void
   onCoachReloaded?: (coach: CoachResponse) => void
   onSaved: (coach: CoachResponse) => void
-}
-
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === 'AbortError'
 }
 
 function TeamAssignmentsModalContent({
@@ -144,16 +141,24 @@ function TeamAssignmentsModalContent({
 
   return (
     <ModalDialog
+      describedBy={
+        isConfirmingClose ? 'assignment-unsaved-description' : undefined
+      }
       labelledBy={
         isConfirmingClose
           ? 'assignment-unsaved-title'
           : 'team-assignments-title'
       }
       onClose={handleClose}
+      role={isConfirmingClose ? 'alertdialog' : 'dialog'}
       testId="team-assignments-backdrop"
     >
       {isConfirmingClose ? (
-        <AssignmentCloseConfirmation
+        <UnsavedChangesPrompt
+          title="You have unsaved changes"
+          titleId="assignment-unsaved-title"
+          description="Discarding will remove the assignment changes you made."
+          descriptionId="assignment-unsaved-description"
           onContinueEditing={() => setIsConfirmingClose(false)}
           onDiscard={onClose}
         />

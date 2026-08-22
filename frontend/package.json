@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "generate:business-audit-types": "node scripts/generate-business-audit-types.mjs",
+    "check:business-audit-types": "node scripts/generate-business-audit-types.mjs --check",
     "generate:data-quality-types": "node scripts/generate-data-quality-types.mjs",
     "check:data-quality-types": "node scripts/generate-data-quality-types.mjs --check",
     "generate:role-aware-dashboard-types": "node scripts/generate-role-aware-dashboard-types.mjs",

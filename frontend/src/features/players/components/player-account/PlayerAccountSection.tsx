@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { isAbortError } from '@shared/api/errors'
 import { fetchPlayerAccountAssociation } from '../../api/playerApi'
 import type { PlayerAccountAssociationResponse } from '../../types/player'
 import PlayerAccountLinkDialog from './PlayerAccountLinkDialog'
@@ -9,10 +10,6 @@ interface PlayerAccountSectionProps {
   playerId: string
   versionNumber: number
   onAssociationChanged: (association: PlayerAccountAssociationResponse) => void
-}
-
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === 'AbortError'
 }
 
 export default function PlayerAccountSection({

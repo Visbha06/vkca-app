@@ -38,7 +38,6 @@ function AuthProbe() {
       <p data-testid="login-pending">{String(auth.isLoginPending)}</p>
       <p data-testid="user-email">{auth.user?.email ?? 'none'}</p>
       <p data-testid="user-name">{auth.user?.first_name ?? 'none'}</p>
-      <p data-testid="access-token">{auth.accessToken ?? 'none'}</p>
       <button
         type="button"
         onClick={() => {
@@ -73,7 +72,7 @@ function renderProvider() {
 }
 
 describe('AuthProvider', () => {
-  it('logs in, loads the current user, and stores the access token in memory', async () => {
+  it('logs in, loads the current user, and gives the token to the API client', async () => {
     const request = vi
       .spyOn(apiClient, 'request')
       .mockRejectedValueOnce(new Error('No existing session'))
@@ -89,7 +88,6 @@ describe('AuthProvider', () => {
 
     await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('true'))
     expect(screen.getByTestId('user-email')).toHaveTextContent('coach@vkca.test')
-    expect(screen.getByTestId('access-token')).toHaveTextContent('login-token')
     expect(setAccessToken).toHaveBeenLastCalledWith('login-token')
   })
 
@@ -106,7 +104,6 @@ describe('AuthProvider', () => {
 
     await waitFor(() => expect(screen.getByTestId('login-pending')).toHaveTextContent('false'))
     expect(screen.getByTestId('authenticated')).toHaveTextContent('false')
-    expect(screen.getByTestId('access-token')).toHaveTextContent('none')
   })
 
   it('restores a valid session when mounted', async () => {
@@ -118,7 +115,7 @@ describe('AuthProvider', () => {
 
     await waitFor(() => expect(screen.getByTestId('initializing')).toHaveTextContent('false'))
     expect(screen.getByTestId('authenticated')).toHaveTextContent('true')
-    expect(screen.getByTestId('access-token')).toHaveTextContent('restored-token')
+    expect(apiClient.getAccessToken()).toBe('restored-token')
     expect(screen.getByTestId('user-email')).toHaveTextContent('coach@vkca.test')
   })
 
@@ -129,7 +126,6 @@ describe('AuthProvider', () => {
 
     await waitFor(() => expect(screen.getByTestId('initializing')).toHaveTextContent('false'))
     expect(screen.getByTestId('authenticated')).toHaveTextContent('false')
-    expect(screen.getByTestId('access-token')).toHaveTextContent('none')
     expect(screen.getByTestId('user-email')).toHaveTextContent('none')
   })
 
@@ -147,7 +143,6 @@ describe('AuthProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log out' }))
 
     await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('false'))
-    expect(screen.getByTestId('access-token')).toHaveTextContent('none')
     expect(screen.getByTestId('user-email')).toHaveTextContent('none')
     expect(setAccessToken).toHaveBeenLastCalledWith(null)
   })
@@ -166,7 +161,6 @@ describe('AuthProvider', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log out' }))
 
     await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('false'))
-    expect(screen.getByTestId('access-token')).toHaveTextContent('none')
     expect(screen.getByTestId('user-email')).toHaveTextContent('none')
     expect(setAccessToken).toHaveBeenLastCalledWith(null)
   })
@@ -183,6 +177,5 @@ describe('AuthProvider', () => {
 
     expect(screen.getByTestId('user-name')).toHaveTextContent('Updated')
     expect(screen.getByTestId('authenticated')).toHaveTextContent('true')
-    expect(screen.getByTestId('access-token')).toHaveTextContent('restored-token')
   })
 })

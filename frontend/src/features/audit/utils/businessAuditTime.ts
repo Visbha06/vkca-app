@@ -54,6 +54,17 @@ export function formatBusinessAuditTimestamp(
   }).format(parseInstant(timestamp))
 }
 
+export function formatBusinessAuditShortDate(
+  timestamp: string,
+  locale = 'en-US',
+) {
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: BUSINESS_AUDIT_TIME_ZONE,
+    day: 'numeric',
+    month: 'short',
+  }).format(parseInstant(timestamp))
+}
+
 export function formatBusinessAuditRelativeTime(
   timestamp: string,
   now: string | Date = new Date(),

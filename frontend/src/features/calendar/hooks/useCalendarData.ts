@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { isAbortError } from '@shared/api/errors'
 import {
   fetchCalendarInstance,
   fetchCalendarRange,
@@ -18,10 +19,6 @@ import type {
   CalendarEventInstance,
   CalendarRangeResponse,
 } from '../types/calendar'
-
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === 'AbortError'
-}
 
 function parseResponseDate(value: string): CalendarDate {
   const parsed = parseAcademyDate(value)
