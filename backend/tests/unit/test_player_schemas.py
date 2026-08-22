@@ -1,5 +1,6 @@
 """Unit tests for player request and response schemas."""
 
+import json
 from datetime import UTC, date, datetime
 from uuid import uuid4
 
@@ -8,6 +9,13 @@ from pydantic import ValidationError
 
 from src.enums import BattingStyle, BowlingStyle, PlayerType, UserRole
 from src.schemas.player import (
+    PLAYER_BIO_MAX_LENGTH,
+    PLAYER_METADATA_MAX_ARRAY_ITEMS,
+    PLAYER_METADATA_MAX_BYTES,
+    PLAYER_METADATA_MAX_DEPTH,
+    PLAYER_METADATA_MAX_KEY_LENGTH,
+    PLAYER_METADATA_MAX_KEYS,
+    PLAYER_METADATA_MAX_STRING_LENGTH,
     PaginatedPlayerResponse,
     PlayerCreate,
     PlayerResponse,
@@ -51,6 +59,148 @@ def test_player_create_validates_and_ignores_server_managed_fields() -> None:
     assert "created_at" not in player.model_fields_set
     assert "updated_at" not in player.model_fields_set
     assert "version_number" not in player.model_fields_set
+
+
+def player_create_payload(**overrides: object) -> dict[str, object]:
+    """Return the smallest complete create payload with optional overrides."""
+
+    payload: dict[str, object] = {
+        "first_name": "Sachin",
+        "last_name": "Tendulkar",
+        "date_of_birth": "1973-04-24",
+        "batting_style": "right",
+        "bowling_style": "right-arm leg-break",
+        "player_type": "batter",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def metadata_at_serialized_size(target_bytes: int) -> dict[str, str]:
+    """Build metadata whose compact UTF-8 JSON representation is exact."""
+
+    metadata = {
+        f"part_{index}": "x" * PLAYER_METADATA_MAX_STRING_LENGTH for index in range(4)
+    }
+    metadata["remainder"] = ""
+    current_size = len(json.dumps(metadata, separators=(",", ":")).encode("utf-8"))
+    remainder = target_bytes - current_size
+    assert 0 <= remainder <= PLAYER_METADATA_MAX_STRING_LENGTH
+    metadata["remainder"] = "x" * remainder
+    assert (
+        len(json.dumps(metadata, separators=(",", ":")).encode("utf-8")) == target_bytes
+    )
+    return metadata
+
+
+@pytest.mark.parametrize("bio", [None, "", "Normal biography"])
+def test_player_bio_accepts_existing_normal_values(bio: str | None) -> None:
+    assert PlayerCreate.model_validate(player_create_payload(bio=bio)).bio == bio
+    assert PlayerUpdate(bio=bio, version_number=1).bio == bio
+
+
+def test_player_bio_accepts_exact_limit_for_create_and_update() -> None:
+    bio = "x" * PLAYER_BIO_MAX_LENGTH
+
+    assert PlayerCreate.model_validate(player_create_payload(bio=bio)).bio == bio
+    assert PlayerUpdate(bio=bio, version_number=1).bio == bio
+
+
+def test_player_bio_rejects_limit_plus_one_for_create_and_update() -> None:
+    bio = "x" * (PLAYER_BIO_MAX_LENGTH + 1)
+
+    with pytest.raises(ValidationError):
+        PlayerCreate.model_validate(player_create_payload(bio=bio))
+    with pytest.raises(ValidationError):
+        PlayerUpdate(bio=bio, version_number=1)
+
+
+def test_player_metadata_accepts_normal_json_for_create_and_update() -> None:
+    metadata = {
+        "shirt_number": 10,
+        "available": True,
+        "nickname": None,
+        "preferences": ["opening", {"format": "T20"}],
+    }
+
+    assert (
+        PlayerCreate.model_validate(
+            player_create_payload(player_metadata=metadata)
+        ).player_metadata
+        == metadata
+    )
+    assert (
+        PlayerUpdate(player_metadata=metadata, version_number=1).player_metadata
+        == metadata
+    )
+
+
+def test_player_metadata_accepts_exact_serialized_byte_limit() -> None:
+    metadata = metadata_at_serialized_size(PLAYER_METADATA_MAX_BYTES)
+
+    assert (
+        PlayerCreate.model_validate(
+            player_create_payload(player_metadata=metadata)
+        ).player_metadata
+        == metadata
+    )
+
+
+def test_player_metadata_rejects_serialized_byte_limit_plus_one() -> None:
+    metadata = metadata_at_serialized_size(PLAYER_METADATA_MAX_BYTES + 1)
+
+    with pytest.raises(ValidationError, match="serialized UTF-8 bytes"):
+        PlayerCreate.model_validate(player_create_payload(player_metadata=metadata))
+    with pytest.raises(ValidationError, match="serialized UTF-8 bytes"):
+        PlayerUpdate(player_metadata=metadata, version_number=1)
+
+
+def test_player_metadata_accepts_structural_boundaries() -> None:
+    metadata = {
+        "keys": {str(index): index for index in range(PLAYER_METADATA_MAX_KEYS)},
+        "array": list(range(PLAYER_METADATA_MAX_ARRAY_ITEMS)),
+        "key_depth": [{"leaf": ["value"]}],
+        "k" * PLAYER_METADATA_MAX_KEY_LENGTH: "x" * PLAYER_METADATA_MAX_STRING_LENGTH,
+    }
+
+    assert (
+        PlayerUpdate(player_metadata=metadata, version_number=1).player_metadata
+        == metadata
+    )
+
+
+@pytest.mark.parametrize(
+    ("metadata", "message"),
+    [
+        (
+            {"nested": [{"level_three": [{"level_five": "too deep"}]}]},
+            "nesting",
+        ),
+        (
+            {str(index): index for index in range(PLAYER_METADATA_MAX_KEYS + 1)},
+            "keys",
+        ),
+        ({"k" * (PLAYER_METADATA_MAX_KEY_LENGTH + 1): True}, "keys"),
+        ({"items": list(range(PLAYER_METADATA_MAX_ARRAY_ITEMS + 1))}, "arrays"),
+        ({"value": "x" * (PLAYER_METADATA_MAX_STRING_LENGTH + 1)}, "strings"),
+        (
+            {"nested": [{"items": list(range(PLAYER_METADATA_MAX_ARRAY_ITEMS + 1))}]},
+            "arrays",
+        ),
+        ({"arbitrary": object()}, "JSON-compatible"),
+    ],
+)
+def test_player_metadata_rejects_resource_limit_bypasses(
+    metadata: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ValidationError, match=message):
+        PlayerCreate.model_validate(player_create_payload(player_metadata=metadata))
+    with pytest.raises(ValidationError, match=message):
+        PlayerUpdate(player_metadata=metadata, version_number=1)
+
+
+def test_player_metadata_depth_constant_matches_boundary_fixture() -> None:
+    assert PLAYER_METADATA_MAX_DEPTH == 4
 
 
 @pytest.mark.parametrize("field", ["first_name", "last_name"])

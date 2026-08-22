@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import PlayerForm from '@features/players/components/player-form/PlayerForm'
+import { PLAYER_BIO_MAX_LENGTH } from '@features/players/playerResourceLimits'
 
 function fillRequiredFields() {
   fireEvent.change(screen.getByRole('textbox', { name: 'First name' }), {
@@ -128,6 +129,24 @@ describe('PlayerForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create player' }))
 
     expect(screen.getByText('Metadata keys must be unique.')).toBeVisible()
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
+  it('exposes and enforces the biography length limit', () => {
+    const onSubmit = vi.fn()
+    render(<PlayerForm onSubmit={onSubmit} onCancel={vi.fn()} />)
+    fillRequiredFields()
+    const bio = screen.getByRole('textbox', { name: /^Bio/ })
+
+    expect(bio).toHaveAttribute('maxlength', String(PLAYER_BIO_MAX_LENGTH))
+    fireEvent.change(bio, {
+      target: { value: 'x'.repeat(PLAYER_BIO_MAX_LENGTH + 1) },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create player' }))
+
+    expect(
+      screen.getByText('Keep the biography to 2,000 characters or fewer.'),
+    ).toBeVisible()
     expect(onSubmit).not.toHaveBeenCalled()
   })
 

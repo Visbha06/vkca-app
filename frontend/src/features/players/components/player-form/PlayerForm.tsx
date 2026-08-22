@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { useUnsavedChanges } from '@shared/hooks/useUnsavedChanges'
 import type { PlayerCreatePayload, PlayerResponse } from '../../types/player'
+import { PLAYER_BIO_MAX_LENGTH } from '../../playerResourceLimits'
 import PlayerFormFields, {
   type PlayerFieldErrors,
   type PlayerFormValues,
@@ -42,6 +43,9 @@ function validateFields(values: PlayerFormValues): PlayerFieldErrors {
     ...(!values.firstName.trim() ? { firstName: 'Enter a first name.' } : {}),
     ...(!values.lastName.trim() ? { lastName: 'Enter a last name.' } : {}),
     ...(!values.dateOfBirth ? { dateOfBirth: 'Choose a date of birth.' } : {}),
+    ...(values.bio.length > PLAYER_BIO_MAX_LENGTH
+      ? { bio: 'Keep the biography to 2,000 characters or fewer.' }
+      : {}),
     ...(!values.battingStyle ? { battingStyle: 'Choose a batting style.' } : {}),
     ...(!values.bowlingStyle ? { bowlingStyle: 'Choose a bowling style.' } : {}),
     ...(!values.playerType ? { playerType: 'Choose a player type.' } : {}),
