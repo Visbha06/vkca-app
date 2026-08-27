@@ -6,7 +6,8 @@ import argparse
 import asyncio
 import json
 import random
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -113,14 +114,58 @@ def _retry_policy(settings: Any) -> RetryPolicy:
     )
 
 
-async def _run(args: argparse.Namespace) -> object:
-    settings = get_settings()
-    registry = build_background_job_registry(settings=settings)
-    outbox = BackgroundJobOutbox(
-        registry,
+def build_background_outbox(settings: Any) -> BackgroundJobOutbox:
+    """Build the configured durable outbox used by operator and service paths."""
+
+    return BackgroundJobOutbox(
+        build_background_job_registry(settings=settings),
         completed_retention_days=settings.background_completed_retention_days,
         dead_retention_days=settings.background_dead_retention_days,
     )
+
+
+@asynccontextmanager
+async def open_background_dispatcher(
+    settings: Any | None = None,
+    *,
+    dispatcher_id: str | None = None,
+) -> AsyncIterator[BackgroundJobDispatcher]:
+    """Open the configured dispatcher and close its Redis pool on exit."""
+
+    selected_settings = settings or get_settings()
+    redis = await create_pool(
+        RedisSettings.from_dsn(str(selected_settings.redis_url)),
+        job_serializer=json_job_serializer,
+        job_deserializer=json_job_deserializer,
+        default_queue_name=selected_settings.background_queue_name,
+    )
+    try:
+        yield BackgroundJobDispatcher(
+            session_factory=AsyncSessionFactory,
+            broker=redis,
+            outbox=build_background_outbox(selected_settings),
+            retry_policy=_retry_policy(selected_settings),
+            queue_name=selected_settings.background_queue_name,
+            dispatcher_id=dispatcher_id or f"dispatcher:{uuid4()}",
+            batch_size=selected_settings.background_dispatch_batch_size,
+            lease_seconds=selected_settings.background_claim_lease_seconds,
+            random_uniform=random.uniform,
+        )
+    finally:
+        await redis.aclose()
+
+
+async def _run(args: argparse.Namespace) -> object:
+    settings = get_settings()
+
+    if args.command == "dispatch":
+        async with open_background_dispatcher(
+            settings,
+            dispatcher_id=f"operator:{uuid4()}",
+        ) as dispatcher:
+            return await dispatcher.dispatch_once(limit=args.limit)
+
+    outbox = build_background_outbox(settings)
 
     if args.command == "status":
         selected_states = (
@@ -160,7 +205,7 @@ async def _run(args: argparse.Namespace) -> object:
         )
 
     if args.command == "trigger-rag":
-        registry.get_manual_trigger("trigger-rag")
+        outbox.registry.get_manual_trigger("trigger-rag")
         trigger = build_rag_manual_trigger(
             safety=args.safety,
             source_type=args.source_type,
@@ -183,29 +228,6 @@ async def _run(args: argparse.Namespace) -> object:
             work_id=staged.id,
             state=BackgroundWorkState(staged.state),
         )
-
-    if args.command == "dispatch":
-        redis = await create_pool(
-            RedisSettings.from_dsn(str(settings.redis_url)),
-            job_serializer=json_job_serializer,
-            job_deserializer=json_job_deserializer,
-            default_queue_name=settings.background_queue_name,
-        )
-        try:
-            dispatcher = BackgroundJobDispatcher(
-                session_factory=AsyncSessionFactory,
-                broker=redis,
-                outbox=outbox,
-                retry_policy=_retry_policy(settings),
-                queue_name=settings.background_queue_name,
-                dispatcher_id=f"operator:{uuid4()}",
-                batch_size=settings.background_dispatch_batch_size,
-                lease_seconds=settings.background_claim_lease_seconds,
-                random_uniform=random.uniform,
-            )
-            return await dispatcher.dispatch_once(limit=args.limit)
-        finally:
-            await redis.aclose()
 
     raise ValueError("Unsupported background command")
 

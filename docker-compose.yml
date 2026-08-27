@@ -34,8 +34,27 @@ services:
       - .env
     environment:
       REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
     working_dir: /app
     command: ["python", "-m", "scripts.background_worker"]
+    depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  dispatcher:
+    build:
+      context: ./backend
+    container_name: background_jobs_dispatcher
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
+    working_dir: /app
+    command: ["python", "-m", "scripts.background_dispatcher"]
     depends_on:
       db:
         condition: service_started
