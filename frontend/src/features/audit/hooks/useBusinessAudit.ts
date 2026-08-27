@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@features/auth/context/AuthContext'
+import { isAbortError } from '@shared/api/errors'
 import {
   fetchBusinessAuditActors,
   fetchBusinessAuditEvents,
@@ -13,10 +14,6 @@ import type {
 } from '../types/businessAudit'
 
 const BUSINESS_AUDIT_PAGE_SIZE = 20
-
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === 'AbortError'
-}
 
 export function hasBusinessAuditFilters(filters: BusinessAuditFilters) {
   return Object.values(filters).some(

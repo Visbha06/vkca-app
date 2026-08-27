@@ -135,10 +135,14 @@ async def test_range_route_rejects_malformed_and_overlong_ranges(client, service
     overlong = await client.get(
         "/api/v1/calendar/events?start_date=2026-01-01&end_date=2026-03-01"
     )
+    inverted = await client.get(
+        "/api/v1/calendar/events?start_date=2026-08-02&end_date=2026-08-01"
+    )
 
     assert malformed.status_code == 400
     assert overlong.status_code == 422
     assert overlong.json()["code"] == "calendar_range_too_large"
+    assert inverted.status_code == 400
     service_mock.get_range.assert_not_awaited()
 
 

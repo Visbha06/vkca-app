@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatBusinessAuditRelativeTime,
+  formatBusinessAuditShortDate,
   formatBusinessAuditTimestamp,
 } from './businessAuditTime'
 
@@ -27,6 +28,12 @@ describe('business audit academy time', () => {
         '2026-11-02T09:30:00Z',
       ),
     ).toBe('Yesterday')
+  })
+
+  it('formats compact dates using the academy date at UTC boundaries', () => {
+    expect(formatBusinessAuditShortDate('2026-01-01T07:30:00Z')).toBe('Dec 31')
+    expect(formatBusinessAuditShortDate('2026-03-08T07:30:00Z')).toBe('Mar 7')
+    expect(formatBusinessAuditShortDate('2026-03-08T08:30:00Z')).toBe('Mar 8')
   })
 
   it('formats same-day relative minutes and hours', () => {

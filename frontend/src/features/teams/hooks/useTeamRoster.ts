@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react'
+import { isAbortError } from '@shared/api/errors'
 import { fetchTeamRoster } from '../api/teamApi'
 import type { TeamRosterResponse } from '../types/team'
-
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === 'AbortError'
-}
 
 export default function useTeamRoster(teamId: string | null) {
   const [roster, setRoster] = useState<TeamRosterResponse | null>(null)

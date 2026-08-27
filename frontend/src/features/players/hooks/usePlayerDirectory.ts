@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { isAbortError } from '@shared/api/errors'
 import useSuccessToast from '@shared/hooks/useSuccessToast'
 import { fetchPlayers, fetchTeamsForFilter } from '../api/playerApi'
 import { UNASSIGNED_FILTER } from '../components/player-directory/TeamFilter'
@@ -9,10 +10,6 @@ import type {
 } from '../types/player'
 
 const PAGE_SIZE = 20
-
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === 'AbortError'
-}
 
 export default function usePlayerDirectory() {
   const [page, setPage] = useState(1)

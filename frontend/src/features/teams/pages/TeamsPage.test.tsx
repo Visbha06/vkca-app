@@ -30,7 +30,7 @@ const coach: AuthUser = { id: 'u1', first_name: 'Vikram', last_name: 'Kumar', em
 const player: PlayerResponse = { id: 'player-1', first_name: 'Asha', last_name: 'Singh', date_of_birth: '2008-04-24', bio: null, batting_style: 'right', bowling_style: 'right-arm medium', player_type: 'batter', player_metadata: {}, is_active: true, created_at: '', updated_at: '', version_number: 1, teams: [] }
 
 function authValue(): AuthContextValue {
-  return { user: coach, accessToken: 'token', isAuthenticated: true, isInitializing: false, isLoginPending: false, isLogoutPending: false, login: vi.fn(), logout: vi.fn(), refreshSession: vi.fn(), updateUser: vi.fn() }
+  return { user: coach, isAuthenticated: true, isInitializing: false, isLoginPending: false, isLogoutPending: false, login: vi.fn(), logout: vi.fn(), refreshSession: vi.fn(), updateUser: vi.fn() }
 }
 
 function renderPage(value = authValue()) {

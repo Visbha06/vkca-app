@@ -102,10 +102,6 @@ class CalendarEventNotFoundError(LookupError):
     """Raised when an event instance no longer exists."""
 
 
-class CalendarRangeTooLargeError(CalendarRangeError):
-    """Raised when a request would exceed the bounded calendar range."""
-
-
 class CalendarStaleVersionError(Exception):
     """Raised when an owning-event or exception mutation version is stale."""
 
@@ -1134,13 +1130,6 @@ class CalendarService:
 
     @staticmethod
     def _validate_range(range_start: date, range_end: date) -> None:
-        if range_start > range_end:
-            raise CalendarRangeError("Calendar range start must not follow its end.")
-        date_count = (range_end - range_start).days + 1
-        if date_count > MAX_CALENDAR_RANGE_DATES:
-            raise CalendarRangeTooLargeError(
-                f"Calendar ranges cannot exceed {MAX_CALENDAR_RANGE_DATES} dates."
-            )
         validate_calendar_range(range_start, range_end)
 
     @staticmethod

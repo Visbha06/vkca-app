@@ -1,13 +1,18 @@
+import type { components } from '../api/generated'
+
+export type BusinessAuditCategory =
+  components['schemas']['AuditActionCategory']
+
 export const BUSINESS_AUDIT_CATEGORIES = [
   'coach',
   'player',
   'team',
   'roster',
   'calendar',
-] as const
+] as const satisfies readonly BusinessAuditCategory[]
 
-export type BusinessAuditCategory =
-  (typeof BUSINESS_AUDIT_CATEGORIES)[number]
+export type BusinessAuditEntityType =
+  components['schemas']['AuditEntityType']
 
 export const BUSINESS_AUDIT_ENTITY_TYPES = [
   'coach',
@@ -16,44 +21,48 @@ export const BUSINESS_AUDIT_ENTITY_TYPES = [
   'roster',
   'calendar_event',
   'recurrence_series',
-] as const
-
-export type BusinessAuditEntityType =
-  (typeof BUSINESS_AUDIT_ENTITY_TYPES)[number]
-
-export const BUSINESS_AUDIT_ACTION_TYPES = [
-  'coach.created',
-  'coach.activated',
-  'coach.deactivated',
-  'coach.team_assignments_updated',
-  'player.created',
-  'player.updated',
-  'team.created',
-  'team.updated',
-  'roster.added',
-  'roster.removed',
-  'roster.reordered',
-  'calendar.standalone_created',
-  'calendar.standalone_updated',
-  'calendar.standalone_deleted',
-  'calendar.series_created',
-  'calendar.series_updated',
-  'calendar.series_deleted',
-  'calendar.occurrence_updated',
-  'calendar.occurrence_moved',
-  'calendar.occurrence_deleted',
-] as const
+] as const satisfies readonly BusinessAuditEntityType[]
 
 export type BusinessAuditActionType =
-  (typeof BUSINESS_AUDIT_ACTION_TYPES)[number]
+  components['schemas']['AuditActionType']
+
+const BUSINESS_AUDIT_ACTION_ORDER = {
+  'coach.created': true,
+  'coach.activated': true,
+  'coach.deactivated': true,
+  'coach.team_assignments_updated': true,
+  'player.created': true,
+  'player.updated': true,
+  'player.account_linked': true,
+  'player.account_unlinked': true,
+  'player.account_reassigned': true,
+  'team.created': true,
+  'team.updated': true,
+  'roster.added': true,
+  'roster.removed': true,
+  'roster.reordered': true,
+  'calendar.standalone_created': true,
+  'calendar.standalone_updated': true,
+  'calendar.standalone_deleted': true,
+  'calendar.series_created': true,
+  'calendar.series_updated': true,
+  'calendar.series_deleted': true,
+  'calendar.occurrence_updated': true,
+  'calendar.occurrence_moved': true,
+  'calendar.occurrence_deleted': true,
+} satisfies Record<BusinessAuditActionType, true>
+
+export const BUSINESS_AUDIT_ACTION_TYPES = Object.keys(
+  BUSINESS_AUDIT_ACTION_ORDER,
+) as BusinessAuditActionType[]
 
 export type BusinessAuditMetadataScalar =
-  | string
-  | number
-  | boolean
-  | null
+  components['schemas']['BusinessAuditMetadataScalar']
 
-export interface SafeBusinessAuditMetadata {
+type GeneratedBusinessAuditMetadata =
+  components['schemas']['BusinessAuditEventResponse']['metadata']
+
+export type SafeBusinessAuditMetadata = GeneratedBusinessAuditMetadata & {
   assigned_team_ids?: BusinessAuditMetadataScalar[]
   assigned_team_count?: number
   changed_fields?: BusinessAuditMetadataScalar[]
@@ -80,47 +89,39 @@ export interface SafeBusinessAuditMetadata {
   exception_count?: number
   original_date?: string
   replacement_date?: string
+  account_user_id?: string
+  previous_account_user_id?: string
 }
 
-export interface BusinessAuditEvent {
-  id: string
-  actor_user_id: string | null
-  actor_display_name: string | null
-  actor_role: string | null
-  action_type: BusinessAuditActionType
-  action_category: BusinessAuditCategory
-  target_entity_type: BusinessAuditEntityType
-  target_entity_id: string | null
-  target_label: string | null
-  summary: string
+export interface BusinessAuditEvent
+  extends Omit<
+    components['schemas']['BusinessAuditEventResponse'],
+    'metadata'
+  > {
   metadata: SafeBusinessAuditMetadata
-  created_at: string
-  request_id: string | null
 }
 
-export interface BusinessAuditPageResponse {
-  events: BusinessAuditEvent[]
-  page: number
-  page_size: number
-  total_events: number
-  total_pages: number
-  has_previous: boolean
-  has_next: boolean
-}
-
-export interface RecentBusinessAuditResponse {
+export interface BusinessAuditPageResponse
+  extends Omit<
+    components['schemas']['BusinessAuditPageResponse'],
+    'events'
+  > {
   events: BusinessAuditEvent[]
 }
 
-export interface BusinessAuditActorOption {
-  actor_user_id: string
-  actor_display_name: string
-  actor_role: string | null
+export interface RecentBusinessAuditResponse
+  extends Omit<
+    components['schemas']['RecentBusinessAuditResponse'],
+    'events'
+  > {
+  events: BusinessAuditEvent[]
 }
 
-export interface BusinessAuditActorOptionsResponse {
-  actors: BusinessAuditActorOption[]
-}
+export type BusinessAuditActorOption =
+  components['schemas']['BusinessAuditActorOption']
+
+export type BusinessAuditActorOptionsResponse =
+  components['schemas']['BusinessAuditActorOptionsResponse']
 
 export interface BusinessAuditFilters {
   actorUserId?: string

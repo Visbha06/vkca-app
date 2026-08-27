@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { isAbortError } from '@shared/api/errors'
 import { fetchTeams } from '../api/teamApi'
 import type { AgeGroup, PaginatedTeamResponse } from '../types/team'
 
 const PAGE_SIZE = 12
-
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === 'AbortError'
-}
 
 export default function useTeamDirectory() {
   const [page, setPage] = useState(1)

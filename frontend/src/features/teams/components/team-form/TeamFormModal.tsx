@@ -14,8 +14,8 @@ import type {
   TeamRosterSelection,
   TeamUpdatePayload,
 } from '../../types/team'
-import ConfirmationDialog from './ConfirmationDialog'
 import ModalDialog from '@shared/components/overlays/ModalDialog'
+import UnsavedChangesPrompt from '@shared/components/overlays/UnsavedChangesPrompt'
 import TeamConflictReloadButton from './TeamConflictReloadButton'
 import TeamForm from './TeamForm'
 import TeamFormModalHeader from './TeamFormModalHeader'
@@ -159,12 +159,18 @@ export default function TeamFormModal({
 
   return (
     <ModalDialog
+      describedBy={isConfirmingClose ? 'unsaved-changes-description' : undefined}
       labelledBy={isConfirmingClose ? 'unsaved-changes-title' : 'team-form-title'}
       onClose={handleModalClose}
+      role={isConfirmingClose ? 'alertdialog' : 'dialog'}
       testId="team-form-backdrop"
     >
       {isConfirmingClose ? (
-        <ConfirmationDialog
+        <UnsavedChangesPrompt
+          title="You have unsaved changes"
+          titleId="unsaved-changes-title"
+          description="Discarding will remove the team changes you have made in this form."
+          descriptionId="unsaved-changes-description"
           onContinueEditing={() => {
             setPendingPlayer(null)
             setIsConfirmingClose(false)

@@ -40,23 +40,11 @@ class TokenResponse(AuthSchema):
     token_type: Literal["bearer"] = "bearer"
 
 
-class RefreshRequest(AuthSchema):
-    """Validated refresh token extracted from an HttpOnly cookie."""
-
-    refresh_token: str = Field(min_length=1)
-
-
 class ProfileUpdate(AuthSchema):
     """Editable profile fields supplied by an authenticated user."""
 
     first_name: str = Field(min_length=1)
     last_name: str = Field(min_length=1)
-
-
-class CSRFTokenResponse(AuthSchema):
-    """Double-submit CSRF token value exposed to a browser client."""
-
-    csrf_token: str = Field(min_length=1)
 
 
 class CurrentSessionResponse(AuthSchema):

@@ -3,7 +3,9 @@
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.config import get_settings
 from src.middleware.error_handlers import register_error_handlers
+from src.middleware.request_body_limit import RequestBodyLimitMiddleware
 from src.routes.auth import router as auth_router
 from src.routes.business_audit import router as business_audit_router
 from src.routes.calendar import router as calendar_router
@@ -51,5 +53,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+app.add_middleware(
+    RequestBodyLimitMiddleware,
+    max_body_bytes=get_settings().request_body_max_bytes,
 )
 app.include_router(api_router)

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { isAbortError } from '@shared/api/errors'
 import useSuccessToast from '@shared/hooks/useSuccessToast'
 import { fetchCoaches } from '../api/coachApi'
 import type {
@@ -28,10 +29,6 @@ function compareCoaches(left: CoachResponse, right: CoachResponse) {
     left.first_name.localeCompare(right.first_name) ||
     left.id.localeCompare(right.id)
   )
-}
-
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === 'AbortError'
 }
 
 export default function useCoachDirectory() {

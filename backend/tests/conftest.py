@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, Mock
 from uuid import UUID, uuid4
@@ -18,7 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 os.environ["VKCA_ENV"] = "test"
 
 if TYPE_CHECKING:
-    from src.models.business_audit_event import BusinessAuditEvent
     from src.services.business_audit_service import (
         AuditActorContext,
         AuditTargetContext,
@@ -27,26 +25,6 @@ if TYPE_CHECKING:
 # Business-audit fixtures live in feature-specific modules. This marker keeps
 # future feature tests discoverable without altering security-audit fixtures.
 BUSINESS_AUDIT_FEATURE = "business-audit"
-
-
-@pytest.fixture
-def rag_fake_provider_config() -> dict[str, object]:
-    """Return deterministic provider settings without constructing a client."""
-
-    return {
-        "provider": "fake",
-        "model": "gemini-embedding-001",
-        "dimension": 1536,
-        "batch_size": 32,
-        "timeout_seconds": 30.0,
-    }
-
-
-@pytest.fixture
-def rag_isolated_state() -> dict[str, object]:
-    """Provide caller-owned state for RAG tests without shared persistence."""
-
-    return {"provider_calls": 0, "indexed_keys": set()}
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -116,49 +94,6 @@ def business_audit_target_factory() -> Callable[..., AuditTargetContext]:
             entity_type=entity_type,
             entity_id=entity_id or uuid4(),
             label=label,
-        )
-
-    return build
-
-
-@pytest.fixture
-def business_audit_event_factory() -> Callable[..., BusinessAuditEvent]:
-    """Build persisted-shape snapshots for filters and equal-time ordering."""
-
-    from src.enums import (
-        AuditActionCategory,
-        AuditActionType,
-        AuditEntityType,
-        UserRole,
-    )
-    from src.models.business_audit_event import BusinessAuditEvent
-
-    def build(
-        *,
-        event_id: UUID | None = None,
-        actor_user_id: UUID | None = None,
-        target_entity_id: UUID | None = None,
-        action_type: AuditActionType = AuditActionType.PLAYER_CREATED,
-        action_category: AuditActionCategory = AuditActionCategory.PLAYER,
-        target_entity_type: AuditEntityType = AuditEntityType.PLAYER,
-        created_at: datetime | None = None,
-        actor_display_name: str = "Historical Coach",
-        target_label: str = "Historical Player",
-    ) -> BusinessAuditEvent:
-        return BusinessAuditEvent(
-            id=event_id or uuid4(),
-            actor_user_id=actor_user_id or uuid4(),
-            actor_display_name=actor_display_name,
-            actor_role=UserRole.HEAD_COACH.value,
-            action_type=action_type.value,
-            action_category=action_category.value,
-            target_entity_type=target_entity_type.value,
-            target_entity_id=target_entity_id or uuid4(),
-            target_label=target_label,
-            summary=f"{actor_display_name} changed {target_label}",
-            event_metadata={},
-            created_at=created_at or datetime.now(UTC),
-            request_id=None,
         )
 
     return build

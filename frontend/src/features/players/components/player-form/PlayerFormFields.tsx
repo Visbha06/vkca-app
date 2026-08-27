@@ -9,6 +9,7 @@ import {
   PLAYER_TYPE_LABELS,
 } from '../../utils/playerLabels'
 import DateOfBirthPicker from '@shared/components/forms/date-of-birth/DateOfBirthPicker'
+import { PLAYER_BIO_MAX_LENGTH } from '../../playerResourceLimits'
 
 export interface PlayerFormValues {
   firstName: string
@@ -170,12 +171,19 @@ export default function PlayerFormFields({
         <textarea
           id="player-bio"
           rows={4}
+          maxLength={PLAYER_BIO_MAX_LENGTH}
           value={values.bio}
           disabled={disabled}
+          aria-invalid={errors.bio !== undefined}
+          aria-describedby={errors.bio ? 'player-bio-error' : 'player-bio-help'}
           className={`mt-2 py-3 ${inputClass}`}
           placeholder="Add coaching notes or a short player biography"
           onChange={(event) => onChange('bio', event.target.value)}
         />
+        <p id="player-bio-help" className="mt-2 text-sm text-slate-600">
+          Up to 2,000 characters.
+        </p>
+        <FieldError id="player-bio-error" message={errors.bio} />
       </div>
     </div>
   )

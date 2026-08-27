@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiClientError } from '@shared/api/client'
+import { isAbortError } from '@shared/api/errors'
 import {
   fetchEligiblePlayerAccounts,
   linkPlayerAccount,
@@ -19,10 +20,6 @@ interface DialogOptions {
   versionNumber: number
   currentAccount: PlayerAccountSnapshot | null
   onSaved: (association: PlayerAccountAssociationResponse) => void
-}
-
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === 'AbortError'
 }
 
 export default function usePlayerAccountDialog({

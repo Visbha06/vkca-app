@@ -11,7 +11,6 @@ import {
 
 const defaultAuthValue: AuthContextValue = {
   user: null,
-  accessToken: null,
   isAuthenticated: true,
   isInitializing: false,
   isLoginPending: false,

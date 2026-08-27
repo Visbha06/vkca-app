@@ -333,7 +333,11 @@ test.describe('calendar coach lifecycle', () => {
       editDialog.getByRole('radio', { name: 'This occurrence only' }),
     ).toBeChecked()
     await editDialog.getByLabel('Event name').fill('E2E moved occurrence')
-    await editDialog.getByLabel('Academy date').fill('2026-08-13')
+    await editDialog.getByRole('button', { name: 'Academy date' }).click()
+    await page
+      .getByRole('dialog', { name: 'Choose academy date, August 2026' })
+      .getByRole('gridcell', { name: 'Thursday, August 13, 2026' })
+      .click()
     await editDialog.getByRole('button', { name: 'Save changes' }).click()
 
     await expect(

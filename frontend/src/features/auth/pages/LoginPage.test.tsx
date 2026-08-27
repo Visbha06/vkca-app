@@ -21,7 +21,6 @@ function renderLogin(
 ) {
   const value: AuthContextValue = {
     user: null,
-    accessToken: null,
     isAuthenticated: false,
     isInitializing: false,
     isLoginPending: false,

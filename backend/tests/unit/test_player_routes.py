@@ -8,6 +8,7 @@ import httpx
 import pytest
 import pytest_asyncio
 
+from src.config import DEFAULT_REQUEST_BODY_MAX_BYTES
 from src.database import get_db
 from src.enums import BattingStyle, BowlingStyle, PlayerType, UserRole
 from src.main import app
@@ -113,6 +114,21 @@ async def test_create_player_returns_created_profile(client, service_mock) -> No
     assert result.status_code == 201
     assert result.json()["id"] == str(response.id)
     service_mock.create_player.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_oversized_player_request_is_rejected_before_persistence(
+    client, service_mock
+) -> None:
+    result = await client.post(
+        "/api/v1/players",
+        content=b"x" * (DEFAULT_REQUEST_BODY_MAX_BYTES + 1),
+        headers={"content-type": "application/json"},
+    )
+
+    assert result.status_code == 413
+    assert result.json() == {"detail": "Request body is too large."}
+    service_mock.create_player.assert_not_awaited()
 
 
 @pytest.mark.asyncio

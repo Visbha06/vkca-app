@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import DateOfBirthPicker from '@shared/components/forms/date-of-birth/DateOfBirthPicker'
 import type {
   CalendarEventCreatePayload,
   EventType,
@@ -51,6 +52,7 @@ export default function EventForm({
   const [errors, setErrors] = useState<CalendarFormErrors>({})
   const formRef = useRef<HTMLFormElement>(null)
   const controlsDisabled = isSubmitting || isBlocked
+  const latestAcademyDate = `${Number(academyToday.slice(0, 4)) + 100}-12-31`
   const initialFingerprint = useMemo(
     () => JSON.stringify(initialValues),
     [initialValues],
@@ -124,20 +126,23 @@ export default function EventForm({
             <option value="miscellaneous">Miscellaneous</option>
           </select>
         </label>
-        <label className="text-sm font-semibold text-slate-800">
-          Academy date
-          <input
-            type="date"
-            min={academyToday}
+        <div className="text-sm font-semibold text-slate-800">
+          <label htmlFor="calendar-event-date">Academy date</label>
+          <DateOfBirthPicker
+            id="calendar-event-date"
+            label="academy date"
             value={values.event_date}
             disabled={controlsDisabled}
-            aria-invalid={errors.event_date !== undefined}
-            aria-describedby={errors.event_date ? 'calendar-date-error' : undefined}
-            className={inputClassName}
-            onChange={(event) => replace({ ...values, event_date: event.target.value })}
+            earliest={academyToday}
+            latest={latestAcademyDate}
+            error={errors.event_date}
+            errorId="calendar-date-error"
+            onChange={(eventDate) =>
+              replace({ ...values, event_date: eventDate })
+            }
           />
           {errors.event_date ? <span id="calendar-date-error" className="mt-1 block text-sm text-red-800">{errors.event_date}</span> : null}
-        </label>
+        </div>
       </div>
       <label className="block text-sm font-semibold text-slate-800">
         Event name

@@ -42,7 +42,6 @@ function makeAuthValue(
 ): AuthContextValue {
   return {
     user: authenticatedUser,
-    accessToken: 'test-token',
     isAuthenticated: true,
     isInitializing: false,
     isLoginPending: false,

@@ -18,50 +18,14 @@ from src.enums import UserRole
 from src.main import app
 from src.models.auth_audit_log import AuthAuditLog
 from src.models.auth_session import AuthSession
-from src.models.calendar import OccurrenceException, RecurrenceSeries
-from src.models.player import Player
-from src.models.team import Team
-from src.models.team_coach import TeamCoach
-from src.models.team_player import TeamPlayer
 from src.models.user import User
 from src.services.password_service import PasswordService
 from tests.data_quality_builders import (
     PersistedQualityDataBuilder,
     assert_projection_query_count,
-    build_quality_calendar_exception,
-    build_quality_calendar_series,
-    build_quality_coach,
-    build_quality_coach_assignment,
-    build_quality_player,
     build_quality_projection_session,
-    build_quality_roster_membership,
-    build_quality_team,
 )
 from tests.database_safety import assert_safe_test_database_url
-from tests.integration.role_aware_dashboard_fixtures import (
-    build_role_aware_calendar_occurrence,
-    build_role_aware_dashboard_seed,
-    build_role_aware_internal_match,
-    build_role_aware_isolated_session,
-    build_role_aware_linked_account,
-    build_role_aware_match,
-    build_role_aware_membership,
-    build_role_aware_player,
-    build_role_aware_team,
-)
-
-
-@pytest.fixture
-def rag_integration_provider_config() -> dict[str, object]:
-    """Expose the fake-provider seam used by isolated RAG integration tests."""
-
-    return {
-        "provider": "fake",
-        "model": "gemini-embedding-001",
-        "dimension": 1536,
-        "batch_size": 32,
-        "timeout_seconds": 30.0,
-    }
 
 
 @dataclass(slots=True)
@@ -166,19 +130,6 @@ async def isolated_test_database() -> AsyncIterator[None]:
                 )
 
 
-@pytest_asyncio.fixture
-async def business_audit_transaction_session() -> AsyncIterator[AsyncSession]:
-    """Yield a caller-owned transaction for flush/rollback audit assertions."""
-
-    async with AsyncSessionFactory() as session:
-        transaction = await session.begin()
-        try:
-            yield session
-        finally:
-            if transaction.is_active:
-                await transaction.rollback()
-
-
 @pytest.fixture
 def background_session_factory():
     """Expose sequential cross-session boundaries on the isolated connection."""
@@ -232,55 +183,6 @@ async def authenticated_client(
 
 
 @pytest.fixture
-def quality_player_builder() -> Callable[..., Player]:
-    """Expose isolated player records for integration datasets."""
-
-    return build_quality_player
-
-
-@pytest.fixture
-def quality_team_builder() -> Callable[..., Team]:
-    """Expose isolated team records for integration datasets."""
-
-    return build_quality_team
-
-
-@pytest.fixture
-def quality_roster_membership_builder() -> Callable[..., TeamPlayer]:
-    """Expose exact roster relationship records."""
-
-    return build_quality_roster_membership
-
-
-@pytest.fixture
-def quality_coach_builder() -> Callable[..., User]:
-    """Expose coach and invalid-role account records."""
-
-    return build_quality_coach
-
-
-@pytest.fixture
-def quality_coach_assignment_builder() -> Callable[..., TeamCoach]:
-    """Expose exact account/team assignment records."""
-
-    return build_quality_coach_assignment
-
-
-@pytest.fixture
-def quality_calendar_series_builder() -> Callable[..., RecurrenceSeries]:
-    """Expose recurrence series with complete owning events."""
-
-    return build_quality_calendar_series
-
-
-@pytest.fixture
-def quality_calendar_exception_builder() -> Callable[..., OccurrenceException]:
-    """Expose complete occurrence exception snapshots."""
-
-    return build_quality_calendar_exception
-
-
-@pytest.fixture
 def quality_projection_session_builder() -> Callable[..., AsyncMock]:
     """Expose fixed projection rows for service-level integration tests."""
 
@@ -302,13 +204,6 @@ def data_quality_query_counter() -> DataQualityQueryCounter:
 
 
 @pytest.fixture
-def role_aware_dashboard_seed():
-    """Expose the deterministic Phase 1 dashboard seed builders."""
-
-    return build_role_aware_dashboard_seed
-
-
-@pytest.fixture
 def role_aware_dashboard_query_counter() -> DataQualityQueryCounter:
     """Expose the engine-level SQL counter for dashboard tests."""
 
@@ -320,22 +215,6 @@ def role_aware_dashboard_query_count_assertion():
     """Expose the dashboard projection query-count assertion."""
 
     return assert_role_aware_dashboard_query_count
-
-
-@pytest.fixture
-def role_aware_dashboard_builders():
-    """Expose focused deterministic builders for future dashboard scenarios."""
-
-    return {
-        "team": build_role_aware_team,
-        "player": build_role_aware_player,
-        "membership": build_role_aware_membership,
-        "occurrence": build_role_aware_calendar_occurrence,
-        "match": build_role_aware_match,
-        "internal_match": build_role_aware_internal_match,
-        "linked_account": build_role_aware_linked_account,
-        "session": build_role_aware_isolated_session,
-    }
 
 
 @pytest_asyncio.fixture

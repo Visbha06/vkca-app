@@ -37,7 +37,6 @@ const baseUser: AuthUser = {
 function authValue(user: AuthUser): AuthContextValue {
   return {
     user,
-    accessToken: 'token',
     isAuthenticated: true,
     isInitializing: false,
     isLoginPending: false,

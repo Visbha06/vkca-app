@@ -92,7 +92,6 @@ function deferred<Value>() {
 function authValue(user: AuthUser): AuthContextValue {
   return {
     user,
-    accessToken: 'test-token',
     isAuthenticated: true,
     isInitializing: false,
     isLoginPending: false,

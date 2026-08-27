@@ -18,6 +18,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 ENVIRONMENT_SELECTOR = "VKCA_ENV"
 DEFAULT_ENV_FILE = ROOT_DIR / ".env"
 TEST_ENV_FILE = ROOT_DIR / ".env.test"
+DEFAULT_REQUEST_BODY_MAX_BYTES = 256 * 1_024
 
 
 def get_settings_env_file(environment: str | None = None) -> Path:
@@ -42,6 +43,13 @@ class Settings(BaseSettings):
     refresh_inactivity_days: int = 7
     password_min_length: int = 12
     password_max_length: int = 128
+    # Large enough for legitimate bounded batches, but low enough to prevent an
+    # authenticated request from consuming unbounded application memory.
+    request_body_max_bytes: int = Field(
+        default=DEFAULT_REQUEST_BODY_MAX_BYTES,
+        ge=16 * 1_024,
+        le=10 * 1_024 * 1_024,
+    )
 
     # Background processing settings. Resources are created by their runtime
     # boundaries, never while Settings is imported.

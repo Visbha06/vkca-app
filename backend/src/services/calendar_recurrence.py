@@ -15,6 +15,10 @@ class CalendarRangeError(ValueError):
     """Raised before recurrence expansion for an invalid requested range."""
 
 
+class CalendarRangeTooLargeError(CalendarRangeError):
+    """Raised when an inclusive calendar range exceeds the supported maximum."""
+
+
 class CalendarRecurrenceError(ValueError):
     """Raised when a persisted or requested recurrence rule is inconsistent."""
 
@@ -53,7 +57,7 @@ def validate_calendar_range(
         raise CalendarRangeError("Calendar range start must not follow its end.")
     date_count = (range_end - range_start).days + 1
     if date_count > maximum_dates:
-        raise CalendarRangeError(
+        raise CalendarRangeTooLargeError(
             f"Calendar ranges cannot exceed {maximum_dates} dates."
         )
     return date_count

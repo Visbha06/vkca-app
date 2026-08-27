@@ -41,6 +41,15 @@ Refresh sessions expire after seven days of inactivity or after a 30-day
 absolute lifetime. Password changes and account disablement revoke every
 active session belonging to the affected user.
 
+### Request-size boundary
+
+The FastAPI application rejects mutation request bodies larger than
+`REQUEST_BODY_MAX_BYTES` before route validation or persistence. The default is
+262,144 bytes (256 KiB), which is comfortably above the application's bounded
+JSON contracts. Production deployments should enforce the same or a stricter
+limit at their trusted reverse proxy so oversized bodies are rejected before
+they reach the application process.
+
 ### Roles
 
 | Role | Permissions |

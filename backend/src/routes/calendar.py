@@ -26,13 +26,15 @@ from src.schemas.calendar import (
     ExceptionRemovalWarningResponse,
 )
 from src.services.business_audit_service import AuditActorContext
-from src.services.calendar_recurrence import MAX_CALENDAR_RANGE_DATES
+from src.services.calendar_recurrence import (
+    CalendarRangeError,
+    CalendarRangeTooLargeError,
+    validate_calendar_range,
+)
 from src.services.calendar_service import (
     CalendarEventNotFoundError,
     CalendarExceptionRemovalRequiredError,
     CalendarMutationValidationError,
-    CalendarRangeError,
-    CalendarRangeTooLargeError,
     CalendarService,
     CalendarStaleVersionError,
 )
@@ -114,15 +116,8 @@ async def get_calendar_events(
 
     parsed_start = _parse_query_date(start_date)
     parsed_end = _parse_query_date(end_date)
-    if parsed_start > parsed_end:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Enter a valid academy date range.",
-        )
-    if (parsed_end - parsed_start).days + 1 > MAX_CALENDAR_RANGE_DATES:
-        return _range_error_response()
-
     try:
+        validate_calendar_range(parsed_start, parsed_end)
         return await CalendarService(session).get_range(parsed_start, parsed_end)
     except CalendarRangeTooLargeError:
         return _range_error_response()

@@ -52,6 +52,38 @@ function renderForm(
 afterEach(cleanup)
 
 describe('EventForm', () => {
+  it('uses the shared academy date picker and prevents past selection', () => {
+    const { onSubmit } = renderForm()
+    const academyDate = screen.getByRole('button', { name: 'Academy date' })
+
+    expect(academyDate).toHaveTextContent('August 5, 2026')
+    expect(document.querySelector('input[type="date"]')).not.toBeInTheDocument()
+
+    fireEvent.click(academyDate)
+    expect(
+      screen.getByRole('dialog', {
+        name: 'Choose academy date, August 2026',
+      }),
+    ).toBeVisible()
+    expect(
+      screen.getByRole('gridcell', {
+        name: 'Friday, July 31, 2026',
+      }),
+    ).toBeDisabled()
+
+    fireEvent.click(
+      screen.getByRole('gridcell', {
+        name: 'Thursday, August 6, 2026',
+      }),
+    )
+    expect(academyDate).toHaveTextContent('August 6, 2026')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save event' }))
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ event_date: '2026-08-06' }),
+    )
+  })
+
   it('validates required names, same-day times, past dates, and scope', () => {
     const { onSubmit } = renderForm(
       values({

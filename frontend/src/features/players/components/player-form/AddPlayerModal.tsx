@@ -66,7 +66,7 @@ export default function AddPlayerModal({
           <h2 id="add-player-title" className="text-2xl font-bold tracking-tight">
             Add player
           </h2>
-          <p id="add-player-description" className="mt-2 max-w-prose text-sm leading-6 text-slate-600">
+          <p id="add-player-description" className="mt-2 max-w-none text-sm leading-6 text-slate-600">
             Create an active player profile. Required fields are marked by validation when missing.
           </p>
         </header>

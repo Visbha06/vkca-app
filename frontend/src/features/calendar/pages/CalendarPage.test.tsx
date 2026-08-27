@@ -52,7 +52,6 @@ function authValue(role: 'head coach' | 'assistant coach' | 'player'): AuthConte
         expires_at: '2027-01-01T00:00:00Z',
       },
     },
-    accessToken: 'token',
     isAuthenticated: true,
     isInitializing: false,
     isLoginPending: false,

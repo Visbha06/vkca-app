@@ -147,11 +147,17 @@ Head Coach, Assistant Coach only.
 | `first_name` | string | Yes | 1–100 chars |
 | `last_name` | string | Yes | 1–100 chars |
 | `date_of_birth` | date | Yes | YYYY-MM-DD |
-| `bio` | string \| null | No | |
+| `bio` | string \| null | No | Maximum 2,000 characters |
 | `batting_style` | BattingStyle | Yes | `right` or `left` |
 | `bowling_style` | BowlingStyle | Yes | One of 8 values |
 | `player_type` | PlayerType | Yes | `batter`, `bowler`, `all-rounder`, `wicket-keeper` |
-| `player_metadata` | object | No | Defaults to `{}` |
+| `player_metadata` | object | No | Defaults to `{}`; bounded JSON (8 KiB, 4 container levels, 50 keys/object, 100 characters/key, 50 items/array, 2,000 characters/string) |
+
+These write bounds also apply to the update endpoint. Directory and detail
+responses preserve compliant values unchanged. For legacy rows that bypassed
+write validation, biographies are projected to their first 2,000 characters
+and non-compliant metadata is returned as `{}`. This response projection does
+not alter the stored row.
 
 ### Response: 201 Created
 

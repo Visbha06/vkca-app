@@ -41,6 +41,22 @@ afterEach(() => {
 })
 
 describe('BusinessAuditFilters date pickers', () => {
+  it('offers every player-account audit action', () => {
+    render(<FiltersHarness />)
+
+    const actionFilter = screen.getByLabelText('Action')
+    expect(actionFilter).toHaveDisplayValue('All actions')
+    expect(
+      screen.getByRole('option', { name: 'Player · Account Linked' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('option', { name: 'Player · Account Unlinked' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('option', { name: 'Player · Account Reassigned' }),
+    ).toBeInTheDocument()
+  })
+
   it('disables the top-level Clear filters action until a filter is active', () => {
     const { container } = render(<FiltersHarness />)
 

@@ -14,7 +14,6 @@ afterEach(() => {
 
 const baseAuthValue: AuthContextValue = {
   user: null,
-  accessToken: 'test-token',
   isAuthenticated: true,
   isInitializing: false,
   isLoginPending: false,
