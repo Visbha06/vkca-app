@@ -86,7 +86,7 @@ The environment examples contain all supported settings:
 | `BACKGROUND_RETRY_MAX_SECONDS` | `300` | Maximum backoff |
 | `BACKGROUND_RETRY_JITTER_SECONDS` | `5` | Maximum jitter |
 | `BACKGROUND_DISPATCH_BATCH_SIZE` | `50` | Claim batch bound |
-| `BACKGROUND_DISPATCH_POLL_SECONDS` | `5` | Worker dispatcher interval |
+| `BACKGROUND_DISPATCH_POLL_SECONDS` | `5` | Dispatcher polling interval |
 | `BACKGROUND_CLAIM_LEASE_SECONDS` | `120` | Recovery lease |
 | `BACKGROUND_COMPLETED_RETENTION_DAYS` | `7` | Completed-row retention |
 | `BACKGROUND_DEAD_RETENTION_DAYS` | `30` | Dead-row retention |
@@ -98,7 +98,7 @@ client.
 ## Local workflow
 
 From the repository root, start PostgreSQL and Redis, apply migrations, then
-run FastAPI and the dedicated worker in separate terminals:
+run FastAPI, the dispatcher, and the dedicated worker in separate terminals:
 
 ```bash
 docker compose up -d db redis
@@ -110,13 +110,20 @@ uv run uvicorn src.main:app --reload
 
 ```bash
 cd backend
+uv run python -m scripts.background_dispatcher
+```
+
+```bash
+cd backend
 uv run python -m scripts.background_worker
 ```
 
-Alternatively, `docker compose up -d db redis worker` runs the worker in
-Compose. Migration 015 must be deployed before an API or worker version that
-uses `background_work_items`. Stop services with `docker compose down`; Redis
-is disposable, while the PostgreSQL volume is retained unless `-v` is used.
+Alternatively, `docker compose up -d db redis dispatcher worker` runs the
+automatic PostgreSQL-to-Redis dispatcher and worker in Compose. Both services
+use the Docker-internal `db:5432` and `redis:6379` endpoints. Migration 015 must
+be deployed before an API, dispatcher, or worker version that uses
+`background_work_items`. Stop services with `docker compose down`; Redis is
+disposable, while the PostgreSQL volume is retained unless `-v` is used.
 
 ## Operator commands
 
