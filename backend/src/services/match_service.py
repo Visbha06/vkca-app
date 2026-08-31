@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.enums import MatchParticipantType
+from src.enums import MatchParticipantType, ScoringAuthority
 from src.models.match import Match
 from src.models.team import Team
 from src.schemas.match import (
@@ -15,6 +15,7 @@ from src.schemas.match import (
     MatchParticipantRequest,
     MatchUpdate,
 )
+from src.schemas.scoring import MatchConfigurationRequest, MatchConfigurationResponse
 from src.services.occ import check_and_increment_version
 from src.services.rag.contracts import (
     RagMutationImpact,
@@ -22,6 +23,7 @@ from src.services.rag.contracts import (
     RagMutationRef,
     RagMutationSource,
 )
+from src.services.scoring.errors import ScoringAuthorityError
 
 
 async def _stage_match_impact(session: AsyncSession, match_id: UUID) -> None:
@@ -111,7 +113,13 @@ class MatchService:
 
         statement = (
             select(Match)
-            .options(selectinload(Match.home_team), selectinload(Match.away_team))
+            .options(
+                selectinload(Match.home_team),
+                selectinload(Match.away_team),
+                selectinload(Match.scoring_policy),
+                selectinload(Match.scoring_sides),
+                selectinload(Match.scoring_participants),
+            )
             .where(Match.id == match_id)
         )
         match = (await self.session.scalars(statement)).one_or_none()
@@ -148,6 +156,12 @@ class MatchService:
             match = await self.session.get(Match, match_id)
             if match is None:
                 raise MatchNotFoundError
+            authority = match.scoring_authority or ScoringAuthority.LEGACY_AGGREGATE
+            if ScoringAuthority(authority) is ScoringAuthority.DELIVERY_HISTORY:
+                raise ScoringAuthorityError(
+                    "A configured scoring Match cannot be replaced through the "
+                    "legacy Match update route."
+                )
             participant_columns = await self._participant_columns(payload.participants)
             next_version = await check_and_increment_version(
                 self.session,
@@ -174,7 +188,37 @@ class MatchService:
 
         statement = (
             select(Match)
-            .options(selectinload(Match.home_team), selectinload(Match.away_team))
+            .options(
+                selectinload(Match.home_team),
+                selectinload(Match.away_team),
+                selectinload(Match.scoring_policy),
+                selectinload(Match.scoring_sides),
+                selectinload(Match.scoring_participants),
+            )
             .order_by(Match.match_date, Match.id)
         )
         return list((await self.session.scalars(statement)).all())
+
+    async def get_match(self, match_id: UUID) -> Match:
+        """Return one Match with legacy and locked scoring identities loaded."""
+
+        return await self._get_loaded_match(match_id)
+
+    async def configure_scoring(
+        self,
+        match_id: UUID,
+        payload: MatchConfigurationRequest,
+        authenticated_user,
+        *,
+        request_id: str | None = None,
+    ) -> MatchConfigurationResponse:
+        """Delegate configuration through the Match aggregate's scoring seam."""
+
+        from src.services.scoring.service import ScoringService
+
+        return await ScoringService(self.session).configure_match(
+            match_id,
+            payload,
+            authenticated_user,
+            request_id=request_id,
+        )

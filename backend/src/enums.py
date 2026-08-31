@@ -82,6 +82,7 @@ class AuditActionCategory(StrEnum):
     TEAM = "team"
     ROSTER = "roster"
     CALENDAR = "calendar"
+    SCORING = "scoring"
 
 
 class AuditEntityType(StrEnum):
@@ -93,6 +94,7 @@ class AuditEntityType(StrEnum):
     ROSTER = "roster"
     CALENDAR_EVENT = "calendar_event"
     RECURRENCE_SERIES = "recurrence_series"
+    MATCH = "match"
 
 
 class AuditActionType(StrEnum):
@@ -121,6 +123,7 @@ class AuditActionType(StrEnum):
     CALENDAR_OCCURRENCE_UPDATED = "calendar.occurrence_updated"
     CALENDAR_OCCURRENCE_MOVED = "calendar.occurrence_moved"
     CALENDAR_OCCURRENCE_DELETED = "calendar.occurrence_deleted"
+    SCORING_INITIALIZED = "scoring.initialized"
 
 
 class BattingStyle(StrEnum):

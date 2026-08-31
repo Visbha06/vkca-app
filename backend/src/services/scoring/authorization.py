@@ -9,6 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.enums import UserRole
+from src.models.player import Player
+from src.models.team_player import TeamPlayer
 from src.models.user import User
 from src.services.role_scope import (
     CurrentRoleTeamScope,
@@ -17,6 +19,7 @@ from src.services.role_scope import (
 from src.services.scoring.errors import (
     ScoringAuthenticationError,
     ScoringAuthorizationError,
+    ScoringValidationError,
     ScoringVisibilityError,
 )
 
@@ -104,6 +107,45 @@ class ScoringAuthorizationAdapter:
                 "The current account role is not eligible for Match scoring."
             ) from exc
         return ScoringCommandContext(user=user, role_scope=scope)
+
+    async def load_eligible_internal_players(
+        self,
+        player_team_assignments: dict[UUID, UUID],
+    ) -> dict[UUID, Player]:
+        """Resolve active Players whose current roster owns each requested ID."""
+
+        if not player_team_assignments:
+            return {}
+        rows = (
+            await self.session.execute(
+                select(Player, TeamPlayer.team_id)
+                .join(TeamPlayer, TeamPlayer.player_id == Player.id)
+                .where(
+                    Player.id.in_(player_team_assignments),
+                    Player.is_active.is_(True),
+                    TeamPlayer.team_id.in_(set(player_team_assignments.values())),
+                )
+            )
+        ).all()
+        eligible: dict[UUID, Player] = {}
+        for player, team_id in rows:
+            if player_team_assignments.get(player.id) == team_id:
+                eligible[player.id] = player
+        if set(eligible) != set(player_team_assignments):
+            raise ScoringValidationError(
+                "Every internal participant must be an active member of its "
+                "configured academy Team."
+            )
+        return eligible
+
+
+def require_configuration_scope(
+    context: ScoringCommandContext,
+    academy_team_ids: set[UUID],
+) -> None:
+    """Public policy seam for current role and Team configuration authority."""
+
+    context.require_mutation_scope(academy_team_ids)
 
 
 async def load_scoring_command_context(

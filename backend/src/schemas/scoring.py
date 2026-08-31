@@ -347,6 +347,7 @@ class MatchConfigurationRequest(StrictScoringRequest):
 
         seen_positions: set[tuple[MatchSideCode, int]] = set()
         seen_players: set[UUID] = set()
+        seen_external_names: set[tuple[MatchSideCode, str]] = set()
         participant_counts = {code: 0 for code in side_by_code}
         for participant in self.participants:
             side = side_by_code.get(participant.side_code)
@@ -371,6 +372,16 @@ class MatchConfigurationRequest(StrictScoringRequest):
                 if participant.player_id in seen_players:
                     raise ValueError("one academy Player cannot represent both sides")
                 seen_players.add(participant.player_id)
+            elif participant.display_name is not None:
+                external_key = (
+                    participant.side_code,
+                    participant.display_name.casefold(),
+                )
+                if external_key in seen_external_names:
+                    raise ValueError(
+                        "external participant names must be unique within a side"
+                    )
+                seen_external_names.add(external_key)
             participant_counts[participant.side_code] += 1
         if any(count == 0 for count in participant_counts.values()):
             raise ValueError("each side requires at least one participant")

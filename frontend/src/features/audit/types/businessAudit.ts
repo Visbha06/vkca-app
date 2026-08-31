@@ -9,6 +9,7 @@ export const BUSINESS_AUDIT_CATEGORIES = [
   'team',
   'roster',
   'calendar',
+  'scoring',
 ] as const satisfies readonly BusinessAuditCategory[]
 
 export type BusinessAuditEntityType =
@@ -21,6 +22,7 @@ export const BUSINESS_AUDIT_ENTITY_TYPES = [
   'roster',
   'calendar_event',
   'recurrence_series',
+  'match',
 ] as const satisfies readonly BusinessAuditEntityType[]
 
 export type BusinessAuditActionType =
@@ -50,6 +52,7 @@ const BUSINESS_AUDIT_ACTION_ORDER = {
   'calendar.occurrence_updated': true,
   'calendar.occurrence_moved': true,
   'calendar.occurrence_deleted': true,
+  'scoring.initialized': true,
 } satisfies Record<BusinessAuditActionType, true>
 
 export const BUSINESS_AUDIT_ACTION_TYPES = Object.keys(
@@ -91,6 +94,10 @@ export type SafeBusinessAuditMetadata = GeneratedBusinessAuditMetadata & {
   replacement_date?: string
   account_user_id?: string
   previous_account_user_id?: string
+  capability_profile?: string
+  capability_version?: number
+  innings_sequence?: BusinessAuditMetadataScalar[]
+  participant_count?: number
 }
 
 export interface BusinessAuditEvent

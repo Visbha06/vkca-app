@@ -18,6 +18,16 @@ from src.services.scoring.errors import (
     ScoringValidationError,
     ScoringVisibilityError,
 )
+from src.services.scoring.policy import (
+    FormatCapability,
+    resolve_capability_profile,
+    resolve_format_capability,
+)
+from src.services.scoring.service import (
+    ScoringService,
+    configure_match,
+    configure_scoring,
+)
 
 __all__ = [
     "ScoringAuthenticationError",
@@ -33,5 +43,11 @@ __all__ = [
     "ScoringSequenceError",
     "ScoringValidationError",
     "ScoringVisibilityError",
+    "ScoringService",
+    "configure_match",
+    "configure_scoring",
+    "FormatCapability",
     "load_scoring_command_context",
+    "resolve_capability_profile",
+    "resolve_format_capability",
 ]

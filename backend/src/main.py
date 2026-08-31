@@ -12,6 +12,7 @@ from src.routes.calendar import router as calendar_router
 from src.routes.coaches import router as coaches_router
 from src.routes.dashboard import router as dashboard_router
 from src.routes.data_quality import router as data_quality_router
+from src.routes.match_scoring import match_scoring_router
 from src.routes.matches import router as matches_router
 from src.routes.performances import router as performances_router
 from src.routes.players import router as players_router
@@ -29,6 +30,7 @@ api_router.include_router(coaches_router)
 api_router.include_router(data_quality_router)
 api_router.include_router(dashboard_router)
 api_router.include_router(matches_router)
+api_router.include_router(match_scoring_router)
 api_router.include_router(performances_router)
 api_router.include_router(players_router)
 api_router.include_router(rag_router)

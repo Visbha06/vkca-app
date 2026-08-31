@@ -184,6 +184,35 @@ class BusinessAuditService:
         await self.session.flush()
         return event
 
+    async def record_scoring_initialization(
+        self,
+        *,
+        actor: AuditActorContext,
+        match_id: UUID,
+        match_label: str,
+        capability_profile: str,
+        capability_version: int,
+        innings_sequence: Sequence[str],
+        participant_count: int,
+    ) -> BusinessAuditEvent:
+        """Stage the allowlisted scoring lock event in the caller transaction."""
+
+        return await self.record(
+            actor=actor,
+            action_type=AuditActionType.SCORING_INITIALIZED,
+            target=AuditTargetContext(
+                entity_type=AuditEntityType.MATCH,
+                entity_id=match_id,
+                label=match_label,
+            ),
+            metadata={
+                "capability_profile": capability_profile,
+                "capability_version": capability_version,
+                "innings_sequence": list(innings_sequence),
+                "participant_count": participant_count,
+            },
+        )
+
     async def list_events(
         self,
         query: BusinessAuditQuery,

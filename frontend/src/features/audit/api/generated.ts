@@ -73,19 +73,19 @@ export interface components {
          * @description Business domains represented in the academy activity history.
          * @enum {string}
          */
-        AuditActionCategory: "coach" | "player" | "team" | "roster" | "calendar";
+        AuditActionCategory: "coach" | "player" | "team" | "roster" | "calendar" | "scoring";
         /**
          * AuditActionType
          * @description Stable identifiers for the initial business-audit action catalogue.
          * @enum {string}
          */
-        AuditActionType: "coach.created" | "coach.activated" | "coach.deactivated" | "coach.team_assignments_updated" | "player.created" | "player.updated" | "player.account_linked" | "player.account_unlinked" | "player.account_reassigned" | "team.created" | "team.updated" | "roster.added" | "roster.removed" | "roster.reordered" | "calendar.standalone_created" | "calendar.standalone_updated" | "calendar.standalone_deleted" | "calendar.series_created" | "calendar.series_updated" | "calendar.series_deleted" | "calendar.occurrence_updated" | "calendar.occurrence_moved" | "calendar.occurrence_deleted";
+        AuditActionType: "coach.created" | "coach.activated" | "coach.deactivated" | "coach.team_assignments_updated" | "player.created" | "player.updated" | "player.account_linked" | "player.account_unlinked" | "player.account_reassigned" | "team.created" | "team.updated" | "roster.added" | "roster.removed" | "roster.reordered" | "calendar.standalone_created" | "calendar.standalone_updated" | "calendar.standalone_deleted" | "calendar.series_created" | "calendar.series_updated" | "calendar.series_deleted" | "calendar.occurrence_updated" | "calendar.occurrence_moved" | "calendar.occurrence_deleted" | "scoring.initialized";
         /**
          * AuditEntityType
          * @description Historical target kinds supported by the business-audit feed.
          * @enum {string}
          */
-        AuditEntityType: "coach" | "player" | "team" | "roster" | "calendar_event" | "recurrence_series";
+        AuditEntityType: "coach" | "player" | "team" | "roster" | "calendar_event" | "recurrence_series" | "match";
         /**
          * BusinessAuditActorOption
          * @description One historical actor snapshot available as a bounded filter option.

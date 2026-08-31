@@ -170,6 +170,19 @@ ACTION_REGISTRY: dict[AuditActionType, AuditActionDefinition] = {
         "{actor} deleted an occurrence of {target}",
         frozenset({"original_date"}),
     ),
+    AuditActionType.SCORING_INITIALIZED: AuditActionDefinition(
+        AuditActionCategory.SCORING,
+        AuditEntityType.MATCH,
+        "{actor} initialized scoring for {target}",
+        frozenset(
+            {
+                "capability_profile",
+                "capability_version",
+                "innings_sequence",
+                "participant_count",
+            }
+        ),
+    ),
 }
 
 

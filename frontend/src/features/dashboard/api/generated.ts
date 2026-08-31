@@ -55,7 +55,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get Match
+         * @description Read one Match after applying current database Team scope.
+         */
+        get: operations["get_match_api_v1_matches__match_id__get"];
         /**
          * Update Match
          * @description Completely replace a Match when the submitted version remains current.
@@ -151,19 +155,19 @@ export interface components {
          * @description Business domains represented in the academy activity history.
          * @enum {string}
          */
-        AuditActionCategory: "coach" | "player" | "team" | "roster" | "calendar";
+        AuditActionCategory: "coach" | "player" | "team" | "roster" | "calendar" | "scoring";
         /**
          * AuditActionType
          * @description Stable identifiers for the initial business-audit action catalogue.
          * @enum {string}
          */
-        AuditActionType: "coach.created" | "coach.activated" | "coach.deactivated" | "coach.team_assignments_updated" | "player.created" | "player.updated" | "player.account_linked" | "player.account_unlinked" | "player.account_reassigned" | "team.created" | "team.updated" | "roster.added" | "roster.removed" | "roster.reordered" | "calendar.standalone_created" | "calendar.standalone_updated" | "calendar.standalone_deleted" | "calendar.series_created" | "calendar.series_updated" | "calendar.series_deleted" | "calendar.occurrence_updated" | "calendar.occurrence_moved" | "calendar.occurrence_deleted";
+        AuditActionType: "coach.created" | "coach.activated" | "coach.deactivated" | "coach.team_assignments_updated" | "player.created" | "player.updated" | "player.account_linked" | "player.account_unlinked" | "player.account_reassigned" | "team.created" | "team.updated" | "roster.added" | "roster.removed" | "roster.reordered" | "calendar.standalone_created" | "calendar.standalone_updated" | "calendar.standalone_deleted" | "calendar.series_created" | "calendar.series_updated" | "calendar.series_deleted" | "calendar.occurrence_updated" | "calendar.occurrence_moved" | "calendar.occurrence_deleted" | "scoring.initialized";
         /**
          * AuditEntityType
          * @description Historical target kinds supported by the business-audit feed.
          * @enum {string}
          */
-        AuditEntityType: "coach" | "player" | "team" | "roster" | "calendar_event" | "recurrence_series";
+        AuditEntityType: "coach" | "player" | "team" | "roster" | "calendar_event" | "recurrence_series" | "match";
         /**
          * AuditLogResponse
          * @description Public audit metadata available to authenticated head coaches.
@@ -293,6 +297,28 @@ export interface components {
          * @enum {string}
          */
         BattingStyle: "right" | "left";
+        /**
+         * BlockingReasonCode
+         * @description Bounded reason codes paired with non-``none`` blocking states.
+         * @enum {string}
+         */
+        BlockingReasonCode: "innings_not_started" | "next_batter_required" | "next_bowler_required" | "no_eligible_bowler" | "incompatible_replay" | "innings_completed" | "match_completed" | "match_abandoned";
+        /**
+         * BlockingStateKind
+         * @description Canonical read-only scoring progression states.
+         * @enum {string}
+         */
+        BlockingStateKind: "none" | "innings_not_started" | "awaiting_next_batter" | "awaiting_next_bowler" | "reconciliation_required" | "innings_completed" | "match_completed" | "match_abandoned";
+        /**
+         * BlockingStateResponse
+         * @description Canonical read-only progression blocker.
+         */
+        BlockingStateResponse: {
+            /** Is Blocked */
+            is_blocked: boolean;
+            kind: components["schemas"]["BlockingStateKind"];
+            reason_code: components["schemas"]["BlockingReasonCode"] | null;
+        };
         /**
          * BowlingPerformance
          * @description Optional bowling metrics for one player in one match.
@@ -995,7 +1021,7 @@ export interface components {
              * Format: date
              */
             match_date: string;
-            participants: components["schemas"]["MatchParticipantResponse"];
+            participants: components["schemas"]["src__schemas__match__MatchParticipantResponse"];
         };
         /**
          * DashboardMyTeams
@@ -1291,6 +1317,12 @@ export interface components {
          */
         EventType: "practice" | "game" | "miscellaneous";
         /**
+         * ExplicitMatchCompletionBoundary
+         * @description Points where a capability may accept explicit Match completion.
+         * @enum {string}
+         */
+        ExplicitMatchCompletionBoundary: "none" | "after_completed_innings" | "any_nonterminal_state";
+        /**
          * ExternalMatchParticipantRequest
          * @description One academy Team playing a named external opponent.
          */
@@ -1360,11 +1392,29 @@ export interface components {
              */
             stumpings: number;
         };
+        /**
+         * FormatCapabilityProfile
+         * @description Canonical immutable scoring-capability profile identifiers.
+         * @enum {string}
+         */
+        FormatCapabilityProfile: "T20" | "one-day" | "test" | "other";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * InningsCompletionMode
+         * @description Capability-listed ways an Innings may complete.
+         * @enum {string}
+         */
+        InningsCompletionMode: "all_out" | "legal_ball_limit" | "target_reached" | "declaration" | "manual";
+        /**
+         * InningsTransitionType
+         * @description Append-only scorer selections anchored in Innings history.
+         * @enum {string}
+         */
+        InningsTransitionType: "innings_started" | "next_batter" | "next_bowler" | "retired_hurt" | "retired_hurt_return" | "innings_completed";
         /**
          * InternalMatchParticipantRequest
          * @description Two academy Teams with explicit home and away sides.
@@ -1410,6 +1460,49 @@ export interface components {
             password: string;
         };
         /**
+         * MatchCompletionMode
+         * @description Supported Match-level completion commands.
+         * @enum {string}
+         */
+        MatchCompletionMode: "derived_result" | "draw" | "declared" | "manual" | "abandonment";
+        /**
+         * MatchConfigurationRequest
+         * @description Atomic fixed-side, participant, and capability configuration command.
+         */
+        MatchConfigurationRequest: {
+            format: components["schemas"]["MatchFormat"];
+            /** Match Version Number */
+            match_version_number: number;
+            /** Participants */
+            participants: components["schemas"]["MatchParticipantConfigurationRequest"][];
+            policy: components["schemas"]["ScoringPolicyConfigurationRequest"];
+            /** Sides */
+            sides: components["schemas"]["MatchSideConfigurationRequest"][];
+        };
+        /** MatchConfigurationResponse */
+        MatchConfigurationResponse: {
+            blocking_state: components["schemas"]["BlockingStateResponse"];
+            /**
+             * Configured At
+             * Format: date-time
+             */
+            configured_at: string;
+            lifecycle_state: components["schemas"]["MatchLifecycleState"];
+            /**
+             * Match Id
+             * Format: uuid
+             */
+            match_id: string;
+            /** Match Version Number */
+            match_version_number: number;
+            /** Participants */
+            participants: components["schemas"]["src__schemas__scoring__MatchParticipantResponse"][];
+            policy: components["schemas"]["ScoringPolicyResponse"];
+            scoring_authority: components["schemas"]["ScoringAuthority"];
+            /** Sides */
+            sides: components["schemas"]["MatchSideResponse"][];
+        };
+        /**
          * MatchCreate
          * @description Payload for recording a cricket Match.
          */
@@ -1432,13 +1525,40 @@ export interface components {
          * @enum {string}
          */
         MatchFormat: "T20" | "one-day" | "test" | "other";
+        /**
+         * MatchLifecycleState
+         * @description Lifecycle values owned by the Match aggregate.
+         * @enum {string}
+         */
+        MatchLifecycleState: "scheduled" | "in_progress" | "completed" | "abandoned" | "correction_reprocessing";
+        /**
+         * MatchParticipantConfigurationRequest
+         * @description Minimal fixed participant identity; account fields are not accepted.
+         */
+        MatchParticipantConfigurationRequest: {
+            /** Batting Order Position */
+            batting_order_position: number;
+            /** Display Name */
+            display_name?: string | null;
+            participant_kind: components["schemas"]["MatchParticipantKind"];
+            /** Player Id */
+            player_id?: string | null;
+            side_code: components["schemas"]["MatchSideCode"];
+        };
+        /**
+         * MatchParticipantKind
+         * @description Identity source for one fixed Match participant.
+         * @enum {string}
+         */
+        MatchParticipantKind: "internal" | "external";
         MatchParticipantRequest: components["schemas"]["ExternalMatchParticipantRequest"] | components["schemas"]["InternalMatchParticipantRequest"];
-        MatchParticipantResponse: components["schemas"]["ExternalMatchParticipantResponse"] | components["schemas"]["InternalMatchParticipantResponse"];
         /**
          * MatchResponse
          * @description Complete server-managed Match representation.
          */
         MatchResponse: {
+            /** Configured At */
+            configured_at?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -1450,14 +1570,31 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Innings Sequence */
+            innings_sequence?: string[];
+            /** @default scheduled */
+            lifecycle_state: components["schemas"]["MatchLifecycleState"];
             /**
              * Match Date
              * Format: date
              */
             match_date: string;
-            participants: components["schemas"]["MatchParticipantResponse"];
+            participants: components["schemas"]["src__schemas__match__MatchParticipantResponse"];
             /** Result */
             result: string;
+            /** @default pending */
+            result_code: components["schemas"]["MatchResultCode"];
+            /** Result Details */
+            result_details?: {
+                [key: string]: unknown;
+            };
+            /** @default legacy_aggregate */
+            scoring_authority: components["schemas"]["ScoringAuthority"];
+            /** Scoring Participants */
+            scoring_participants?: components["schemas"]["src__schemas__scoring__MatchParticipantResponse"][];
+            scoring_policy?: components["schemas"]["ScoringPolicyResponse"] | null;
+            /** Scoring Sides */
+            scoring_sides?: components["schemas"]["MatchSideResponse"][];
             /**
              * Updated At
              * Format: date-time
@@ -1467,6 +1604,50 @@ export interface components {
             venue: string;
             /** Version Number */
             version_number: number;
+        };
+        /**
+         * MatchResultCode
+         * @description Canonical non-terminal and terminal Match result codes.
+         * @enum {string}
+         */
+        MatchResultCode: "pending" | "win_by_runs" | "win_by_wickets" | "tie" | "draw" | "no_result" | "declared" | "manual";
+        /**
+         * MatchSideCode
+         * @description Stable side positions retained from the existing Match boundary.
+         * @enum {string}
+         */
+        MatchSideCode: "home" | "away";
+        /**
+         * MatchSideConfigurationRequest
+         * @description One academy or external side supplied during atomic configuration.
+         */
+        MatchSideConfigurationRequest: {
+            /** Display Name */
+            display_name?: string | null;
+            side_code: components["schemas"]["MatchSideCode"];
+            side_kind: components["schemas"]["MatchSideKind"];
+            /** Team Id */
+            team_id?: string | null;
+        };
+        /**
+         * MatchSideKind
+         * @description Identity source for one configured Match side.
+         * @enum {string}
+         */
+        MatchSideKind: "academy" | "external";
+        /** MatchSideResponse */
+        MatchSideResponse: {
+            /** Display Name Snapshot */
+            display_name_snapshot: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            side_code: components["schemas"]["MatchSideCode"];
+            side_kind: components["schemas"]["MatchSideKind"];
+            /** Team Id */
+            team_id: string | null;
         };
         /**
          * MatchTeamReference
@@ -1737,7 +1918,11 @@ export interface components {
         };
         /**
          * PlayerResponse
-         * @description Complete server-managed player representation.
+         * @description Complete player projection with bounds for legacy oversized rows.
+         *
+         *     Valid stored values are returned unchanged. Legacy biographies are projected
+         *     to their first 2,000 characters, while legacy metadata that violates current
+         *     write bounds is represented as an empty object. Reads never mutate storage.
          */
         PlayerResponse: {
             batting_style: components["schemas"]["BattingStyle"];
@@ -1851,6 +2036,61 @@ export interface components {
          * @enum {string}
          */
         QualitySeverity: "critical" | "warning" | "info";
+        /**
+         * RagRetrievalErrorResponse
+         * @description Sanitized API error envelope.
+         */
+        RagRetrievalErrorResponse: {
+            /** Detail */
+            detail: string;
+        };
+        /**
+         * RagRetrievalProvenance
+         * @description Allowlisted source identity required for future citations.
+         */
+        RagRetrievalProvenance: {
+            /** Source Entity Id */
+            source_entity_id?: string | null;
+            /** Source Type */
+            source_type: string;
+        };
+        /**
+         * RagRetrievalResponse
+         * @description Bounded retrieval response envelope.
+         */
+        RagRetrievalResponse: {
+            /** Limit */
+            limit: number;
+            /** Results */
+            results?: components["schemas"]["RagRetrievalResult"][];
+            /** Returned Count */
+            returned_count: number;
+        };
+        /**
+         * RagRetrievalResult
+         * @description Safe result metadata without vectors or provider response details.
+         */
+        RagRetrievalResult: {
+            /**
+             * Chunk Id
+             * Format: uuid
+             */
+            chunk_id: string;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            provenance: components["schemas"]["RagRetrievalProvenance"];
+            /** Score */
+            score: number;
+            /** Source Key */
+            source_key: string;
+            /** Source Type */
+            source_type: string;
+            /** Text */
+            text: string;
+        };
         /**
          * RecentBusinessAuditResponse
          * @description At most four events for Head Coach dashboard activity.
@@ -2057,6 +2297,120 @@ export interface components {
          * @enum {string}
          */
         ScopeKind: "age_group" | "all_academy";
+        /**
+         * ScoringAuthority
+         * @description Authoritative source used for a Match's scoring figures.
+         * @enum {string}
+         */
+        ScoringAuthority: "legacy_aggregate" | "delivery_history";
+        /**
+         * ScoringDismissalType
+         * @description Current public scoring dismissal vocabulary.
+         *
+         *     Reserved future dismissals are deliberately absent so schema parsing fails
+         *     closed until a later capability version introduces them.
+         * @enum {string}
+         */
+        ScoringDismissalType: "bowled" | "caught" | "caught_and_bowled" | "lbw" | "run_out" | "stumped" | "hit_wicket" | "retired_out";
+        /**
+         * ScoringPolicyConfigurationRequest
+         * @description Capability selection plus only the policy values a profile permits.
+         */
+        ScoringPolicyConfigurationRequest: {
+            /** Allow Declaration */
+            allow_declaration?: boolean | null;
+            /** Allow Draw */
+            allow_draw?: boolean | null;
+            /** Allow Manual Completion */
+            allow_manual_completion?: boolean | null;
+            /** Allowed Dismissal Types */
+            allowed_dismissal_types?: components["schemas"]["ScoringDismissalType"][] | null;
+            /** Allowed Innings Completion Modes */
+            allowed_innings_completion_modes?: components["schemas"]["InningsCompletionMode"][] | null;
+            /** Allowed Match Completion Modes */
+            allowed_match_completion_modes?: components["schemas"]["MatchCompletionMode"][] | null;
+            /** Allowed Result Codes */
+            allowed_result_codes?: components["schemas"]["MatchResultCode"][] | null;
+            /** Allowed Transition Types */
+            allowed_transition_types?: components["schemas"]["InningsTransitionType"][] | null;
+            /** Bowler Quota Legal Balls */
+            bowler_quota_legal_balls?: number | null;
+            capability_profile: components["schemas"]["FormatCapabilityProfile"];
+            /**
+             * Capability Version
+             * @default 1
+             */
+            capability_version: number;
+            /** Consecutive Overs Prohibited */
+            consecutive_overs_prohibited?: boolean | null;
+            explicit_match_completion_boundary?: components["schemas"]["ExplicitMatchCompletionBoundary"] | null;
+            /** Innings Per Side */
+            innings_per_side?: number | null;
+            /** Innings Sequence */
+            innings_sequence: components["schemas"]["MatchSideCode"][];
+            /** Legal Ball Limit */
+            legal_ball_limit?: number | null;
+            /** Over Length Legal Balls */
+            over_length_legal_balls?: number | null;
+            policy_code: components["schemas"]["MatchFormat"];
+            target_mode?: components["schemas"]["TargetMode"] | null;
+            /** Wicket Limit */
+            wicket_limit?: number | null;
+        };
+        /** ScoringPolicyResponse */
+        ScoringPolicyResponse: {
+            /** Allow Declaration */
+            allow_declaration: boolean;
+            /** Allow Draw */
+            allow_draw: boolean;
+            /** Allow Manual Completion */
+            allow_manual_completion: boolean;
+            /** Allowed Dismissal Types */
+            allowed_dismissal_types: components["schemas"]["ScoringDismissalType"][];
+            /** Allowed Innings Completion Modes */
+            allowed_innings_completion_modes: components["schemas"]["InningsCompletionMode"][];
+            /** Allowed Match Completion Modes */
+            allowed_match_completion_modes: components["schemas"]["MatchCompletionMode"][];
+            /** Allowed Result Codes */
+            allowed_result_codes: components["schemas"]["MatchResultCode"][];
+            /** Allowed Transition Types */
+            allowed_transition_types: components["schemas"]["InningsTransitionType"][];
+            /** Bowler Quota Legal Balls */
+            bowler_quota_legal_balls?: number | null;
+            capability_profile: components["schemas"]["FormatCapabilityProfile"];
+            /** Capability Version */
+            capability_version: number;
+            /** Consecutive Overs Prohibited */
+            consecutive_overs_prohibited: boolean;
+            explicit_match_completion_boundary: components["schemas"]["ExplicitMatchCompletionBoundary"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Innings Per Side */
+            innings_per_side: number;
+            /** Innings Sequence */
+            innings_sequence: components["schemas"]["MatchSideCode"][];
+            /** Legal Ball Limit */
+            legal_ball_limit?: number | null;
+            /** Over Length Legal Balls */
+            over_length_legal_balls: number;
+            policy_code: components["schemas"]["MatchFormat"];
+            /** Policy Version */
+            policy_version: number;
+            target_mode: components["schemas"]["TargetMode"];
+            /** Version Number */
+            version_number: number;
+            /** Wicket Limit */
+            wicket_limit: number;
+        };
+        /**
+         * TargetMode
+         * @description Capability-defined target derivation behavior.
+         * @enum {string}
+         */
+        TargetMode: "prior_innings_plus_one" | "none";
         /**
          * TeamCreate
          * @description Validated payload for creating a complete team roster.
@@ -2273,6 +2627,27 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        src__schemas__match__MatchParticipantResponse: components["schemas"]["ExternalMatchParticipantResponse"] | components["schemas"]["InternalMatchParticipantResponse"];
+        /** MatchParticipantResponse */
+        src__schemas__scoring__MatchParticipantResponse: {
+            /** Batting Order Position */
+            batting_order_position: number;
+            /** Display Name Snapshot */
+            display_name_snapshot: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            participant_kind: components["schemas"]["MatchParticipantKind"];
+            /** Player Id */
+            player_id: string | null;
+            /**
+             * Side Id
+             * Format: uuid
+             */
+            side_id: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -2373,6 +2748,37 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_match_api_v1_matches__match_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                match_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
