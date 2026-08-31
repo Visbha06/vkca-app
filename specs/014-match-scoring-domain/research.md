@@ -54,8 +54,8 @@ Product scope deliberately excludes DLS, Super Over, automated umpiring, externa
 ### Policy
 
 - The T20 capability fixes one innings per side, six-ball overs, 120 legal balls, 24 legal balls per bowler, no consecutive overs by the same bowler, and ten wickets.
-- The one-day capability fixes one innings per side, six-ball overs, 300 legal balls, 60 legal balls per bowler, no consecutive overs by the same bowler, and ten wickets; configuration must carry those values and the service rejects mismatches.
-- The test capability fixes `[A, B, A, B]`, six-ball overs, ten wickets per innings, no innings limit, no target, no quota, and no consecutive-over restriction; declaration, draw, and manual Match completion are distinct policy paths.
+- The one-day capability fixes one innings per side, six-ball overs, no consecutive overs by the same bowler, and ten wickets. Configuration must supply a positive legal-ball limit divisible by 30; the service derives the quota as one fifth of that locked limit (for example, 240 legal balls yields a 48-ball quota) and rejects missing, non-whole-over, or client-supplied quota values.
+- The test capability fixes `[A, B, A, B]`, six-ball overs, ten wickets per innings, no innings limit, no target, no quota, and no consecutive overs by the same bowler; declaration, draw, and manual Match completion are distinct policy paths.
 - The other capability has no defaults and requires its innings sequence, over length, limits, quota, completion, dismissal, and transition sets before scoring.
 - Policy is locked before the first innings or delivery and is versioned for historical explanation.
 

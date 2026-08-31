@@ -44,6 +44,13 @@ also makes the Node configuration check strict while validating
 journey uses the existing authenticated request-level pattern and does not
 require new scorer screens.
 
+The shared 25-step journey remains canonical `T20` coverage. Focused backend
+policy tests additionally configure one-day with a 240-ball innings limit and
+verify its derived 48-ball quota, rejection of missing/non-divisible limits or
+client-supplied quotas, and Test next-bowler exclusion after every completed
+over. Neither focused fixture assumes a fixed one-day innings length or permits
+a Test bowler to take consecutive overs.
+
 ## Required 25-step acceptance flow
 
 Run each step once for the internal fixture and once for the external fixture.
@@ -117,7 +124,8 @@ while the API, domain, policy, and persisted format identifier is `T20`.
     records: ordinary delivery entry performed no provider/queue work;
     completion/correction work is bounded and coalesced; scoring findings are
     visible but read-only; Assistant Coach and Player requests for findings are
-    rejected with 403; meaningful commands have expected audit events; and the
+    rejected with 403; only allowlisted scoring commands have expected audit
+    events; and the
     external run created or exposed no User, Player, Team membership,
     career-stat, token, or raw unrestricted payload.
 

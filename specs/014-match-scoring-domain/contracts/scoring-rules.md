@@ -10,8 +10,8 @@ also the canonical API, domain, and persisted Match format value: `T20`,
 | Profile | Ordered innings | Innings legal-ball limit / over length | Bowler quota | Wicket limit | Consecutive-over rule | Declaration / draw / manual | Target | Explicit Match-completion boundary | Innings completion modes | Match completion modes / result codes |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `T20` | `[A, B]` | 120 / 6 legal balls | 24 legal balls | 10 | Prohibited | No / No / No | innings 2 = innings 1 total + 1 | None | `all_out`, `legal_ball_limit`, `target_reached` | Automatic `win_by_runs`, `win_by_wickets`, `tie`; Match `abandonment` → `no_result` |
-| `one-day` | `[A, B]` | exactly 300 / 6 legal balls | exactly 60 legal balls | 10 | Prohibited | No / No / No | innings 2 = innings 1 total + 1 | None | `all_out`, `legal_ball_limit`, `target_reached` | Automatic `win_by_runs`, `win_by_wickets`, `tie`; Match `abandonment` → `no_result` |
-| `test` | `[A, B, A, B]` | no innings limit / 6 legal balls | None | 10 | Allowed; no restriction | Yes / Yes / Yes | none | `after_completed_innings` before automatic result | `all_out`, `declaration` | Automatic after innings 4 `win_by_runs`/`tie`; explicit `draw`, `declared`, `manual`; Match `abandonment` → `no_result` |
+| `one-day` | `[A, B]` | policy-supplied positive multiple of 30 / 6 legal balls | derived as one fifth of the locked innings limit | 10 | Prohibited | No / No / No | innings 2 = innings 1 total + 1 | None | `all_out`, `legal_ball_limit`, `target_reached` | Automatic `win_by_runs`, `win_by_wickets`, `tie`; Match `abandonment` → `no_result` |
+| `test` | `[A, B, A, B]` | no innings limit / 6 legal balls | None | 10 | Prohibited | Yes / Yes / Yes | none | `after_completed_innings` before automatic result | `all_out`, `declaration` | Automatic after innings 4 `win_by_runs`/`tie`; explicit `draw`, `declared`, `manual`; Match `abandonment` → `no_result` |
 | `other` | policy-supplied sequence | policy-supplied over length; limit nullable | policy-supplied or none | policy-supplied | policy-supplied | No / No / Yes | none | Locked policy selects `after_completed_innings` or `any_nonterminal_state` | `manual` | `manual` → `manual`; Match `abandonment` → `no_result` |
 
 `A` and `B` in the table are positional placeholders. The locked persisted
@@ -21,6 +21,14 @@ not literal `A`/`B` values.
 `pending` is the non-terminal result code for every profile before Match
 completion. It is not a completion mode and cannot be submitted as a final
 result.
+
+For `one-day`, configuration supplies the legal-ball limit only. It must be a
+positive multiple of 30 so it represents complete six-ball overs and supports
+the initial quota policy. The server derives
+`bowler_quota_legal_balls = legal_ball_limit / 5`; for example, 240 legal balls
+resolves to 48 quota balls. A missing, non-divisible, or client-supplied quota
+fails validation. Test has no quota, but its immediately completed bowler is
+ineligible for the next over.
 
 The side at each sequence position bats and the other configured side fields.
 An incomplete or reconciliation-required innings blocks the next sequence
@@ -139,7 +147,7 @@ For a quota-bearing limited-overs policy:
 - A new over cannot use the previous over's bowler when consecutive overs are prohibited.
 - A no-ball or wide does not consume quota.
 - The next-bowler query reports eligibility and reason for exclusion.
-- An authorized, policy-approved override requires an explicit bounded reason and creates a meaningful audit event.
+- An authorized, policy-approved override requires an explicit bounded reason and creates no Business Audit event.
 
 Test/other formats without a quota require an explicit current bowler selection but do not invent a hidden quota.
 

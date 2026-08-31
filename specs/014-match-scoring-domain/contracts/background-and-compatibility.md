@@ -9,7 +9,7 @@ Every scoring command runs in one database transaction:
 3. Validate policy, lifecycle, fixed participants, and observed delivery facts.
 4. Insert immutable event/revision rows.
 5. Replay the affected innings and update derived projections.
-6. Write one meaningful Business Audit event for a command listed in the
+6. Write one allowlisted Business Audit event for a command listed in the
    Business Audit table; ordinary delivery, rejected, stale, and technical
    failure paths write none.
 7. Stage only allowed background/outbox work using bounded identifiers.
@@ -19,14 +19,15 @@ The ordinary delivery path does not call an external provider, publish a queue j
 
 ## Business Audit
 
-Extend the existing audit enums and registry with scoring actions. The initial meaningful actions are:
+Extend the existing audit enums and registry with the closed scoring allowlist:
 
 | Command | Audit behavior |
 |---|---|
 | Configure scoring policy and fixed participants | One event on success |
 | Start innings | One event on success |
-| Select next batter/bowler or approved quota override | One event on success |
-| Retired hurt/return or explicit manual completion | One event on success |
+| Select next batter/bowler or approved quota override | No event |
+| Retired hurt/return | No event |
+| Explicit manual completion | One event on success |
 | Complete innings or Match | One event on success |
 | Correct a delivery revision | One event on success, with bounded reason and revision IDs |
 | Ordinary delivery append | No event |
@@ -36,7 +37,7 @@ Audit target metadata contains Match/innings/delivery identifiers, action, actor
 
 ## Background and outbox
 
-Completion and correction may stage a coalesced Match scoring refresh through the existing transactional outbox. The payload contains only Match ID, affected innings ID, projection revision, and a bounded reason. The work item is idempotent and coalesces repeated refresh requests for the same stable source.
+Successful Match completion and material correction stage the same canonical coalesced Match scoring refresh through the existing transactional outbox. The payload contains only Match ID, affected innings ID, projection revision, and a bounded reason. The work item is idempotent and coalesces repeated refresh requests for the same stable source.
 
 The handler reloads committed Match and scoring projections at execution time. It never trusts mutation-time snapshots and never creates an ordinary-ball job. Retries are safe because the source and projection revision are stable and the operation is current-state based.
 

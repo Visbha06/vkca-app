@@ -61,11 +61,11 @@ Table: match_scoring_policies
 | capability_version | positive integer | Version of the normative capability matrix |
 | innings_sequence | ordered side-code list | `[A, B]` for T20/one-day, `[A, B, A, B]` for test, explicit for other |
 | innings_per_side | positive integer | 1 for T20/one-day, 2 for test, explicit for other |
-| legal_ball_limit | positive integer nullable | 120 for T20, 300 for one-day, null for test, explicit/null for other |
+| legal_ball_limit | positive integer nullable | 120 for T20; required positive multiple of 30 for one-day; null for test; explicit/null for other |
 | over_length_legal_balls | positive integer | 6 for T20, one-day, and test; explicit for other |
-| bowler_quota_legal_balls | positive integer nullable | 24 for T20, 60 for one-day, null for test, explicit/null for other |
+| bowler_quota_legal_balls | positive integer nullable | 24 for T20; server-derived as one fifth of the one-day legal-ball limit; null for test; explicit/null for other |
 | wicket_limit | positive integer | 10 for the initial profiles; explicit for other |
-| consecutive_overs_prohibited | boolean | True for T20/one-day, false for test, policy-supplied for other |
+| consecutive_overs_prohibited | boolean | True for T20, one-day, and test; policy-supplied for other |
 | target_mode | enum | `prior_innings_plus_one` for T20/one-day; `none` for test/other |
 | allowed_dismissal_types | bounded enum set | Core set for T20/one-day/test; policy-supplied for other |
 | allowed_transition_types | bounded enum set | Core retirement transitions for T20/one-day/test; policy-supplied for other |
@@ -90,12 +90,13 @@ transition types are capability-derived sets; the
 `explicit_match_completion_boundary` and `allow_*` fields are denormalized read
 fields and cannot contradict those sets. T20 is one innings
 per side, 120 legal balls in six-ball overs, 24 legal balls per bowler, and ten
-wickets. One-day is one innings per side, exactly 300 legal balls in six-ball
-overs, 60 legal balls per bowler, and ten wickets; those values must be present
-in the configuration request rather than inferred from an unversioned format
-string. Test is two innings per side in `[A, B, A, B]` order with six-ball
-overs, no innings limit, no target, no quota, ten wickets, declarations, draws,
-and manual Match completion. Other has no defaults and requires every sequence,
+wickets. One-day is one innings per side with a configuration-supplied positive
+legal-ball limit divisible by 30 in six-ball overs, a server-derived quota equal
+to one fifth of that limit, and ten wickets; the client supplies no separate
+quota and the limit is never inferred from an unversioned format string. Test
+is two innings per side in `[A, B, A, B]` order with six-ball overs, no innings
+limit, no target, no quota, ten wickets, consecutive-over prohibition,
+declarations, draws, and manual Match completion. Other has no defaults and requires every sequence,
 limit, quota, completion, dismissal, and transition policy before scoring. Its
 policy-supplied dismissal and transition sets may select only current public
 enum values; they cannot introduce a new runtime enum value or enable the

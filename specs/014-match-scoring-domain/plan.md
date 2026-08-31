@@ -155,9 +155,11 @@ boundary, and allowed result codes. It also uses the fixed
 `SCORING_RUN_COMPONENT_MAX` and `SCORING_RUN_TOTAL_MAX` constants from
 `spec.md`. The registry uses the existing canonical profiles: `T20` (`[A, B]`,
 120 legal balls in six-ball overs, 24 per bowler, ten wickets, automatic
-target), `one-day` (`[A, B]`, exactly 300 legal balls in six-ball overs, 60 per
-bowler, ten wickets, automatic target), `test` (`[A, B, A, B]`, six-ball overs,
-ten wickets, no innings limit/quota/target, declaration/draw/manual paths), and
+target), `one-day` (`[A, B]`, a policy-supplied positive legal-ball limit
+divisible by 30 in six-ball overs, one-fifth derived bowler quota, ten wickets,
+automatic target), `test` (`[A, B, A, B]`, six-ball overs, ten wickets, no
+innings limit/quota/target, consecutive-over prohibition,
+declaration/draw/manual paths), and
 `other` (all sequence and rule values supplied by policy and manual completion;
 Match-level abandonment supplies `no_result`). API schemas, policy validation, scoring rules, replay, and completion
 commands all consume this registry; no handler may infer format behavior from a

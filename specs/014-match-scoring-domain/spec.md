@@ -84,8 +84,8 @@ or academy/external.
 | Match format | Required innings sequence | Innings legal-ball limit / over length | Bowler quota | Wicket limit | Consecutive-over rule | Declaration | Draw | Manual completion | Target/chase | Explicit Match-completion boundary | Allowed innings completion modes | Allowed Match completion modes / result codes |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `T20` | `[A, B]` | 120 per innings / 6 legal balls per over | 24 legal balls per bowler | 10 per innings | Prohibited | No | No | No | Automatic innings 1 total + 1 for innings 2 | None | `all_out`, `legal_ball_limit`, `target_reached` | Automatic `win_by_runs`, `win_by_wickets`, `tie`; Match `abandonment` → `no_result` |
-| `one-day` | `[A, B]` | 300 per innings / 6 legal balls per over | 60 legal balls per bowler | 10 per innings | Prohibited | No | No | No | Automatic innings 1 total + 1 for innings 2 | None | `all_out`, `legal_ball_limit`, `target_reached` | Automatic `win_by_runs`, `win_by_wickets`, `tie`; Match `abandonment` → `no_result` |
-| `test` | `[A, B, A, B]` | No innings limit / 6 legal balls per over | None | 10 per innings | Allowed; no consecutive-over restriction | Yes, to complete an innings | Yes, to complete the Match | Yes, to complete the Match | None | `after_completed_innings` before the automatic result | `all_out`, `declaration` | Automatic after innings 4: `win_by_runs`, `tie`; explicit `draw`, `declared`, `manual`; Match `abandonment` → `no_result` |
+| `one-day` | `[A, B]` | Policy-supplied positive multiple of 30 / 6 legal balls per over | Derived as one fifth of the locked innings legal-ball limit | 10 per innings | Prohibited | No | No | No | Automatic innings 1 total + 1 for innings 2 | None | `all_out`, `legal_ball_limit`, `target_reached` | Automatic `win_by_runs`, `win_by_wickets`, `tie`; Match `abandonment` → `no_result` |
+| `test` | `[A, B, A, B]` | No innings limit / 6 legal balls per over | None | 10 per innings | Prohibited | Yes, to complete an innings | Yes, to complete the Match | Yes, to complete the Match | None | `after_completed_innings` before the automatic result | `all_out`, `declaration` | Automatic after innings 4: `win_by_runs`, `tie`; explicit `draw`, `declared`, `manual`; Match `abandonment` → `no_result` |
 | `other` | Policy-supplied ordered side sequence | Policy-supplied over length; legal-ball limit may be null | Policy-supplied quota, or null | Policy-supplied limit | Policy-supplied boolean | No | No | Yes | None | The locked policy MUST select `after_completed_innings` or `any_nonterminal_state` | `manual` | Explicit `manual` → `manual`; Match `abandonment` → `no_result` |
 
 The non-terminal Match result code `pending` is valid for every row until a
@@ -114,13 +114,17 @@ and is accepted from any non-terminal Match state without unresolved
 reconciliation. No explicit action can override an already-derived automatic
 result.
 
-`one-day` has no format-string fallback: configuration MUST carry exactly the
-300-ball innings limit, six-ball over length, 60-ball bowler quota, and
-ten-wicket limit in the selected capability version. A missing or different
-value is rejected until a separate capability profile is introduced. `test`
-uses the fixed four-innings sequence above, six-ball overs, and ten wickets per
-innings; it intentionally does not implement follow-on, interruption, DLS,
-Super Over, or other full Test-match rules. `other` has no defaults: all
+`one-day` has no format-string fallback: configuration MUST carry a positive
+innings legal-ball limit divisible by 30, six-ball over length, and the
+ten-wicket limit in the selected capability version. The server MUST derive its
+bowler quota as exactly one fifth of that locked innings legal-ball limit; a
+client-supplied one-day quota is rejected as derived data. Thus a 240-ball
+one-day policy resolves to a 48-ball quota without creating a format alias. A
+missing or invalid limit is rejected. `test` uses the fixed four-innings
+sequence above, six-ball overs, ten wickets per innings, no quota, and a
+prohibition on consecutive overs by the same bowler; it intentionally does not
+implement follow-on, interruption, DLS, Super Over, or other full Test-match
+rules. `other` has no defaults: all
 sequence, over-length, wicket-limit, quota, consecutive-over, dismissal, and
 transition fields used by scoring are policy data, and no automatic completion
 or result is inferred.
@@ -438,9 +442,10 @@ automatic innings and Match completion plus the derived result.
 **Acceptance Scenarios**:
 
 1. **Given** a T20 or one-day capability, **When** all ten available batting
-   wickets are lost or the innings reaches exactly 120 legal balls for T20 or
-   exactly 300 legal balls for one-day, **Then** the innings completes with the
-   corresponding reason and cannot accept normal delivery entry.
+   wickets are lost or the innings reaches the locked legal-ball limit (120 for
+   T20 and the configured policy value for one-day), **Then** the innings
+   completes with the corresponding reason and cannot accept normal delivery
+   entry.
 2. **Given** a later innings with a target from a completed prior innings,
    **When** the batting side reaches the target, **Then** the chase completes
    automatically with runs required equal to zero and the Match completes when
@@ -695,10 +700,11 @@ scoring corrections remain on the normal correction authorization path.
   support, manual completion, target/chase mode, explicit Match-completion
   boundary, completion modes, and valid result codes. T20 MUST resolve to 120
   legal balls in six-ball overs, 24
-  legal balls per bowler, and ten wickets; one-day MUST receive exactly 300
-  legal balls in six-ball overs, 60 legal balls per bowler, and ten wickets;
-  test MUST use the fixed four-innings sequence, six-ball overs, ten wickets,
-  no target, no quota, and no consecutive-over restriction; and other MUST
+  legal balls per bowler, and ten wickets; one-day MUST receive a policy-supplied
+  positive legal-ball limit divisible by 30 in six-ball overs, derive its quota
+  as one fifth of that limit, and use ten wickets; test MUST use the fixed
+  four-innings sequence, six-ball overs, ten wickets, no target, no quota, and
+  consecutive-over prohibition; and other MUST
   require all policy values needed by its selected sequence and rule sets before
   scoring. All profiles MUST also use the fixed scoring numeric limits defined
   above; those limits are not policy-supplied.
@@ -1332,9 +1338,10 @@ provider, queue, embedding, or Internet access is permitted.
   background-work foundations remain the integration points for this feature.
 - Current Match formats remain `T20`, `one-day`, `test`, and `other`. The
   Match-format Capability Model is normative: T20 uses 120 legal balls and 24
-  legal balls per bowler; one-day requires explicit 300-ball and 60-ball policy
-  values; test uses four ordered innings with no target; and other requires an
-  explicit innings sequence and manual completion.
+  legal balls per bowler; one-day requires an explicit positive legal-ball
+  limit divisible by 30 and derives a one-fifth bowler quota from it; test uses
+  four ordered innings, no target, and no consecutive overs by the same bowler;
+  and other requires an explicit innings sequence and manual completion.
 - A standard innings has a maximum team-wicket count derived from its fixed
   eligible batting participants, with retirement semantics applied separately.
   T20 and one-day use a ten-wicket limit; test and other store the explicit
