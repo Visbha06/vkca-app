@@ -35,5 +35,8 @@
   participant, OCC, audit, RAG, background-work, authorization, migration, and
   test conventions.
 - No extension hooks were registered under `.specify/extensions.yml`.
-- The feature is ready for `/speckit-plan`; `/speckit-clarify` is not required
-  because the specification contains no clarification markers.
+- The capability matrix, deterministic multi-innings semantics, one-wicket
+  policy, Data Quality coverage, complementary unit/integration coverage, and
+  final frontend/backend quality gate are resolved in the current artifacts.
+- The package is ready for implementation review; `/speckit-clarify` is not
+  required because the specification contains no clarification markers.

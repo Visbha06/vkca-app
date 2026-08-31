@@ -9,7 +9,9 @@ Every scoring command runs in one database transaction:
 3. Validate policy, lifecycle, fixed participants, and observed delivery facts.
 4. Insert immutable event/revision rows.
 5. Replay the affected innings and update derived projections.
-6. Write meaningful Business Audit events, if applicable.
+6. Write one meaningful Business Audit event for a command listed in the
+   Business Audit table; ordinary delivery, rejected, stale, and technical
+   failure paths write none.
 7. Stage only allowed background/outbox work using bounded identifiers.
 8. Commit, or roll back every domain, projection, audit, and outbox change together.
 
@@ -26,7 +28,7 @@ Extend the existing audit enums and registry with scoring actions. The initial m
 | Select next batter/bowler or approved quota override | One event on success |
 | Retired hurt/return or explicit manual completion | One event on success |
 | Complete innings or Match | One event on success |
-| Correct or void a delivery revision | One event on success, with bounded reason and revision IDs |
+| Correct a delivery revision | One event on success, with bounded reason and revision IDs |
 | Ordinary delivery append | No event |
 | Validation failure, rejected scope, stale version, technical failure | No event |
 
@@ -57,10 +59,19 @@ Rules:
 
 Legacy MatchBattingPerformance, MatchBowlingPerformance, and MatchFieldingPerformance rows remain readable for all Matches. Their existing manual write path remains available only when Match scoring_authority is legacy_aggregate.
 
-For delivery_history Matches:
+`scoring_authority` is the compatibility boundary. A legacy Match remains
+`legacy_aggregate` when it has no authoritative delivery history; its existing
+aggregate-only reads and writes remain available. Scoring configuration locks a
+Match to `delivery_history` before the first scoring innings or delivery. This
+feature does not implicitly migrate legacy rows or infer delivery history from
+aggregate values.
+
+For `delivery_history` Matches:
 
 - scorecard and participant summary projections are authoritative;
-- direct writes to legacy aggregate rows are rejected with a scoring-authority conflict;
+- every direct write to legacy aggregate rows is rejected with a
+  scoring-authority conflict, even when the submitted values happen to equal
+  the delivery-derived values;
 - academy participant projections may synchronize compatible fields into existing rows with a derived provenance marker;
 - external participants remain in match_participant_performances and are not inserted into Player or legacy player-keyed tables;
 - multi-innings statistics retain innings identity in the new projection even if a legacy compatibility row is flattened for display;
@@ -80,10 +91,21 @@ Scoring quality rules are read-only and belong in the existing Data Quality regi
 - participant state and dismissal history disagree;
 - innings or Match lifecycle is inconsistent with completion/result;
 - persisted projection differs from a replay;
-- reconciliation_required is set;
-- legacy compatibility projection differs from canonical scoring projection.
+- an Innings lifecycle is `reconciliation_required` (the Match-level blocker is
+  derived from that Innings state; there is no independent reconciliation
+  boolean);
+- legacy compatibility projection differs from canonical scoring projection;
+- legacy or historical scoring state is malformed or diverges from the current
+  capability/identity model.
 
-Rules only report findings. They do not repair projections, insert revisions, write audit events, or stage background work.
+Scoring rules only report findings. They do not repair scoring projections,
+insert scoring revisions, write scoring audit events, or stage scoring
+background work. Any existing non-scoring Data Quality remediation remains a
+separate Head-Coach-only, confirmation-gated path and cannot accept or mutate
+scoring findings. The scoring Data Quality read is also Head-Coach-only; no
+public trigger or re-run endpoint is introduced. Scoring amendments use the
+normal delivery-correction command, with Head Coach or appropriately scoped
+Assistant Coach authorization, never the Data Quality remediation path.
 
 ## Observability and failure behavior
 

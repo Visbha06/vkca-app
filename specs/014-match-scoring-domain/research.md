@@ -4,6 +4,15 @@
 
 Phase 0 is complete. All decisions needed by the Phase 1 design are resolved in this document and the linked contracts. The feature extends existing repository boundaries; it does not introduce a parallel Match or performance subsystem.
 
+### Match-format identifier decision
+
+The repository's existing `MatchFormat` enum and database checks already use
+`T20`, `one-day`, `test`, and `other`. These are therefore the canonical API,
+domain, policy, capability-profile, and persisted identifiers for this feature.
+Human labels (`T20`, `One-day`, `Test`, and `Other/manual`) are display-only;
+no `t20`, `one_day`, or `other_manual` aliases are introduced and no format
+value migration is required.
+
 ## Existing repository seams
 
 | Concern | Existing evidence | Design decision |
@@ -44,9 +53,10 @@ Product scope deliberately excludes DLS, Super Over, automated umpiring, externa
 
 ### Policy
 
-- T20 defaults to one innings per side, 20 legal overs, 120 legal balls, 24 legal balls per bowler, no consecutive overs by the same bowler, and a default wicket limit derived from the configured XI.
-- One-day matches use an explicit policy row; the initial implementation does not infer a one-day limit from format text.
-- Test and other formats require explicit manual completion policy and do not receive hidden legal-ball or bowler-quota defaults.
+- The T20 capability fixes one innings per side, six-ball overs, 120 legal balls, 24 legal balls per bowler, no consecutive overs by the same bowler, and ten wickets.
+- The one-day capability fixes one innings per side, six-ball overs, 300 legal balls, 60 legal balls per bowler, no consecutive overs by the same bowler, and ten wickets; configuration must carry those values and the service rejects mismatches.
+- The test capability fixes `[A, B, A, B]`, six-ball overs, ten wickets per innings, no innings limit, no target, no quota, and no consecutive-over restriction; declaration, draw, and manual Match completion are distinct policy paths.
+- The other capability has no defaults and requires its innings sequence, over length, limits, quota, completion, dismissal, and transition sets before scoring.
 - Policy is locked before the first innings or delivery and is versioned for historical explanation.
 
 ### Delivery input
@@ -56,7 +66,8 @@ The client submits only observed facts:
 - striker, non-striker, bowler, attempted sequence, and captured version;
 - runs off the bat;
 - wide runs, no-ball penalty, bye runs, leg-bye runs, and penalty runs;
-- zero or one wicket event with dismissal type, dismissed participant, and optional fielder participants;
+- zero or one wicket event with dismissal type, dismissed participant, and an
+  ordered canonical fielder association collection;
 - optional additional run detail needed to preserve the raw attempt.
 
 The server derives total runs, legal/illegal classification, over number, ball-in-over, balls faced, bowler-conceded runs, strike rotation, over transitions, and all summaries. Strict request schemas reject derived fields and unknown fields.
@@ -67,7 +78,35 @@ The server derives total runs, legal/illegal classification, over number, ball-i
 - A no-ball has exactly one no-ball penalty run plus any bat, bye, or leg-bye runs recorded with that attempt.
 - Byes and leg-byes are mutually exclusive and are not bowler-conceded.
 - Batting-side penalty runs are explicit five-run events. Fielding-side penalties are represented as a separate future policy/event type rather than overloaded into ordinary delivery input.
-- Each component is bounded by a safe per-attempt limit and the derived total is bounded. The database stores integers and never stores a decimal total.
+
+All persisted scoring run components use the inclusive
+`SCORING_RUN_COMPONENT_MAX = 2,147,483,647` bound, except
+`no_ball_penalty_runs`, which is `0..1`. Recomputed delivery totals and
+Innings/Match aggregate run totals use the inclusive
+`SCORING_RUN_TOTAL_MAX = 2,147,483,647` bound. These constants follow the
+existing PostgreSQL `INTEGER` persistence convention and are shared by schema,
+domain validation, and tests; checked addition rejects aggregate overflow.
+
+### Lifecycle and correction decisions
+
+- Match lifecycle is the only authority for administrative abandonment. The
+  Match completion endpoint sets `abandoned`/`no_result`; the current Innings
+  remains `pending` or `in_progress` and incomplete, with no independent
+  Innings abandonment state or completion event.
+- Innings lifecycle is the only authority for reconciliation. Its
+  `reconciliation_required` state is cleared only by a later compatible
+  correction replay; Match-level reconciliation is derived from affected
+  innings and is not stored as a second boolean.
+- A completed Match can be reopened only inside the transaction-local
+  `completed → correction_reprocessing → completed|in_progress` correction
+  path. The intermediate phase is not externally visible; ordinary scoring
+  cannot reopen a completed Match, and an abandoned Match is not reopened by
+  this feature.
+- The serialized `blocking_state` is a derived `{kind, is_blocked,
+  reason_code}` object with explicit precedence, not a client-supplied or
+  independently mutable scoring field.
+- The database stores integer run values and never stores a decimal total; all
+  component and aggregate bounds are the exact constants above.
 
 ### Legal balls and strike
 
@@ -80,11 +119,36 @@ The server derives total runs, legal/illegal classification, over number, ball-i
 
 ### Wickets
 
-The initial dismissal vocabulary covers bowled, caught, caught and bowled, LBW, run out, stumped, hit wicket, obstructing the field, timed out, and retired out, with retired hurt represented as participation state rather than a dismissal event. At most one wicket is accepted per delivery in this increment. Caught and run-out/stumped events require the appropriate fielder or dismissed-end data; fielders are match-scoped participants, never newly created User or Player accounts.
+The initial T20, one-day, and test dismissal vocabulary covers bowled, caught,
+caught and bowled, LBW, run out, stumped, hit wicket, and retired out. Retired
+hurt is represented as a participation transition rather than a dismissal
+event. `other` must supply its own dismissal and transition sets, but the
+reserved future identifiers `obstructing_the_field`, `hit_the_ball_twice`, and
+`timed_out` are rejected by every current capability. At most one wicket is
+accepted per delivery in this increment. The API `fielders[]` collection and
+ordered `DeliveryFielder` associations are canonical; a primary-fielder
+pointer is derived from the first association. Bowled/LBW/hit-wicket/retired-out
+use zero fielders, caught/caught-and-bowled/stumped use one catcher/bowler/
+keeper respectively, and run-out uses one or more ordered fielders. Fielders
+are match-scoped participants, never newly created User or Player accounts.
 
 ### Completion and result
 
-An innings ends when the chase target is reached, the configured wicket limit is reached, the legal-ball limit is reached, or an authorized user explicitly completes it under the policy. Match completion derives from completed innings and produces a structured result code plus compatibility text. The target is the prior completed innings score plus one. The first result projection supports win by runs, win by wickets, tie, draw, no result, declared, and manual.
+An innings ends when the fixed-over chase target is reached, the configured
+wicket or legal-ball limit is reached, a test innings is declared, or an
+authorized user uses a capability-listed innings completion path. Match
+completion derives from the stored innings sequence and produces a structured
+result code plus compatibility text. The target is the prior completed innings
+score plus one only for T20 and one-day innings 2. Test `draw`, `declared`, and
+`manual` completion is accepted immediately after a completed innings and
+before an automatic result; `other` uses its locked explicit completion
+boundary. Match-level `abandonment` is accepted from any non-terminal Match
+without unresolved reconciliation and produces `no_result`; it does not end or
+complete the current Innings. In a fixed-over replay step, target reach takes
+precedence over a same-delivery wicket or legal-ball limit when more than one
+terminal condition becomes true.
+The first result projection supports win by runs, win by wickets, tie, draw, no
+result, declared, and manual, with the locked capability result precedence.
 
 ## Persistence and correction decisions
 
@@ -94,11 +158,13 @@ The authoritative write path is:
 2. Validate the current lifecycle, participant selection, policy, and submitted observed facts.
 3. Insert the immutable attempted delivery parent and its first revision, or append a replacement revision for correction.
 4. Rebuild the affected innings state with a pure replay function over active revisions and transition events.
-5. Persist totals, over state, participant summaries, performance projections, and reconciliation status.
+5. Persist totals, over state, participant summaries, performance projections,
+   the authoritative Innings reconciliation lifecycle/reason, and the derived
+   `blocking_state` read model.
 6. Append any meaningful Business Audit event and stage only allowed background/RAG work.
 7. Commit all changes together; any failure rolls back the entire command.
 
-An attempted delivery has a stable parent identity based on innings and attempted sequence. Revisions are append-only and identify superseded or voided revisions; exactly one active revision is allowed. Corrections preserve author, time, reason, previous revision, and replacement provenance. Replay starts from the earliest affected attempt and recomputes all later state. If a later active transition or delivery becomes incompatible, the innings is marked reconciliation-required with a bounded explanation rather than silently rewriting user choices.
+An attempted delivery has a stable parent identity based on innings and attempted sequence. Revisions are append-only: a correction appends one replacement revision and marks the prior active revision `superseded`; exactly one active revision is allowed. There is no void revision state, direct revision replacement, or hard deletion. Corrections preserve author, time, reason, previous revision, and replacement provenance. Replay starts from the earliest affected attempt and recomputes all later state. A completed Match correction uses the transaction-local `completed → correction_reprocessing → completed|in_progress` path and is never exposed in the intermediate state. If a later active transition or delivery becomes incompatible, the Innings lifecycle is `reconciliation_required` with a bounded explanation rather than silently rewriting user choices; Match-level reconciliation is derived from that Innings state.
 
 Live reads use the persisted projection and do not replay the full innings. A diagnostic or correction path can replay and compare projections to verify reconcilability.
 
@@ -106,7 +172,7 @@ Live reads use the persisted projection and do not replay the full innings. A di
 
 Every scoring read and mutation resolves the current authenticated database user and current team scope at request time. External participants are historical match-scoped identities only. Their display names and batting positions are stored on the Match participant row, never in User, Player, TeamPlayer, or TeamCoach tables.
 
-The academy side is the authorization anchor. For internal matches both sides are academy teams and a user must have scope on the requested side. For external matches the academy team is the only side that grants access; the external opponent name grants no access. A Player may read scorecards and delivery history in scope but cannot configure, score, correct, or complete a Match.
+The academy side is the authorization anchor. For internal matches both sides are academy teams and a user must have scope on the requested side. For external matches the academy team is the only side that grants access; the external opponent name grants no access. A Player may read scorecards and delivery history in scope but cannot configure, score, correct, or complete a Match. Operational scoring Data Quality findings are Head-Coach-only; Assistant Coaches and Players cannot view or re-run them. The existing Data Quality remediation route remains Head-Coach-only and non-scoring. Scoring corrections use the normal correction command, where Head Coaches and appropriately scoped Assistant Coaches may correct and Players may not.
 
 ## Audit, background, RAG, and Data Quality decisions
 
@@ -114,13 +180,27 @@ Meaningful successful events include scoring configuration, innings start, expli
 
 Normal delivery append updates the live projection synchronously and stages no queue/provider/RAG work. Completion and correction stage at most one coalesced Match-level current-state refresh through the existing transactional outbox. Background handlers reload committed state and are idempotent. No per-delivery RAG source or ordinary-ball job is introduced.
 
-Data Quality scoring rules are read-only. They flag projection mismatch, impossible sequence/lifecycle transitions, duplicate active revisions, invalid legal-ball/over state, invalid participant references, and reconciliation-required state. A quality finding never repairs or mutates scoring state and never creates Business Audit events.
+Data Quality scoring rules are read-only. They flag projection mismatch,
+impossible sequence/lifecycle transitions, duplicate active revisions, invalid
+legal-ball/over state, invalid participant references, malformed historical
+state, and reconciliation-required state. A scoring quality finding never
+repairs or mutates scoring state and never creates Business Audit events. Any
+existing non-scoring remediation route remains separate, Head-Coach-only, and
+cannot accept a scoring finding. There is no public Data Quality trigger or
+re-run endpoint; the bounded findings read is the only exposed check boundary.
 
 ## API and testing decisions
 
 The API is a protected command/query surface under /api/v1. Mutations carry the expected version and return the updated version. Suggested resources are configuration, innings, bounded deliveries, next batter/bowler transitions, delivery correction, completion, and scorecard. Detailed request/response contracts are in contracts/match-scoring-api.md.
 
-Tests must cover pure rules and replay, external identity isolation, current team scope, all component combinations, wickets and fielders, strike/over transitions, completion/results, correction equivalence, stale concurrency, atomic rollback, audit cardinality, outbox coalescing, legacy compatibility, migration constraints, and the exact 25-step quickstart. The Playwright test may use authenticated fetch requests; it does not require a scorer UI.
+Tests must cover pure rules and replay, every new public scoring service/function
+and API handler at unit level, external identity isolation, current team scope,
+all component combinations, wickets and fielders, strike/over transitions,
+completion/results, correction equivalence, Data Quality detection/reporting,
+stale concurrency, atomic rollback, audit cardinality, outbox coalescing,
+legacy compatibility, migration constraints, and the exact 25-step quickstart.
+The Playwright test may use authenticated fetch requests; it does not require a
+scorer UI.
 
 ## Migration decision
 
