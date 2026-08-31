@@ -1,12 +1,18 @@
 """Pydantic boundaries for external and internal cricket Matches."""
 
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from src.enums import MatchFormat, MatchParticipantType
+from src.enums import (
+    MatchFormat,
+    MatchLifecycleState,
+    MatchParticipantType,
+    MatchResultCode,
+    ScoringAuthority,
+)
 from src.schemas.base import BaseRequestSchema
 
 if TYPE_CHECKING:
@@ -122,6 +128,11 @@ class MatchResponse(BaseModel):
     format: MatchFormat
     venue: str
     result: str
+    lifecycle_state: MatchLifecycleState = MatchLifecycleState.SCHEDULED
+    scoring_authority: ScoringAuthority = ScoringAuthority.LEGACY_AGGREGATE
+    result_code: MatchResultCode = MatchResultCode.PENDING
+    result_details: dict[str, Any] = Field(default_factory=dict)
+    configured_at: datetime | None = None
     participants: MatchParticipantResponse
     created_at: datetime
     updated_at: datetime
@@ -165,6 +176,23 @@ class MatchResponse(BaseModel):
             format=match.format,
             venue=match.venue,
             result=match.result,
+            lifecycle_state=(
+                match.lifecycle_state
+                if match.lifecycle_state is not None
+                else MatchLifecycleState.SCHEDULED
+            ),
+            scoring_authority=(
+                match.scoring_authority
+                if match.scoring_authority is not None
+                else ScoringAuthority.LEGACY_AGGREGATE
+            ),
+            result_code=(
+                match.result_code
+                if match.result_code is not None
+                else MatchResultCode.PENDING
+            ),
+            result_details=match.result_details or {},
+            configured_at=match.configured_at,
             participants=participants,
             created_at=match.created_at,
             updated_at=match.updated_at,

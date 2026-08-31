@@ -200,6 +200,236 @@ class MatchFormat(StrEnum):
     OTHER = "other"
 
 
+class FormatCapabilityProfile(StrEnum):
+    """Canonical immutable scoring-capability profile identifiers."""
+
+    T20 = "T20"
+    ONE_DAY = "one-day"
+    TEST = "test"
+    OTHER = "other"
+
+
+# Scoring limits are persistence/API invariants, not configurable policy values.
+SCORING_RUN_COMPONENT_MAX = 2_147_483_647
+SCORING_RUN_TOTAL_MAX = 2_147_483_647
+
+# Version-one capability constants shared by schemas, persistence, and policy code.
+FORMAT_CAPABILITY_VERSION = 1
+STANDARD_OVER_LENGTH_LEGAL_BALLS = 6
+STANDARD_WICKET_LIMIT = 10
+T20_LEGAL_BALL_LIMIT = 120
+T20_BOWLER_QUOTA_LEGAL_BALLS = 24
+ONE_DAY_LEGAL_BALL_LIMIT_MULTIPLE = 30
+ONE_DAY_BOWLER_QUOTA_DIVISOR = 5
+TEST_CONSECUTIVE_OVERS_PROHIBITED = True
+
+
+class MatchLifecycleState(StrEnum):
+    """Lifecycle values owned by the Match aggregate."""
+
+    SCHEDULED = "scheduled"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    ABANDONED = "abandoned"
+    CORRECTION_REPROCESSING = "correction_reprocessing"
+
+
+class ScoringAuthority(StrEnum):
+    """Authoritative source used for a Match's scoring figures."""
+
+    LEGACY_AGGREGATE = "legacy_aggregate"
+    DELIVERY_HISTORY = "delivery_history"
+
+
+class MatchResultCode(StrEnum):
+    """Canonical non-terminal and terminal Match result codes."""
+
+    PENDING = "pending"
+    WIN_BY_RUNS = "win_by_runs"
+    WIN_BY_WICKETS = "win_by_wickets"
+    TIE = "tie"
+    DRAW = "draw"
+    NO_RESULT = "no_result"
+    DECLARED = "declared"
+    MANUAL = "manual"
+
+
+class MatchSideCode(StrEnum):
+    """Stable side positions retained from the existing Match boundary."""
+
+    HOME = "home"
+    AWAY = "away"
+
+
+class MatchSideKind(StrEnum):
+    """Identity source for one configured Match side."""
+
+    ACADEMY = "academy"
+    EXTERNAL = "external"
+
+
+class MatchParticipantKind(StrEnum):
+    """Identity source for one fixed Match participant."""
+
+    INTERNAL = "internal"
+    EXTERNAL = "external"
+
+
+class InningsLifecycleState(StrEnum):
+    """Authoritative Innings lifecycle, including reconciliation state."""
+
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    RECONCILIATION_REQUIRED = "reconciliation_required"
+
+
+class InningsReconciliationReason(StrEnum):
+    """Bounded reasons for entering Innings reconciliation."""
+
+    INCOMPATIBLE_REPLAY = "incompatible_replay"
+
+
+class BlockingStateKind(StrEnum):
+    """Canonical read-only scoring progression states."""
+
+    NONE = "none"
+    INNINGS_NOT_STARTED = "innings_not_started"
+    AWAITING_NEXT_BATTER = "awaiting_next_batter"
+    AWAITING_NEXT_BOWLER = "awaiting_next_bowler"
+    RECONCILIATION_REQUIRED = "reconciliation_required"
+    INNINGS_COMPLETED = "innings_completed"
+    MATCH_COMPLETED = "match_completed"
+    MATCH_ABANDONED = "match_abandoned"
+
+
+class BlockingReasonCode(StrEnum):
+    """Bounded reason codes paired with non-``none`` blocking states."""
+
+    INNINGS_NOT_STARTED = "innings_not_started"
+    NEXT_BATTER_REQUIRED = "next_batter_required"
+    NEXT_BOWLER_REQUIRED = "next_bowler_required"
+    NO_ELIGIBLE_BOWLER = "no_eligible_bowler"
+    INCOMPATIBLE_REPLAY = "incompatible_replay"
+    INNINGS_COMPLETED = "innings_completed"
+    MATCH_COMPLETED = "match_completed"
+    MATCH_ABANDONED = "match_abandoned"
+
+
+class TargetMode(StrEnum):
+    """Capability-defined target derivation behavior."""
+
+    PRIOR_INNINGS_PLUS_ONE = "prior_innings_plus_one"
+    NONE = "none"
+
+
+class ExplicitMatchCompletionBoundary(StrEnum):
+    """Points where a capability may accept explicit Match completion."""
+
+    NONE = "none"
+    AFTER_COMPLETED_INNINGS = "after_completed_innings"
+    ANY_NONTERMINAL_STATE = "any_nonterminal_state"
+
+
+class InningsCompletionMode(StrEnum):
+    """Capability-listed ways an Innings may complete."""
+
+    ALL_OUT = "all_out"
+    LEGAL_BALL_LIMIT = "legal_ball_limit"
+    TARGET_REACHED = "target_reached"
+    DECLARATION = "declaration"
+    MANUAL = "manual"
+
+
+class MatchCompletionMode(StrEnum):
+    """Supported Match-level completion commands."""
+
+    DERIVED_RESULT = "derived_result"
+    DRAW = "draw"
+    DECLARED = "declared"
+    MANUAL = "manual"
+    ABANDONMENT = "abandonment"
+
+
+class ParticipationState(StrEnum):
+    """One participant's state within a specific Innings."""
+
+    NOT_BATTED = "not_batted"
+    ACTIVE = "active"
+    DISMISSED = "dismissed"
+    RETIRED_HURT = "retired_hurt"
+    RETIRED_OUT = "retired_out"
+    COMPLETED = "completed"
+
+
+class InningsTransitionType(StrEnum):
+    """Append-only scorer selections anchored in Innings history."""
+
+    INNINGS_STARTED = "innings_started"
+    NEXT_BATTER = "next_batter"
+    NEXT_BOWLER = "next_bowler"
+    RETIRED_HURT = "retired_hurt"
+    RETIRED_HURT_RETURN = "retired_hurt_return"
+    INNINGS_COMPLETED = "innings_completed"
+
+
+class DeliveryRevisionState(StrEnum):
+    """Lifecycle of one immutable delivery revision."""
+
+    ACTIVE = "active"
+    SUPERSEDED = "superseded"
+
+
+class ScoringDismissalType(StrEnum):
+    """Current public scoring dismissal vocabulary.
+
+    Reserved future dismissals are deliberately absent so schema parsing fails
+    closed until a later capability version introduces them.
+    """
+
+    BOWLED = "bowled"
+    CAUGHT = "caught"
+    CAUGHT_AND_BOWLED = "caught_and_bowled"
+    LBW = "lbw"
+    RUN_OUT = "run_out"
+    STUMPED = "stumped"
+    HIT_WICKET = "hit_wicket"
+    RETIRED_OUT = "retired_out"
+
+
+RESERVED_SCORING_DISMISSAL_IDENTIFIERS = frozenset(
+    {"obstructing_the_field", "hit_the_ball_twice", "timed_out"}
+)
+CORE_SCORING_DISMISSAL_TYPES = frozenset(ScoringDismissalType)
+CORE_SCORING_TRANSITION_TYPES = frozenset(
+    {InningsTransitionType.RETIRED_HURT, InningsTransitionType.RETIRED_HURT_RETURN}
+)
+
+
+class DismissedEnd(StrEnum):
+    """Crease occupied by the participant dismissed on a run-out."""
+
+    STRIKER_END = "striker_end"
+    NON_STRIKER_END = "non_striker_end"
+
+
+class FielderRole(StrEnum):
+    """Ordered role played by a fielder in one wicket event."""
+
+    BOWLER = "bowler"
+    CATCHER = "catcher"
+    THROWER = "thrower"
+    KEEPER = "keeper"
+    ASSISTER = "assister"
+    OTHER = "other"
+
+
+class PerformanceProvenance(StrEnum):
+    """Source marker for rebuildable Match participant projections."""
+
+    DELIVERY_DERIVED = "delivery_derived"
+
+
 class MatchParticipantType(StrEnum):
     """Persisted Match participant structures."""
 

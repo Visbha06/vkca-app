@@ -24,6 +24,21 @@ from src.models.rag_chunk import RagChunk
 from src.models.rag_document import RagDocument
 from src.models.rag_index_run import RagIndexRun
 from src.models.rag_source_state import RagSourceState
+from src.models.scoring import (
+    BattingOrderEntry,
+    Delivery,
+    DeliveryFielder,
+    DeliveryRevision,
+    Innings,
+    InningsOver,
+    InningsParticipantSummary,
+    InningsTransitionEvent,
+    MatchParticipant,
+    MatchParticipantPerformance,
+    MatchSide,
+    ScoringPolicy,
+    WicketEvent,
+)
 from src.models.team import Team
 from src.models.team_coach import TeamCoach
 from src.models.team_player import TeamPlayer
@@ -35,13 +50,24 @@ __all__ = [
     "Base",
     "BackgroundWorkItem",
     "BusinessAuditEvent",
+    "BattingOrderEntry",
     "CalendarEvent",
     "CalendarEventScope",
     "DataSyncLog",
+    "Delivery",
+    "DeliveryFielder",
+    "DeliveryRevision",
+    "Innings",
+    "InningsOver",
+    "InningsParticipantSummary",
+    "InningsTransitionEvent",
     "Match",
     "MatchBattingPerformance",
     "MatchBowlingPerformance",
     "MatchFieldingPerformance",
+    "MatchParticipant",
+    "MatchParticipantPerformance",
+    "MatchSide",
     "OccurrenceException",
     "OccurrenceExceptionScope",
     "Player",
@@ -52,6 +78,7 @@ __all__ = [
     "RagIndexRun",
     "RagSourceState",
     "RecurrenceSeries",
+    "ScoringPolicy",
     "Team",
     "TeamCoach",
     "TeamPlayer",
@@ -59,4 +86,5 @@ __all__ = [
     "User",
     "UUIDMixin",
     "VersionMixin",
+    "WicketEvent",
 ]
