@@ -183,6 +183,19 @@ ACTION_REGISTRY: dict[AuditActionType, AuditActionDefinition] = {
             }
         ),
     ),
+    AuditActionType.SCORING_INNINGS_STARTED: AuditActionDefinition(
+        AuditActionCategory.SCORING,
+        AuditEntityType.MATCH,
+        "{actor} started an innings for {target}",
+        frozenset(
+            {
+                "innings_id",
+                "innings_number",
+                "batting_side_id",
+                "fielding_side_id",
+            }
+        ),
+    ),
 }
 
 

@@ -20,18 +20,33 @@ from src.enums import (
 from src.main import app
 from src.middleware.auth import get_current_user
 from src.schemas.scoring import (
+    AppendDeliveryRequest,
     BlockingStateResponse,
+    DeliveryExtrasResponse,
+    DeliveryHistoryResponse,
+    DeliveryResponse,
+    DeliveryRevisionResponse,
+    InningsResponse,
     MatchConfigurationRequest,
     MatchConfigurationResponse,
     MatchParticipantResponse,
     MatchSideResponse,
     ScoringPolicyConfigurationRequest,
     ScoringPolicyResponse,
+    StartInningsRequest,
 )
 from src.services.match_service import MatchService
 from src.services.scoring.errors import ScoringAuthenticationError
 from src.services.scoring.policy import resolve_format_capability
-from src.services.scoring.service import ScoringService, configure_match
+from src.services.scoring.service import (
+    ScoringService,
+    append_delivery,
+    configure_match,
+    retire_hurt,
+    retired_hurt_return,
+    select_next_batter,
+    start_innings,
+)
 
 
 def _policy(profile: str, **overrides: object) -> dict[str, object]:
@@ -310,3 +325,264 @@ async def test_configuration_handler_is_mounted_strict_and_versioned(
     assert rejected.status_code == 422
     assert rejected.json()["code"] == "scoring_validation_failed"
     service.configure_scoring.assert_awaited_once()
+
+
+def _innings_response() -> InningsResponse:
+    return InningsResponse(
+        id=uuid4(),
+        match_id=uuid4(),
+        innings_number=1,
+        batting_side_id=uuid4(),
+        fielding_side_id=uuid4(),
+        lifecycle_state="in_progress",
+        reconciliation_reason=None,
+        striker_participant_id=uuid4(),
+        non_striker_participant_id=uuid4(),
+        current_bowler_participant_id=uuid4(),
+        legal_balls=0,
+        total_runs=0,
+        wickets_lost=0,
+        target_runs=None,
+        completion_reason=None,
+        completed_at=None,
+        projection_revision=1,
+        version_number=1,
+        blocking_state=BlockingStateResponse(
+            kind="none", is_blocked=False, reason_code=None
+        ),
+    )
+
+
+def _delivery_response() -> DeliveryResponse:
+    innings = _innings_response()
+    return DeliveryResponse(
+        id=uuid4(),
+        innings_id=innings.id,
+        attempted_sequence=1,
+        active_revision=DeliveryRevisionResponse(
+            id=uuid4(),
+            revision_number=1,
+            revision_state="active",
+            striker_participant_id=innings.striker_participant_id,
+            non_striker_participant_id=innings.non_striker_participant_id,
+            bowler_participant_id=innings.current_bowler_participant_id,
+            runs_off_bat=4,
+            extras=DeliveryExtrasResponse(
+                wide_runs=0,
+                no_ball_penalty_runs=0,
+                bye_runs=0,
+                leg_bye_runs=0,
+                penalty_runs=0,
+            ),
+            total_runs=4,
+            is_legal=True,
+            completed_runs=4,
+            balls_faced=True,
+            bowler_conceded_runs=4,
+            over_number=0,
+            ball_in_over=1,
+            wicket=None,
+            replacement_reason=None,
+            supersedes_revision_id=None,
+            recorded_by_user_id=uuid4(),
+            recorded_at=datetime.now(UTC),
+        ),
+        innings_version_number=innings.version_number,
+        innings_total_runs=innings.total_runs,
+        innings_legal_balls=innings.legal_balls,
+        innings_wickets_lost=innings.wickets_lost,
+        striker_participant_id=innings.striker_participant_id,
+        non_striker_participant_id=innings.non_striker_participant_id,
+        current_bowler_participant_id=innings.current_bowler_participant_id,
+        blocking_state=innings.blocking_state,
+    )
+
+
+@pytest_asyncio.fixture
+async def phase4_scoring_client(mocker):
+    session = Mock()
+    innings = _innings_response()
+    delivery = _delivery_response()
+
+    async def override_get_db():
+        yield session
+
+    async def override_current_user():
+        return Mock(id=uuid4(), role=UserRole.HEAD_COACH), Mock()
+
+    service = mocker.Mock()
+    service.start_innings = AsyncMock(return_value=innings)
+    service.get_innings = AsyncMock(return_value=innings)
+    service.append_delivery = AsyncMock(return_value=delivery)
+    service.list_delivery_history = AsyncMock(
+        return_value=DeliveryHistoryResponse(
+            innings_id=innings.id,
+            after_sequence=0,
+            limit=100,
+            deliveries=[delivery],
+            next_after_sequence=None,
+        )
+    )
+    service.select_next_batter = AsyncMock(return_value=innings)
+    service.retire_hurt = AsyncMock(return_value=innings)
+    service.retired_hurt_return = AsyncMock(return_value=innings)
+    mocker.patch("src.routes.match_scoring.ScoringService", return_value=service)
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_current_user
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+    ) as client:
+        yield client, service, innings, delivery
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_phase4_handlers_are_protected_strict_bounded_and_server_derived(
+    phase4_scoring_client,
+) -> None:
+    client, service, innings, delivery = phase4_scoring_client
+    match_id = uuid4()
+    start = await client.post(
+        f"/api/v1/matches/{match_id}/innings",
+        json={
+            "match_version_number": 1,
+            "innings_number": 1,
+            "opening_striker_participant_id": str(uuid4()),
+            "opening_non_striker_participant_id": str(uuid4()),
+            "opening_bowler_participant_id": str(uuid4()),
+        },
+    )
+    append = await client.post(
+        f"/api/v1/matches/{match_id}/innings/{innings.id}/deliveries",
+        json={
+            "innings_version_number": 1,
+            "attempted_sequence": 1,
+            "striker_participant_id": str(uuid4()),
+            "non_striker_participant_id": str(uuid4()),
+            "bowler_participant_id": str(uuid4()),
+            "runs_off_bat": 4,
+            "extras": {},
+        },
+    )
+    read = await client.get(f"/api/v1/matches/{match_id}/innings/{innings.id}")
+    history = await client.get(
+        f"/api/v1/matches/{match_id}/innings/{innings.id}/deliveries?limit=100"
+    )
+    bad_history = await client.get(
+        f"/api/v1/matches/{match_id}/innings/{innings.id}/deliveries?limit=201"
+    )
+
+    assert start.status_code == 200
+    assert append.status_code == 200
+    assert append.json()["active_revision"]["total_runs"] == 4
+    assert (
+        "total_runs" not in service.append_delivery.await_args.args[2].model_fields_set
+    )
+    assert read.status_code == 200
+    assert history.status_code == 200
+    assert history.json()["deliveries"][0]["id"] == str(delivery.id)
+    assert bad_history.status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("path", "payload", "method"),
+    [
+        (
+            "next-batter",
+            {
+                "innings_version_number": 2,
+                "batter_participant_id": str(uuid4()),
+                "replacing_participant_id": str(uuid4()),
+                "reason": "dismissal",
+            },
+            "select_next_batter",
+        ),
+        (
+            "retired-hurt",
+            {
+                "innings_version_number": 2,
+                "participant_id": str(uuid4()),
+                "reason": "injury",
+            },
+            "retire_hurt",
+        ),
+        (
+            "retired-hurt-return",
+            {
+                "innings_version_number": 3,
+                "participant_id": str(uuid4()),
+                "reason": "cleared",
+            },
+            "retired_hurt_return",
+        ),
+    ],
+)
+async def test_phase4_transition_handlers_delegate_without_business_audit(
+    phase4_scoring_client,
+    path: str,
+    payload: dict[str, object],
+    method: str,
+) -> None:
+    client, service, innings, _delivery = phase4_scoring_client
+    response = await client.post(
+        f"/api/v1/matches/{uuid4()}/innings/{innings.id}/{path}", json=payload
+    )
+
+    assert response.status_code == 200
+    getattr(service, method).assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_public_phase4_commands_delegate_to_transaction_service(mocker) -> None:
+    session = Mock()
+    user_id, match_id, innings_id = uuid4(), uuid4(), uuid4()
+    expected_innings = _innings_response()
+    expected_delivery = _delivery_response()
+    start_payload = StartInningsRequest(
+        match_version_number=1,
+        innings_number=1,
+        opening_striker_participant_id=uuid4(),
+        opening_non_striker_participant_id=uuid4(),
+        opening_bowler_participant_id=uuid4(),
+    )
+    append_payload = AppendDeliveryRequest(
+        innings_version_number=1,
+        attempted_sequence=1,
+        striker_participant_id=uuid4(),
+        non_striker_participant_id=uuid4(),
+        bowler_participant_id=uuid4(),
+    )
+    start_mock = mocker.patch.object(
+        ScoringService, "start_innings", new=AsyncMock(return_value=expected_innings)
+    )
+    append_mock = mocker.patch.object(
+        ScoringService,
+        "append_delivery",
+        new=AsyncMock(return_value=expected_delivery),
+    )
+
+    assert await start_innings(session, match_id, start_payload, user_id) is (
+        expected_innings
+    )
+    assert (
+        await append_delivery(session, match_id, innings_id, append_payload, user_id)
+        is expected_delivery
+    )
+    start_mock.assert_awaited_once()
+    append_mock.assert_awaited_once()
+
+    for command, method_name, payload in (
+        (select_next_batter, "select_next_batter", Mock()),
+        (retire_hurt, "retire_hurt", Mock()),
+        (retired_hurt_return, "retired_hurt_return", Mock()),
+    ):
+        delegated = mocker.patch.object(
+            ScoringService,
+            method_name,
+            new=AsyncMock(return_value=expected_innings),
+        )
+        assert await command(session, match_id, innings_id, payload, user_id) is (
+            expected_innings
+        )
+        delegated.assert_awaited_once()

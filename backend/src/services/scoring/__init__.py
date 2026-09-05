@@ -20,13 +20,19 @@ from src.services.scoring.errors import (
 )
 from src.services.scoring.policy import (
     FormatCapability,
+    capability_from_locked_policy,
     resolve_capability_profile,
     resolve_format_capability,
 )
 from src.services.scoring.service import (
     ScoringService,
+    append_delivery,
     configure_match,
     configure_scoring,
+    retire_hurt,
+    retired_hurt_return,
+    select_next_batter,
+    start_innings,
 )
 
 __all__ = [
@@ -44,10 +50,16 @@ __all__ = [
     "ScoringValidationError",
     "ScoringVisibilityError",
     "ScoringService",
+    "append_delivery",
+    "capability_from_locked_policy",
     "configure_match",
     "configure_scoring",
     "FormatCapability",
     "load_scoring_command_context",
     "resolve_capability_profile",
     "resolve_format_capability",
+    "retire_hurt",
+    "retired_hurt_return",
+    "select_next_batter",
+    "start_innings",
 ]

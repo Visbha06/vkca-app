@@ -213,6 +213,35 @@ class BusinessAuditService:
             },
         )
 
+    async def record_scoring_innings_started(
+        self,
+        *,
+        actor: AuditActorContext,
+        match_id: UUID,
+        match_label: str,
+        innings_id: UUID,
+        innings_number: int,
+        batting_side_id: UUID,
+        fielding_side_id: UUID,
+    ) -> BusinessAuditEvent:
+        """Stage the allowlisted Innings-start event in the caller transaction."""
+
+        return await self.record(
+            actor=actor,
+            action_type=AuditActionType.SCORING_INNINGS_STARTED,
+            target=AuditTargetContext(
+                entity_type=AuditEntityType.MATCH,
+                entity_id=match_id,
+                label=match_label,
+            ),
+            metadata={
+                "innings_id": str(innings_id),
+                "innings_number": innings_number,
+                "batting_side_id": str(batting_side_id),
+                "fielding_side_id": str(fielding_side_id),
+            },
+        )
+
     async def list_events(
         self,
         query: BusinessAuditQuery,

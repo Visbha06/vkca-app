@@ -6,8 +6,11 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from src.enums import UserRole
+from src.enums import ParticipationState, UserRole
 from src.models.player import Player
+from src.models.scoring.batting_entry import BattingOrderEntry
+from src.models.scoring.innings import Innings
+from src.models.scoring.participant import MatchParticipant
 from src.models.team import Team
 from src.schemas.scoring import MatchConfigurationRequest
 from src.services.role_scope import CurrentRoleTeamScope
@@ -15,6 +18,7 @@ from src.services.scoring.authorization import (
     ScoringAuthorizationAdapter,
     ScoringCommandContext,
     require_configuration_scope,
+    validate_innings_selections,
 )
 from src.services.scoring.errors import (
     ScoringAuthorizationError,
@@ -152,3 +156,55 @@ def test_configuration_rejects_duplicate_cross_side_and_external_account_fields(
     mutate(payload)
     with pytest.raises(ValidationError):
         MatchConfigurationRequest.model_validate(payload)
+
+
+def test_active_delivery_selections_use_fixed_sides_and_participation_state() -> None:
+    batting_side_id, fielding_side_id = uuid4(), uuid4()
+    striker = MatchParticipant(
+        id=uuid4(), side_id=batting_side_id, batting_order_position=1
+    )
+    non_striker = MatchParticipant(
+        id=uuid4(), side_id=batting_side_id, batting_order_position=2
+    )
+    bowler = MatchParticipant(
+        id=uuid4(), side_id=fielding_side_id, batting_order_position=1
+    )
+    innings = Innings(
+        id=uuid4(),
+        batting_side_id=batting_side_id,
+        fielding_side_id=fielding_side_id,
+        striker_participant_id=striker.id,
+        non_striker_participant_id=non_striker.id,
+        current_bowler_participant_id=bowler.id,
+    )
+    innings.batting_entries = [
+        BattingOrderEntry(
+            participant_id=striker.id,
+            batting_order_position=1,
+            participation_state=ParticipationState.ACTIVE,
+        ),
+        BattingOrderEntry(
+            participant_id=non_striker.id,
+            batting_order_position=2,
+            participation_state=ParticipationState.ACTIVE,
+        ),
+    ]
+
+    validate_innings_selections(
+        innings,
+        [striker, non_striker, bowler],
+        striker_participant_id=striker.id,
+        non_striker_participant_id=non_striker.id,
+        bowler_participant_id=bowler.id,
+        require_current=True,
+    )
+    bowler.side_id = batting_side_id
+    with pytest.raises(ScoringValidationError, match="fielding side"):
+        validate_innings_selections(
+            innings,
+            [striker, non_striker, bowler],
+            striker_participant_id=striker.id,
+            non_striker_participant_id=non_striker.id,
+            bowler_participant_id=bowler.id,
+            require_current=True,
+        )

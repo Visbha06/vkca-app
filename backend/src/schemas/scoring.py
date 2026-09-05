@@ -718,6 +718,14 @@ class DeliveryResponse(ScoringResponse):
     innings_id: UUID
     attempted_sequence: int = Field(ge=1)
     active_revision: DeliveryRevisionResponse
+    innings_version_number: int = Field(ge=1)
+    innings_total_runs: int = Field(ge=0, le=SCORING_RUN_TOTAL_MAX)
+    innings_legal_balls: int = Field(ge=0)
+    innings_wickets_lost: int = Field(ge=0)
+    striker_participant_id: UUID | None
+    non_striker_participant_id: UUID | None
+    current_bowler_participant_id: UUID | None
+    blocking_state: BlockingStateResponse
 
 
 class InningsOverResponse(ScoringResponse):

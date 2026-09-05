@@ -299,3 +299,47 @@ def resolve_format_capability(
 
 
 resolve_capability_profile = resolve_format_capability
+
+
+def capability_from_locked_policy(policy: ScoringPolicy) -> FormatCapability:
+    """Rehydrate the immutable domain capability from its persisted snapshot."""
+
+    return FormatCapability(
+        policy_code=MatchFormat(policy.policy_code),
+        policy_version=policy.policy_version,
+        capability_profile=FormatCapabilityProfile(policy.capability_profile),
+        capability_version=policy.capability_version,
+        innings_sequence=tuple(
+            MatchSideCode(value) for value in policy.innings_sequence
+        ),
+        innings_per_side=policy.innings_per_side,
+        legal_ball_limit=policy.legal_ball_limit,
+        over_length_legal_balls=policy.over_length_legal_balls,
+        bowler_quota_legal_balls=policy.bowler_quota_legal_balls,
+        wicket_limit=policy.wicket_limit,
+        consecutive_overs_prohibited=policy.consecutive_overs_prohibited,
+        target_mode=TargetMode(policy.target_mode),
+        allowed_dismissal_types=tuple(
+            ScoringDismissalType(value) for value in policy.allowed_dismissal_types
+        ),
+        allowed_transition_types=tuple(
+            InningsTransitionType(value) for value in policy.allowed_transition_types
+        ),
+        allowed_innings_completion_modes=tuple(
+            InningsCompletionMode(value)
+            for value in policy.allowed_innings_completion_modes
+        ),
+        allowed_match_completion_modes=tuple(
+            MatchCompletionMode(value)
+            for value in policy.allowed_match_completion_modes
+        ),
+        allowed_result_codes=tuple(
+            MatchResultCode(value) for value in policy.allowed_result_codes
+        ),
+        allow_declaration=policy.allow_declaration,
+        allow_draw=policy.allow_draw,
+        allow_manual_completion=policy.allow_manual_completion,
+        explicit_match_completion_boundary=ExplicitMatchCompletionBoundary(
+            policy.explicit_match_completion_boundary
+        ),
+    )

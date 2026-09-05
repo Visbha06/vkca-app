@@ -124,6 +124,7 @@ class AuditActionType(StrEnum):
     CALENDAR_OCCURRENCE_MOVED = "calendar.occurrence_moved"
     CALENDAR_OCCURRENCE_DELETED = "calendar.occurrence_deleted"
     SCORING_INITIALIZED = "scoring.initialized"
+    SCORING_INNINGS_STARTED = "scoring.innings_started"
 
 
 class BattingStyle(StrEnum):
