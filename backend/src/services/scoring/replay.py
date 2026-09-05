@@ -8,6 +8,7 @@ from uuid import UUID
 from src.enums import (
     BlockingReasonCode,
     BlockingStateKind,
+    DismissedEnd,
     InningsLifecycleState,
     InningsTransitionType,
     MatchLifecycleState,
@@ -16,7 +17,7 @@ from src.enums import (
 )
 from src.schemas.scoring import DeliveryFactsRequest
 from src.services.scoring.errors import ScoringReconciliationError
-from src.services.scoring.policy import FormatCapability
+from src.services.scoring.policy import FormatCapability, bowler_eligibility
 from src.services.scoring.rules import DeliveryClassification, classify_delivery
 
 
@@ -230,14 +231,37 @@ def derive_match_blocking_state(
     return BlockingState(BlockingStateKind.NONE, False, None)
 
 
-def _apply_transition(state: ReplayState, transition: ReplayTransition) -> None:
+def _apply_transition(
+    state: ReplayState, transition: ReplayTransition, seed: ReplaySeed
+) -> None:
     participant_id = transition.participant_id
     if transition.event_kind is InningsTransitionType.INNINGS_STARTED:
         return
     if transition.event_kind is InningsTransitionType.NEXT_BOWLER:
-        if participant_id is None:
+        if (
+            participant_id is None
+            or state.current_bowler_participant_id is not None
+            or state.legal_balls == 0
+            or state.legal_balls % seed.capability.over_length_legal_balls
+        ):
             raise ScoringReconciliationError(
-                "Next-bowler transition has no participant."
+                "Next-bowler transition requires a completed over "
+                "and an empty selection."
+            )
+        previous = state.overs[
+            state.legal_balls // seed.capability.over_length_legal_balls - 1
+        ]
+        summary = state.participants.get(participant_id)
+        decision = bowler_eligibility(
+            seed.capability,
+            participant_id,
+            fielding_participant_ids=seed.fielding_participant_ids,
+            legal_balls_bowled=summary.bowling_legal_balls if summary else 0,
+            previous_over_bowler_id=previous.bowler_participant_id,
+        )
+        if not decision.is_eligible:
+            raise ScoringReconciliationError(
+                f"Next bowler is ineligible: {decision.reason_code}."
             )
         state.current_bowler_participant_id = participant_id
         return
@@ -350,7 +374,7 @@ def replay_innings(
             transition.anchored_attempted_sequence or 0, []
         ).append(transition)
     for transition in transitions_by_anchor.get(0, []):
-        _apply_transition(state, transition)
+        _apply_transition(state, transition, seed)
 
     expected_sequence = 1
     for delivery in sorted(deliveries, key=lambda item: item.attempted_sequence):
@@ -376,6 +400,22 @@ def replay_innings(
             fielding_participant_ids=seed.fielding_participant_ids,
             allowed_dismissal_types=frozenset(seed.capability.allowed_dismissal_types),
         )
+        previous_over = state.overs.get(classification.over_number - 1)
+        decision = bowler_eligibility(
+            seed.capability,
+            facts.bowler_participant_id,
+            fielding_participant_ids=seed.fielding_participant_ids,
+            legal_balls_bowled=state.participants[
+                facts.bowler_participant_id
+            ].bowling_legal_balls,
+            previous_over_bowler_id=(
+                previous_over.bowler_participant_id if previous_over else None
+            ),
+        )
+        if not decision.is_eligible:
+            raise ScoringReconciliationError(
+                f"Delivery bowler is ineligible: {decision.reason_code}."
+            )
         state.classifications.append(classification)
         state.total_runs += classification.total_runs
         state.legal_balls += int(classification.is_legal)
@@ -432,6 +472,18 @@ def replay_innings(
                 state.striker_participant_id = None
             if state.non_striker_participant_id == wicket.dismissed_participant_id:
                 state.non_striker_participant_id = None
+            if wicket.dismissal_type is ScoringDismissalType.RUN_OUT:
+                survivor = (
+                    facts.non_striker_participant_id
+                    if wicket.dismissed_participant_id == facts.striker_participant_id
+                    else facts.striker_participant_id
+                )
+                if wicket.dismissed_end is DismissedEnd.STRIKER_END:
+                    state.striker_participant_id = None
+                    state.non_striker_participant_id = survivor
+                else:
+                    state.striker_participant_id = survivor
+                    state.non_striker_participant_id = None
             state.fall_of_wickets.append(
                 {
                     "attempted_sequence": delivery.attempted_sequence,
@@ -453,15 +505,29 @@ def replay_innings(
             )
             state.current_bowler_participant_id = None
         for transition in transitions_by_anchor.get(delivery.attempted_sequence, []):
-            _apply_transition(state, transition)
+            _apply_transition(state, transition, seed)
 
+    current_over_number = state.legal_balls // seed.capability.over_length_legal_balls
+    previous_over = state.overs.get(current_over_number - 1)
+    has_eligible_bowler = any(
+        bowler_eligibility(
+            seed.capability,
+            participant_id,
+            fielding_participant_ids=seed.fielding_participant_ids,
+            legal_balls_bowled=state.participants[participant_id].bowling_legal_balls,
+            previous_over_bowler_id=(
+                previous_over.bowler_participant_id if previous_over else None
+            ),
+        ).is_eligible
+        for participant_id in seed.fielding_participant_ids
+    )
     state.blocking_state = derive_innings_blocking_state(
         match_lifecycle_state=seed.match_lifecycle_state,
         innings_lifecycle_state=state.lifecycle_state,
         striker_participant_id=state.striker_participant_id,
         non_striker_participant_id=state.non_striker_participant_id,
         current_bowler_participant_id=state.current_bowler_participant_id,
-        has_eligible_bowler=bool(seed.fielding_participant_ids),
+        has_eligible_bowler=has_eligible_bowler,
     )
     return state
 

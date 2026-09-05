@@ -16,9 +16,11 @@ from src.schemas.scoring import (
     InningsResponse,
     MatchConfigurationRequest,
     MatchConfigurationResponse,
+    NextBowlerResponse,
     RetiredHurtReturnRequest,
     RetireHurtRequest,
     SelectNextBatterRequest,
+    SelectNextBowlerRequest,
     StartInningsRequest,
 )
 from src.services.match_service import MatchService
@@ -26,6 +28,42 @@ from src.services.scoring.service import ScoringService
 
 match_scoring_router = APIRouter(prefix="/matches", tags=["match-scoring"])
 router = match_scoring_router
+
+
+@match_scoring_router.get(
+    "/{match_id}/innings/{innings_id}/next-bowler",
+    response_model=NextBowlerResponse,
+)
+async def read_next_bowler(
+    match_id: UUID,
+    innings_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+) -> NextBowlerResponse:
+    user, _auth_session = current_user
+    return await ScoringService(session).get_next_bowler(match_id, innings_id, user)
+
+
+@match_scoring_router.post(
+    "/{match_id}/innings/{innings_id}/next-bowler",
+    response_model=InningsResponse,
+)
+async def choose_next_bowler(
+    match_id: UUID,
+    innings_id: UUID,
+    payload: SelectNextBowlerRequest,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
+) -> InningsResponse:
+    user, _auth_session = current_user
+    return await ScoringService(session).select_next_bowler(
+        match_id,
+        innings_id,
+        payload,
+        user,
+        request_id=request_id,
+    )
 
 
 @match_scoring_router.put(

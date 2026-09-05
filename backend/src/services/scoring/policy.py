@@ -102,6 +102,51 @@ class FormatCapability:
         return ScoringPolicy(match_id=match_id, **self.policy_columns())
 
 
+@dataclass(frozen=True, slots=True)
+class BowlerEligibility:
+    """One quota/side/consecutive-over decision, shared by commands and replay."""
+
+    is_eligible: bool
+    reason_code: str | None
+    legal_balls_bowled: int
+    quota_legal_balls: int | None
+    quota_remaining_legal_balls: int | None
+
+
+def bowler_eligibility(
+    capability: FormatCapability,
+    participant_id: UUID,
+    *,
+    fielding_participant_ids: frozenset[UUID],
+    legal_balls_bowled: int,
+    previous_over_bowler_id: UUID | None = None,
+) -> BowlerEligibility:
+    """Use legal-ball usage and the locked policy; reasons never bypass a rule."""
+
+    quota = capability.bowler_quota_legal_balls
+    reason = None
+    if participant_id not in fielding_participant_ids:
+        reason = "not_fielding_participant"
+    elif legal_balls_bowled < 0:
+        reason = "invalid_quota_usage"
+    elif (
+        capability.consecutive_overs_prohibited
+        and participant_id == previous_over_bowler_id
+    ):
+        reason = "consecutive_over_prohibited"
+    elif quota is not None and legal_balls_bowled >= quota:
+        reason = "quota_exhausted"
+    return BowlerEligibility(
+        is_eligible=reason is None,
+        reason_code=reason,
+        legal_balls_bowled=legal_balls_bowled,
+        quota_legal_balls=quota,
+        quota_remaining_legal_balls=(
+            max(0, quota - legal_balls_bowled) if quota is not None else None
+        ),
+    )
+
+
 _CORE_DISMISSALS = tuple(
     sorted(CORE_SCORING_DISMISSAL_TYPES, key=lambda value: value.value)
 )

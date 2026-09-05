@@ -28,10 +28,272 @@ from src.models.scoring.delivery_fielder import DeliveryFielder
 from src.models.scoring.innings import Innings
 from src.models.scoring.participant import MatchParticipant
 from src.models.scoring.scoring_policy import ScoringPolicy
+from src.models.scoring.transition_event import InningsTransitionEvent
 from src.models.scoring.wicket_event import WicketEvent
 from src.models.team import Team
 from src.models.team_player import TeamPlayer
 from src.models.user import User
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def phase5_matches(authenticated_client):
+    match_ids: list[UUID] = []
+    try:
+        yield match_ids
+    finally:
+        async with AsyncSessionFactory() as session:
+            for match_id in match_ids:
+                await session.execute(
+                    delete(Innings).where(Innings.match_id == match_id)
+                )
+                await session.execute(delete(Match).where(Match.id == match_id))
+            await session.commit()
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("authenticated_client")
+@pytest.mark.parametrize(
+    ("profile", "limit", "quota", "external"),
+    [
+        ("T20", None, 24, False),
+        ("one-day", 30, 6, True),
+        ("one-day", 240, 48, False),
+        ("test", None, None, True),
+    ],
+)
+async def test_phase5_overs_suggestions_overrides_and_quotas(
+    client, profile, limit, quota, external, phase5_matches, data_quality_query_counter
+):
+    unique = uuid4().hex[:8]
+    async with AsyncSessionFactory() as session:
+        home = Team(name=f"Bowler-Home-{unique}", age_group="U15")
+        away = Team(name=f"Bowler-Away-{unique}", age_group="U15")
+        home_players = [await _player(f"Home-{i}", unique) for i in range(2)]
+        away_players = [
+            await _player(name, unique) for name in ["Asha", "Bela", "Cora"]
+        ]
+        session.add_all([home, away, *home_players, *away_players])
+        await session.flush()
+        session.add_all(
+            [
+                TeamPlayer(team_id=team.id, player_id=player.id, roster_order=i)
+                for team, players in [(home, home_players), (away, away_players)]
+                for i, player in enumerate(players, start=1)
+            ]
+        )
+        match = _match(
+            home_team_id=home.id,
+            away_team_id=None if external else away.id,
+            opponent="Visitors" if external else None,
+            format=MatchFormat(profile),
+        )
+        session.add(match)
+        await session.commit()
+        match_id = match.id
+        phase5_matches.append(match_id)
+        policy = {
+            "policy_code": profile,
+            "capability_profile": profile,
+            "innings_sequence": ["home", "away"] * (2 if profile == "test" else 1),
+        }
+        if limit:
+            policy["legal_ball_limit"] = limit
+        config = await client.put(
+            f"/api/v1/matches/{match_id}/configuration",
+            json={
+                "match_version_number": 1,
+                "format": profile,
+                "policy": policy,
+                "sides": [
+                    {
+                        "side_code": "home",
+                        "side_kind": "academy",
+                        "team_id": str(home.id),
+                    },
+                    {
+                        "side_code": "away",
+                        "side_kind": "external",
+                        "display_name": "Visitors",
+                    }
+                    if external
+                    else {
+                        "side_code": "away",
+                        "side_kind": "academy",
+                        "team_id": str(away.id),
+                    },
+                ],
+                "participants": [
+                    *[
+                        _participant("home", p.id, i)
+                        for i, p in enumerate(home_players, 1)
+                    ],
+                    *[
+                        {
+                            "side_code": "away",
+                            "participant_kind": "external",
+                            "display_name": name,
+                            "batting_order_position": i,
+                        }
+                        for i, name in enumerate(["Asha", "Bela", "Cora"], 1)
+                    ],
+                ]
+                if external
+                else [
+                    *[
+                        _participant("home", p.id, i)
+                        for i, p in enumerate(home_players, 1)
+                    ],
+                    *[
+                        _participant("away", p.id, i)
+                        for i, p in enumerate(away_players, 1)
+                    ],
+                ],
+            },
+        )
+    assert config.status_code == 200, config.text
+    side_ids = {s["side_code"]: s["id"] for s in config.json()["sides"]}
+    batters = [
+        p["id"]
+        for p in config.json()["participants"]
+        if p["side_id"] == side_ids["home"]
+    ]
+    bowlers = [
+        p["id"]
+        for p in config.json()["participants"]
+        if p["side_id"] == side_ids["away"]
+    ]
+    started = await client.post(
+        f"/api/v1/matches/{match_id}/innings",
+        json={
+            "match_version_number": config.json()["match_version_number"],
+            "innings_number": 1,
+            "opening_striker_participant_id": batters[0],
+            "opening_non_striker_participant_id": batters[1],
+            "opening_bowler_participant_id": bowlers[0],
+        },
+    )
+    assert started.status_code == 200, started.text
+    state = started.json()
+    base = f"/api/v1/matches/{match_id}/innings/{state['id']}"
+    sequence = 0
+
+    async def score(extras=None):
+        nonlocal sequence, state
+        sequence += 1
+        response = await client.post(
+            base + "/deliveries",
+            json={
+                "innings_version_number": state["version_number"],
+                "attempted_sequence": sequence,
+                "striker_participant_id": state["striker_participant_id"],
+                "non_striker_participant_id": state["non_striker_participant_id"],
+                "bowler_participant_id": state["current_bowler_participant_id"],
+                "runs_off_bat": 0,
+                "extras": extras or {},
+            },
+        )
+        assert response.status_code == 200, response.text
+        state = (await client.get(base)).json()
+        return response.json()
+
+    for over in range(2):
+        for ball in range(6):
+            illegal = await score(
+                {"wide_runs": 1} if ball % 2 else {"no_ball_penalty_runs": 1}
+            )
+            assert illegal["innings_legal_balls"] == over * 6 + ball
+            legal = await score()
+            assert legal["active_revision"]["over_number"] == over
+            assert legal["active_revision"]["ball_in_over"] == ball + 1
+        assert state["current_bowler_participant_id"] is None
+        assert state["blocking_state"]["kind"] == "awaiting_next_bowler"
+        assert state["over_progress"]["overs_completed"] == over + 1
+        with data_quality_query_counter.count() as queries:
+            options = (await client.get(base + "/next-bowler")).json()
+        assert not any(
+            "from deliveries" in sql.lower() or "from delivery_revisions" in sql.lower()
+            for sql in queries.statements
+        )
+        assert options["policy"]["bowler_quota_legal_balls"] == quota
+        previous = bowlers[0 if over == 0 else 2]
+        previous_option = next(
+            p for p in options["candidates"] if p["participant_id"] == previous
+        )
+        assert not previous_option["is_eligible"]
+        assert previous_option["legal_balls_bowled"] == 6
+        denied = await client.post(
+            base + "/next-bowler",
+            json={
+                "innings_version_number": state["version_number"],
+                "bowler_participant_id": previous,
+                "override_reason": "Cannot bypass eligibility",
+            },
+        )
+        assert denied.status_code == 409
+        if over == 0:
+            assert options["suggested_bowler_participant_id"] == bowlers[1]
+            body = {
+                "innings_version_number": state["version_number"],
+                "bowler_participant_id": bowlers[2],
+                "override_reason": "Change of tactics",
+            }
+            chosen = await client.post(base + "/next-bowler", json=body)
+            assert chosen.status_code == 200, chosen.text
+            state = chosen.json()
+            assert state["current_bowler_participant_id"] == bowlers[2]
+            assert (
+                await client.post(base + "/next-bowler", json=body)
+            ).status_code == 409
+            assert (await client.get(base)).json()[
+                "current_bowler_participant_id"
+            ] == bowlers[2]
+        else:
+            assert (
+                options["suggested_bowler_participant_id"]
+                == bowlers[1 if quota == 6 else 0]
+            )
+            assert options["completed_bowler_participant_ids"] == [
+                bowlers[0],
+                bowlers[2],
+            ]
+            if quota == 6:
+                exhausted = next(
+                    p
+                    for p in options["candidates"]
+                    if p["participant_id"] == bowlers[0]
+                )
+                assert exhausted["reason_code"] == "quota_exhausted"
+                assert (
+                    await client.post(
+                        base + "/next-bowler",
+                        json={
+                            "innings_version_number": state["version_number"],
+                            "bowler_participant_id": bowlers[0],
+                            "override_reason": "No bypass",
+                        },
+                    )
+                ).status_code == 409
+    async with AsyncSessionFactory() as session:
+        events = (
+            await session.scalars(
+                select(InningsTransitionEvent).where(
+                    InningsTransitionEvent.innings_id == UUID(state["id"]),
+                    InningsTransitionEvent.event_kind == "next_bowler",
+                )
+            )
+        ).all()
+        assert len(events) == 1
+        assert events[0].anchored_attempted_sequence == 12
+        assert events[0].anchored_revision_id is not None
+        assert events[0].reason == "Change of tactics"
+        assert (
+            await session.scalar(
+                select(func.count())
+                .select_from(BusinessAuditEvent)
+                .where(BusinessAuditEvent.target_entity_id == match_id)
+            )
+            == 2
+        )
 
 
 @pytest_asyncio.fixture

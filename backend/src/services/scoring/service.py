@@ -53,11 +53,14 @@ from src.schemas.scoring import (
     MatchConfigurationResponse,
     MatchParticipantResponse,
     MatchSideResponse,
+    NextBowlerResponse,
+    OverProgressResponse,
     ParticipantSummaryResponse,
     RetiredHurtReturnRequest,
     RetireHurtRequest,
     ScoringPolicyResponse,
     SelectNextBatterRequest,
+    SelectNextBowlerRequest,
     StartInningsRequest,
     WicketRequest,
     WicketResponse,
@@ -70,6 +73,7 @@ from src.services.scoring.audit import (
 )
 from src.services.scoring.authorization import (
     ScoringAuthorizationAdapter,
+    next_bowler_options,
     require_configuration_scope,
     require_scoring_mutation_scope,
     require_scoring_read_scope,
@@ -77,6 +81,7 @@ from src.services.scoring.authorization import (
 )
 from src.services.scoring.errors import (
     ScoringAuthorityError,
+    ScoringConflictError,
     ScoringLifecycleError,
     ScoringReconciliationError,
     ScoringSequenceError,
@@ -84,6 +89,7 @@ from src.services.scoring.errors import (
     ScoringVisibilityError,
 )
 from src.services.scoring.policy import (
+    bowler_eligibility,
     capability_from_locked_policy,
     resolve_format_capability,
 )
@@ -172,6 +178,13 @@ def _innings_response(innings: Innings, match: Match) -> InningsResponse:
         projection_revision=innings.projection_revision,
         version_number=innings.version_number,
         blocking_state=_blocking_response(innings, match),
+        policy=(
+            ScoringPolicyResponse.model_validate(match.scoring_policy)
+            if match.scoring_policy is not None
+            else None
+        ),
+        over_progress=_over_progress(innings, match),
+        completed_bowler_participant_ids=_completed_bowlers(innings),
         overs=[
             InningsOverResponse.model_validate(over)
             for over in sorted(innings.overs, key=lambda value: value.over_number)
@@ -183,6 +196,57 @@ def _innings_response(innings: Innings, match: Match) -> InningsResponse:
                 key=lambda value: str(value.participant_id),
             )
         ],
+    )
+
+
+def _completed_bowlers(innings: Innings) -> list[UUID]:
+    return [
+        over.bowler_participant_id
+        for over in sorted(innings.overs, key=lambda value: value.over_number)
+        if over.is_complete
+    ]
+
+
+def _over_progress(innings: Innings, match: Match) -> OverProgressResponse:
+    if match.scoring_policy is None:
+        raise ScoringAuthorityError("Match scoring policy is not locked.")
+    length = capability_from_locked_policy(match.scoring_policy).over_length_legal_balls
+    return OverProgressResponse(
+        over_length_legal_balls=length,
+        overs_completed=innings.legal_balls // length,
+        balls_in_partial_over=innings.legal_balls % length,
+        next_ball_in_over=innings.legal_balls % length + 1,
+    )
+
+
+def _next_bowler_response(innings: Innings, match: Match) -> NextBowlerResponse:
+    if match.scoring_policy is None:
+        raise ScoringAuthorityError("Match scoring policy is not locked.")
+    history = _completed_bowlers(innings)
+    options = next_bowler_options(
+        capability_from_locked_policy(match.scoring_policy),
+        match.scoring_participants,
+        match_id=match.id,
+        fielding_side_id=innings.fielding_side_id,
+        legal_balls_by_bowler={
+            s.participant_id: s.bowling_legal_balls
+            for s in innings.participant_summaries
+        },
+        completed_bowler_ids=tuple(history),
+    )
+    return NextBowlerResponse(
+        match_id=match.id,
+        innings_id=innings.id,
+        match_version_number=match.version_number,
+        innings_version_number=innings.version_number,
+        policy=ScoringPolicyResponse.model_validate(match.scoring_policy),
+        over_progress=_over_progress(innings, match),
+        completed_bowler_participant_ids=history,
+        current_bowler_participant_id=innings.current_bowler_participant_id,
+        suggested_bowler_participant_id=options.suggested_bowler_participant_id,
+        candidates=list(options.candidates),
+        reason_code=options.reason_code,
+        blocking_state=_blocking_response(innings, match),
     )
 
 
@@ -287,11 +351,11 @@ class ScoringService:
             raise ScoringVisibilityError("Match not found.")
         return match
 
-    async def _load_innings(self, match_id: UUID, innings_id: UUID) -> Innings:
-        statement = (
-            select(Innings)
-            .options(
-                selectinload(Innings.batting_entries),
+    async def _load_innings(
+        self, match_id: UUID, innings_id: UUID, *, include_history: bool = True
+    ) -> Innings:
+        history_options = (
+            [
                 selectinload(Innings.deliveries)
                 .selectinload(Delivery.revisions)
                 .selectinload(DeliveryRevision.wicket_event),
@@ -299,6 +363,15 @@ class ScoringService:
                 .selectinload(Delivery.revisions)
                 .selectinload(DeliveryRevision.fielders),
                 selectinload(Innings.transition_events),
+            ]
+            if include_history
+            else []
+        )
+        statement = (
+            select(Innings)
+            .options(
+                selectinload(Innings.batting_entries),
+                *history_options,
                 selectinload(Innings.overs),
                 selectinload(Innings.participant_summaries),
             )
@@ -874,6 +947,35 @@ class ScoringService:
                 fielding_participant_ids=fielding_ids,
                 allowed_dismissal_types=frozenset(capability.allowed_dismissal_types),
             )
+            previous_over = next(
+                (
+                    over
+                    for over in innings.overs
+                    if over.over_number == classification.over_number - 1
+                ),
+                None,
+            )
+            usage = next(
+                (
+                    summary.bowling_legal_balls
+                    for summary in innings.participant_summaries
+                    if summary.participant_id == payload.bowler_participant_id
+                ),
+                0,
+            )
+            decision = bowler_eligibility(
+                capability,
+                payload.bowler_participant_id,
+                fielding_participant_ids=fielding_ids,
+                legal_balls_bowled=usage,
+                previous_over_bowler_id=(
+                    previous_over.bowler_participant_id if previous_over else None
+                ),
+            )
+            if not decision.is_eligible:
+                raise ScoringConflictError(
+                    f"Delivery bowler is ineligible: {decision.reason_code}."
+                )
             next_version = await check_and_increment_version(
                 self.session,
                 Innings,
@@ -994,7 +1096,139 @@ class ScoringService:
         )
         match = await self._load_match(match_id)
         require_scoring_read_scope(context, match)
-        return _innings_response(await self._load_innings(match_id, innings_id), match)
+        return _innings_response(
+            await self._load_innings(match_id, innings_id, include_history=False), match
+        )
+
+    async def get_next_bowler(
+        self,
+        match_id: UUID,
+        innings_id: UUID,
+        authenticated_user: User | UUID,
+    ) -> NextBowlerResponse:
+        """Read deterministic bowler options from persisted projections."""
+        context = await ScoringAuthorizationAdapter(self.session).load_context(
+            authenticated_user
+        )
+        match = await self._load_match(match_id)
+        require_scoring_read_scope(context, match)
+        innings = await self._load_innings(match_id, innings_id, include_history=False)
+        return _next_bowler_response(innings, match)
+
+    async def select_next_bowler(
+        self,
+        match_id: UUID,
+        innings_id: UUID,
+        payload: SelectNextBowlerRequest,
+        authenticated_user: User | UUID,
+        *,
+        request_id: str | None = None,
+    ) -> InningsResponse:
+        """Commit one eligible, explicitly chosen over-boundary transition with OCC."""
+        try:
+            context = await ScoringAuthorizationAdapter(self.session).load_context(
+                authenticated_user
+            )
+            match = await self._load_match(match_id)
+            require_scoring_mutation_scope(context, match)
+            innings = await self._load_innings(match_id, innings_id)
+            if (
+                MatchLifecycleState(match.lifecycle_state)
+                is not MatchLifecycleState.IN_PROGRESS
+                or InningsLifecycleState(innings.lifecycle_state)
+                is not InningsLifecycleState.IN_PROGRESS
+                or innings.reconciliation_reason is not None
+            ):
+                raise ScoringLifecycleError(
+                    "Next bowler requires an in-progress Match and Innings "
+                    "without reconciliation."
+                )
+            options = _next_bowler_response(innings, match)
+            if (
+                innings.current_bowler_participant_id is not None
+                or innings.legal_balls == 0
+                or options.over_progress.balls_in_partial_over != 0
+            ):
+                raise ScoringLifecycleError(
+                    "Next bowler requires a completed over and an empty selection."
+                )
+            candidate = next(
+                (
+                    c
+                    for c in options.candidates
+                    if c.participant_id == payload.bowler_participant_id
+                ),
+                None,
+            )
+            if candidate is None:
+                raise ScoringConflictError(
+                    "Bowler is not a fixed fielding-side participant."
+                )
+            if not candidate.is_eligible:
+                raise ScoringConflictError(
+                    f"Bowler is ineligible: {candidate.reason_code}."
+                )
+            if (
+                payload.bowler_participant_id != options.suggested_bowler_participant_id
+                and payload.override_reason is None
+            ):
+                raise ScoringValidationError(
+                    "An alternative to the suggestion requires override_reason."
+                )
+            next_version = await check_and_increment_version(
+                self.session, Innings, innings.id, payload.innings_version_number
+            )
+            innings.version_number = next_version
+            anchor_sequence, anchor_revision_id = self._last_replay_anchor(innings)
+            innings.transition_events.append(
+                InningsTransitionEvent(
+                    event_kind=InningsTransitionType.NEXT_BOWLER,
+                    participant_id=payload.bowler_participant_id,
+                    anchored_attempted_sequence=anchor_sequence,
+                    anchored_revision_id=anchor_revision_id,
+                    over_number=options.over_progress.overs_completed,
+                    reason=payload.override_reason,
+                    created_by_user_id=context.user.id,
+                    created_at=datetime.now(UTC),
+                )
+            )
+            state = self._replay_orm(match, innings)
+            await persist_innings_projection(
+                self.session,
+                innings,
+                state,
+                over_length_legal_balls=options.over_progress.over_length_legal_balls,
+            )
+            await self.session.commit()
+            logger.info(
+                "Scoring next bowler selected",
+                extra={
+                    "request_id": request_id,
+                    "match_id": str(match_id),
+                    "innings_id": str(innings_id),
+                    "expected_version": payload.innings_version_number,
+                    "resulting_version": next_version,
+                    "outcome": "committed",
+                },
+            )
+            reloaded_match = await self._load_match(match_id)
+            reloaded_innings = await self._load_innings(
+                match_id, innings_id, include_history=False
+            )
+            return _innings_response(reloaded_innings, reloaded_match)
+        except Exception as exc:
+            await self.session.rollback()
+            logger.info(
+                "Scoring next bowler rejected",
+                extra={
+                    "request_id": request_id,
+                    "match_id": str(match_id),
+                    "innings_id": str(innings_id),
+                    "expected_version": payload.innings_version_number,
+                    "outcome": type(exc).__name__,
+                },
+            )
+            raise
 
     async def list_delivery_history(
         self,

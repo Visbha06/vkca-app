@@ -37,6 +37,7 @@ class DeliveryClassification:
     completed_runs: int
     balls_faced: bool
     bowler_conceded_runs: int
+    legal_ball_index: int
     over_number: int
     ball_in_over: int
     is_four: bool
@@ -214,6 +215,7 @@ def classify_delivery(
         completed_runs=completed_runs,
         balls_faced=is_legal,
         bowler_conceded_runs=bowler_conceded_runs,
+        legal_ball_index=legal_ball_number,
         over_number=over_number,
         ball_in_over=ball_in_over,
         is_four=boundary_eligible and facts.runs_off_bat == 4,

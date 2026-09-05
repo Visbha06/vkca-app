@@ -11,6 +11,94 @@ from src.services.scoring.errors import ScoringValidationError
 from src.services.scoring.rules import checked_scoring_add, classify_delivery
 
 
+@pytest.mark.parametrize("before", [0, 1, 5, 6, 11, 12])
+@pytest.mark.parametrize("extras", [{}, {"wide_runs": 1}, {"no_ball_penalty_runs": 1}])
+def test_legal_indexes_and_attempt_positions(before, extras) -> None:
+    result = classify_delivery(
+        _facts(extras=extras), legal_balls_before=before, over_length_legal_balls=6
+    )
+    assert result.legal_ball_index == before + int(not extras)
+    assert (result.over_number, result.ball_in_over) == (before // 6, before % 6 + 1)
+
+
+@pytest.mark.parametrize(
+    ("runs", "extras", "completed"),
+    [
+        (1, {}, 1),
+        (2, {}, 2),
+        (5, {}, 5),
+        (0, {"wide_runs": 1}, 0),
+        (0, {"wide_runs": 2}, 1),
+        (0, {"wide_runs": 3}, 2),
+        (0, {"no_ball_penalty_runs": 1}, 0),
+        (1, {"no_ball_penalty_runs": 1}, 1),
+        (0, {"no_ball_penalty_runs": 1, "bye_runs": 3}, 3),
+        (0, {"penalty_runs": 5}, 0),
+        (0, {"leg_bye_runs": 1}, 1),
+    ],
+)
+@pytest.mark.parametrize("over_end", [False, True])
+def test_strike_parity_and_over_exchange(runs, extras, completed, over_end) -> None:
+    from src.services.scoring.policy import resolve_format_capability
+    from src.services.scoring.replay import (
+        ReplayDelivery,
+        ReplayParticipant,
+        ReplaySeed,
+        replay_innings,
+    )
+
+    striker, non_striker, bowler = uuid4(), uuid4(), uuid4()
+    capability = resolve_format_capability(
+        {
+            "policy_code": "T20",
+            "capability_profile": "T20",
+            "innings_sequence": ["home", "away"],
+        }
+    )
+    seed = ReplaySeed(
+        capability,
+        (ReplayParticipant(striker, 1), ReplayParticipant(non_striker, 2)),
+        frozenset({bowler}),
+        striker,
+        non_striker,
+        bowler,
+    )
+    prefix = 5 if over_end else 0
+    deliveries = [
+        ReplayDelivery(
+            i + 1,
+            _facts(
+                striker_participant_id=striker,
+                non_striker_participant_id=non_striker,
+                bowler_participant_id=bowler,
+            ),
+        )
+        for i in range(prefix)
+    ]
+    deliveries.append(
+        ReplayDelivery(
+            prefix + 1,
+            _facts(
+                striker_participant_id=striker,
+                non_striker_participant_id=non_striker,
+                bowler_participant_id=bowler,
+                runs_off_bat=runs,
+                extras=extras,
+            ),
+        )
+    )
+    state = replay_innings(seed, deliveries)
+    legal = not (extras.get("wide_runs") or extras.get("no_ball_penalty_runs"))
+    swapped = bool(completed % 2) != (over_end and legal)
+    assert (state.striker_participant_id, state.non_striker_participant_id) == (
+        (non_striker, striker) if swapped else (striker, non_striker)
+    )
+    assert state.legal_balls == prefix + int(legal)
+    assert state.current_bowler_participant_id == (
+        None if over_end and legal else bowler
+    )
+
+
 def _facts(**overrides: object) -> DeliveryFactsRequest:
     payload: dict[str, object] = {
         "striker_participant_id": uuid4(),
@@ -21,6 +109,63 @@ def _facts(**overrides: object) -> DeliveryFactsRequest:
     }
     payload.update(overrides)
     return DeliveryFactsRequest.model_validate(payload)
+
+
+@pytest.mark.parametrize("end", ["striker_end", "non_striker_end"])
+def test_run_out_uses_explicit_dismissed_end_before_over_exchange(end):
+    from src.services.scoring.policy import resolve_format_capability
+    from src.services.scoring.replay import (
+        ReplayDelivery,
+        ReplayParticipant,
+        ReplaySeed,
+        replay_innings,
+    )
+
+    striker, non_striker, bowler = uuid4(), uuid4(), uuid4()
+    capability = resolve_format_capability(
+        {
+            "policy_code": "T20",
+            "capability_profile": "T20",
+            "innings_sequence": ["home", "away"],
+        }
+    )
+    seed = ReplaySeed(
+        capability,
+        (ReplayParticipant(striker, 1), ReplayParticipant(non_striker, 2)),
+        frozenset({bowler}),
+        striker,
+        non_striker,
+        bowler,
+    )
+    facts = _facts(
+        striker_participant_id=striker,
+        non_striker_participant_id=non_striker,
+        bowler_participant_id=bowler,
+    )
+    deliveries = [ReplayDelivery(i + 1, facts) for i in range(5)]
+    deliveries.append(
+        ReplayDelivery(
+            6,
+            _facts(
+                striker_participant_id=striker,
+                non_striker_participant_id=non_striker,
+                bowler_participant_id=bowler,
+                runs_off_bat=1,
+                wicket={
+                    "dismissal_type": "run_out",
+                    "dismissed_participant_id": striker,
+                    "dismissed_end": end,
+                    "fielders": [{"participant_id": bowler, "role": "thrower"}],
+                },
+            ),
+        )
+    )
+    state = replay_innings(seed, deliveries)
+    assert (state.striker_participant_id, state.non_striker_participant_id) == (
+        (non_striker, None) if end == "striker_end" else (None, non_striker)
+    )
+    assert state.current_bowler_participant_id is None
+    assert state.blocking_state.kind == "awaiting_next_batter"
 
 
 @pytest.mark.parametrize(

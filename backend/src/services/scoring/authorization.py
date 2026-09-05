@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from unicodedata import normalize
 from uuid import UUID
 
 from sqlalchemy import select
@@ -15,6 +16,7 @@ from src.models.scoring.innings import Innings
 from src.models.scoring.participant import MatchParticipant
 from src.models.team_player import TeamPlayer
 from src.models.user import User
+from src.schemas.scoring import BowlerCandidateResponse
 from src.services.role_scope import (
     CurrentRoleTeamScope,
     resolve_current_role_team_scope,
@@ -25,6 +27,68 @@ from src.services.scoring.errors import (
     ScoringValidationError,
     ScoringVisibilityError,
 )
+from src.services.scoring.policy import FormatCapability, bowler_eligibility
+
+
+@dataclass(frozen=True, slots=True)
+class NextBowlerOptions:
+    candidates: tuple[BowlerCandidateResponse, ...]
+    suggested_bowler_participant_id: UUID | None
+    reason_code: str | None
+
+
+def next_bowler_options(
+    capability: FormatCapability,
+    participants: list[MatchParticipant],
+    *,
+    match_id: UUID,
+    fielding_side_id: UUID,
+    legal_balls_by_bowler: dict[UUID, int],
+    completed_bowler_ids: tuple[UUID, ...],
+) -> NextBowlerOptions:
+    """Rank fixed fielders by normalized name/ID, preferring the alternate over."""
+
+    fielders = sorted(
+        (
+            p
+            for p in participants
+            if p.match_id == match_id and p.side_id == fielding_side_id
+        ),
+        key=lambda p: (
+            " ".join(normalize("NFKC", p.display_name_snapshot).casefold().split()),
+            str(p.id),
+        ),
+    )
+    fielding_ids = frozenset(p.id for p in fielders)
+    previous = completed_bowler_ids[-1] if completed_bowler_ids else None
+    candidates = []
+    for participant in fielders:
+        decision = bowler_eligibility(
+            capability,
+            participant.id,
+            fielding_participant_ids=fielding_ids,
+            legal_balls_bowled=legal_balls_by_bowler.get(participant.id, 0),
+            previous_over_bowler_id=previous,
+        )
+        candidates.append(
+            BowlerCandidateResponse(
+                participant_id=participant.id,
+                display_name=participant.display_name_snapshot,
+                is_eligible=decision.is_eligible,
+                reason_code=decision.reason_code,
+                legal_balls_bowled=decision.legal_balls_bowled,
+                quota_legal_balls=decision.quota_legal_balls,
+                quota_remaining_legal_balls=decision.quota_remaining_legal_balls,
+            )
+        )
+    eligible = [c.participant_id for c in candidates if c.is_eligible]
+    alternate = completed_bowler_ids[-2] if len(completed_bowler_ids) >= 2 else None
+    suggested = (
+        alternate if alternate in eligible else (eligible[0] if eligible else None)
+    )
+    return NextBowlerOptions(
+        tuple(candidates), suggested, None if eligible else "no_eligible_bowler"
+    )
 
 
 @dataclass(frozen=True, slots=True)

@@ -543,6 +543,14 @@ class SelectNextBowlerRequest(StrictScoringRequest):
         max_length=MAX_SCORING_REASON_LENGTH,
     )
 
+    @model_validator(mode="after")
+    def validate_override_reason(self) -> Self:
+        if self.override_reason is not None:
+            self.override_reason = self.override_reason.strip()
+            if not self.override_reason:
+                raise ValueError("override_reason must contain a reason")
+        return self
+
 
 class RetireHurtRequest(StrictScoringRequest):
     innings_version_number: int = Field(ge=1)
@@ -758,6 +766,38 @@ class ParticipantSummaryResponse(ScoringResponse):
     projection_revision: int = Field(ge=0)
 
 
+class OverProgressResponse(ScoringResponse):
+    over_length_legal_balls: int = Field(ge=1)
+    overs_completed: int = Field(ge=0)
+    balls_in_partial_over: int = Field(ge=0)
+    next_ball_in_over: int = Field(ge=1)
+
+
+class BowlerCandidateResponse(ScoringResponse):
+    participant_id: UUID
+    display_name: str
+    is_eligible: bool
+    reason_code: str | None = Field(max_length=64)
+    legal_balls_bowled: int = Field(ge=0)
+    quota_legal_balls: int | None = Field(ge=1)
+    quota_remaining_legal_balls: int | None = Field(ge=0)
+
+
+class NextBowlerResponse(ScoringResponse):
+    match_id: UUID
+    innings_id: UUID
+    match_version_number: int = Field(ge=1)
+    innings_version_number: int = Field(ge=1)
+    policy: ScoringPolicyResponse
+    over_progress: OverProgressResponse
+    completed_bowler_participant_ids: list[UUID]
+    current_bowler_participant_id: UUID | None
+    suggested_bowler_participant_id: UUID | None
+    candidates: list[BowlerCandidateResponse]
+    reason_code: str | None = Field(max_length=64)
+    blocking_state: BlockingStateResponse
+
+
 class InningsResponse(ScoringResponse):
     id: UUID
     match_id: UUID
@@ -782,6 +822,9 @@ class InningsResponse(ScoringResponse):
     participant_summaries: list[ParticipantSummaryResponse] = Field(
         default_factory=list
     )
+    policy: ScoringPolicyResponse | None = None
+    over_progress: OverProgressResponse | None = None
+    completed_bowler_participant_ids: list[UUID] = Field(default_factory=list)
 
 
 class DeliveryHistoryResponse(ScoringResponse):

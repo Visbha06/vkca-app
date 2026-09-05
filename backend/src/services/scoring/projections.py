@@ -105,6 +105,15 @@ def build_innings_projection(
         )
     )
     snapshot: dict[str, object] = {
+        "over_progress": {
+            "over_length_legal_balls": over_length_legal_balls,
+            "overs_completed": state.legal_balls // over_length_legal_balls,
+            "balls_in_partial_over": state.legal_balls % over_length_legal_balls,
+            "next_ball_in_over": state.legal_balls % over_length_legal_balls + 1,
+        },
+        "completed_bowler_participant_ids": [
+            str(over.bowler_participant_id) for over in overs if over.is_complete
+        ],
         "opening_selections": {
             "striker_participant_id": str(state.opening_striker_participant_id),
             "non_striker_participant_id": str(state.opening_non_striker_participant_id),
