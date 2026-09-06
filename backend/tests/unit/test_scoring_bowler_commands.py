@@ -181,7 +181,10 @@ async def test_selection_anchors_override_and_versions_without_audit(
     assert event.reason == payload.override_reason
     assert event.created_by_user_id == context.user.id
     assert event.created_at <= datetime.now(UTC)
-    version.assert_awaited_once_with(session, Innings, innings.id, 7)
+    assert version.await_args_list == [
+        mocker.call(session, Match, match.id, 4),
+        mocker.call(session, Innings, innings.id, 7),
+    ]
     replay.assert_called_once()
     projection.assert_awaited_once()
     session.commit.assert_awaited_once()

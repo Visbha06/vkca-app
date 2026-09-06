@@ -11,6 +11,8 @@ from src.middleware.auth import AuthenticatedUser, get_current_user
 from src.schemas.scoring import (
     MAX_SCORING_HISTORY_LIMIT,
     AppendDeliveryRequest,
+    DeliveryCorrectionRequest,
+    DeliveryCorrectionResponse,
     DeliveryHistoryResponse,
     DeliveryResponse,
     InningsResponse,
@@ -210,4 +212,28 @@ async def return_retired_hurt_batter(
     user, _auth_session = current_user
     return await ScoringService(session).retired_hurt_return(
         match_id, innings_id, payload, user
+    )
+
+
+@match_scoring_router.post(
+    "/{match_id}/innings/{innings_id}/deliveries/{delivery_id}/correction",
+    response_model=DeliveryCorrectionResponse,
+)
+async def correct_match_delivery(
+    match_id: UUID,
+    innings_id: UUID,
+    delivery_id: UUID,
+    payload: DeliveryCorrectionRequest,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
+) -> DeliveryCorrectionResponse:
+    """Correct observed facts through append-only supersession and Match replay."""
+    return await ScoringService(session).correct_delivery(
+        match_id,
+        innings_id,
+        delivery_id,
+        payload,
+        current_user[0],
+        request_id=request_id,
     )

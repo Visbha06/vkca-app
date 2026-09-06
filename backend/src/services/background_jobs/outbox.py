@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
-from typing import Any, Final
+from typing import Any, Final, Literal
 from uuid import UUID
 
 from sqlalchemy import case, func, select, update
@@ -1051,4 +1051,41 @@ async def stage_background_work(
         source_key=source_key,
         safe_metadata=safe_metadata,
         run_after=run_after,
+    )
+
+
+async def stage_scoring_refresh(
+    session: AsyncSession,
+    *,
+    match_id: UUID,
+    innings_id: UUID,
+    projection_revision: int,
+    reason: Literal["completion", "correction"],
+) -> BackgroundWorkItem:
+    """Stage the shared completion/correction refresh through the existing outbox."""
+    from src.services.rag.contracts import (
+        RagReconciliationPayloadV1,
+        RagTargetRef,
+        ScoringRefreshRef,
+    )
+    from src.services.rag.registry import get_rag_mutation_stager
+
+    payload = RagReconciliationPayloadV1(
+        targets=(RagTargetRef(source_type="match", source_key=str(match_id)),),
+        scoring_refresh=ScoringRefreshRef(
+            match_id=match_id,
+            innings_id=innings_id,
+            projection_revision=projection_revision,
+            reason=reason,
+        ),
+    )
+    return await get_rag_mutation_stager().outbox.stage(
+        session,
+        "rag_reconciliation",
+        payload,
+        idempotency_key=f"scoring:{match_id}:{innings_id}:{projection_revision}",
+        coalescing_key=f"rag:match:{match_id}",
+        source_type="match",
+        source_key=str(match_id),
+        safe_metadata={"reason": reason, "source_count": 1},
     )

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from datetime import UTC, datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +15,8 @@ from src.enums import (
     BlockingReasonCode,
     BlockingStateKind,
     DeliveryRevisionState,
+    FormatCapabilityProfile,
+    InningsCompletionMode,
     InningsLifecycleState,
     InningsTransitionType,
     MatchLifecycleState,
@@ -39,6 +42,8 @@ from src.models.user import User
 from src.schemas.scoring import (
     AppendDeliveryRequest,
     BlockingStateResponse,
+    DeliveryCorrectionRequest,
+    DeliveryCorrectionResponse,
     DeliveryExtrasRequest,
     DeliveryExtrasResponse,
     DeliveryFactsRequest,
@@ -65,9 +70,11 @@ from src.schemas.scoring import (
     WicketRequest,
     WicketResponse,
 )
+from src.services.background_jobs.outbox import stage_scoring_refresh
 from src.services.business_audit_service import BusinessAuditService
 from src.services.occ import check_and_increment_version
 from src.services.scoring.audit import (
+    record_delivery_corrected,
     record_innings_started,
     record_scoring_initialization,
 )
@@ -84,6 +91,7 @@ from src.services.scoring.errors import (
     ScoringConflictError,
     ScoringLifecycleError,
     ScoringReconciliationError,
+    ScoringRevisionError,
     ScoringSequenceError,
     ScoringValidationError,
     ScoringVisibilityError,
@@ -96,11 +104,14 @@ from src.services.scoring.policy import (
 from src.services.scoring.projections import persist_innings_projection
 from src.services.scoring.replay import (
     ReplayDelivery,
+    ReplayInnings,
     ReplayParticipant,
     ReplaySeed,
+    ReplayState,
     ReplayTransition,
     derive_innings_blocking_state,
     replay_innings,
+    replay_match,
 )
 from src.services.scoring.rules import checked_scoring_add, classify_delivery
 
@@ -166,6 +177,12 @@ def _innings_response(innings: Innings, match: Match) -> InningsResponse:
         fielding_side_id=innings.fielding_side_id,
         lifecycle_state=innings.lifecycle_state,
         reconciliation_reason=innings.reconciliation_reason,
+        reconciliation_sequence=innings.state_snapshot.get("reconciliation", {}).get(
+            "attempted_sequence"
+        ),
+        unreplayed_attempts=innings.state_snapshot.get("reconciliation", {}).get(
+            "unreplayed_attempts", 0
+        ),
         striker_participant_id=innings.striker_participant_id,
         non_striker_participant_id=innings.non_striker_participant_id,
         current_bowler_participant_id=innings.current_bowler_participant_id,
@@ -282,6 +299,14 @@ def _delivery_response(
         if wicket is not None
         else None
     )
+    if match.scoring_policy is None:
+        raise ScoringAuthorityError("Match scoring policy is not locked.")
+    legal_balls_before = sum(
+        ScoringService._active_revision(item).is_legal
+        for item in innings.deliveries
+        if item.attempted_sequence < delivery.attempted_sequence
+    )
+    over_length = match.scoring_policy.over_length_legal_balls
     revision_response = DeliveryRevisionResponse(
         id=active.id,
         revision_number=active.revision_number,
@@ -302,8 +327,8 @@ def _delivery_response(
         completed_runs=active.completed_runs,
         balls_faced=active.balls_faced,
         bowler_conceded_runs=active.bowler_conceded_runs,
-        over_number=active.over_number,
-        ball_in_over=active.ball_in_over,
+        over_number=(legal_balls_before // over_length),
+        ball_in_over=(legal_balls_before % over_length + 1),
         wicket=wicket_response,
         replacement_reason=active.replacement_reason,
         supersedes_revision_id=active.supersedes_revision_id,
@@ -332,7 +357,7 @@ class ScoringService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def _load_match(self, match_id: UUID) -> Match:
+    async def _load_match(self, match_id: UUID, *, for_update: bool = False) -> Match:
         statement = (
             select(Match)
             .options(
@@ -346,6 +371,8 @@ class ScoringService:
             .where(Match.id == match_id)
             .execution_options(populate_existing=True)
         )
+        if for_update:
+            statement = statement.with_for_update(of=Match)
         match = (await self.session.scalars(statement)).one_or_none()
         if match is None:
             raise ScoringVisibilityError("Match not found.")
@@ -382,6 +409,35 @@ class ScoringService:
         if innings is None:
             raise ScoringVisibilityError("Innings not found.")
         return innings
+
+    async def _claim_innings_version(
+        self, match: Match, innings: Innings, expected_version: int
+    ) -> int:
+        self._require_progression(match)
+        match.version_number = await check_and_increment_version(
+            self.session, Match, match.id, match.version_number
+        )
+        return await check_and_increment_version(
+            self.session, Innings, innings.id, expected_version
+        )
+
+    @staticmethod
+    def _require_progression(match: Match) -> None:
+        if MatchLifecycleState(match.lifecycle_state) not in {
+            MatchLifecycleState.SCHEDULED,
+            MatchLifecycleState.IN_PROGRESS,
+        }:
+            raise ScoringLifecycleError(
+                "A terminal or reprocessing Match cannot progress."
+            )
+        if any(
+            InningsLifecycleState(value.lifecycle_state)
+            is InningsLifecycleState.RECONCILIATION_REQUIRED
+            for value in match.scoring_innings
+        ):
+            raise ScoringReconciliationError(
+                "An Innings requires correction before Match progression."
+            )
 
     @staticmethod
     def _active_revision(delivery: Delivery) -> DeliveryRevision:
@@ -434,7 +490,7 @@ class ScoringService:
         )
 
     @classmethod
-    def _replay_orm(cls, match: Match, innings: Innings):
+    def _replay_input(cls, match: Match, innings: Innings) -> ReplayInnings:
         if match.scoring_policy is None:
             raise ScoringAuthorityError("Match scoring policy is not locked.")
         capability = capability_from_locked_policy(match.scoring_policy)
@@ -454,40 +510,38 @@ class ScoringService:
         deliveries = sorted(
             innings.deliveries, key=lambda value: value.attempted_sequence
         )
-        if deliveries:
-            opening = cls._active_revision(deliveries[0])
+        stored_opening = innings.state_snapshot.get("opening_selections")
+        if isinstance(stored_opening, dict):
+            try:
+                opening_striker_id = UUID(str(stored_opening["striker_participant_id"]))
+                opening_non_striker_id = UUID(
+                    str(stored_opening["non_striker_participant_id"])
+                )
+                opening_bowler_id = UUID(str(stored_opening["bowler_participant_id"]))
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ScoringReconciliationError(
+                    "The stored opening selections are invalid."
+                ) from exc
+        elif deliveries:
+            # The first recorded revision preserves the original opening actors.
+            opening = min(
+                deliveries[0].revisions, key=lambda item: item.revision_number
+            )
             opening_striker_id = opening.striker_participant_id
             opening_non_striker_id = opening.non_striker_participant_id
             opening_bowler_id = opening.bowler_participant_id
+        elif (
+            innings.striker_participant_id is not None
+            and innings.non_striker_participant_id is not None
+            and innings.current_bowler_participant_id is not None
+        ):
+            opening_striker_id = innings.striker_participant_id
+            opening_non_striker_id = innings.non_striker_participant_id
+            opening_bowler_id = innings.current_bowler_participant_id
         else:
-            stored_opening = innings.state_snapshot.get("opening_selections")
-            if isinstance(stored_opening, dict):
-                try:
-                    opening_striker_id = UUID(
-                        str(stored_opening["striker_participant_id"])
-                    )
-                    opening_non_striker_id = UUID(
-                        str(stored_opening["non_striker_participant_id"])
-                    )
-                    opening_bowler_id = UUID(
-                        str(stored_opening["bowler_participant_id"])
-                    )
-                except (KeyError, TypeError, ValueError) as exc:
-                    raise ScoringReconciliationError(
-                        "The stored opening selections are invalid."
-                    ) from exc
-            elif (
-                innings.striker_participant_id is not None
-                and innings.non_striker_participant_id is not None
-                and innings.current_bowler_participant_id is not None
-            ):
-                opening_striker_id = innings.striker_participant_id
-                opening_non_striker_id = innings.non_striker_participant_id
-                opening_bowler_id = innings.current_bowler_participant_id
-            else:
-                raise ScoringReconciliationError(
-                    "An unscored Innings must retain its opening selections."
-                )
+            raise ScoringReconciliationError(
+                "An unscored Innings must retain its opening selections."
+            )
         seed = ReplaySeed(
             capability=capability,
             batting_participants=tuple(
@@ -514,6 +568,9 @@ class ScoringService:
                 event_kind=InningsTransitionType(event.event_kind),
                 participant_id=event.participant_id,
                 anchored_attempted_sequence=event.anchored_attempted_sequence,
+                completion_kind=cls._completion_kind_from_history(
+                    match, innings, event
+                ),
             )
             for event in sorted(
                 innings.transition_events,
@@ -524,7 +581,89 @@ class ScoringService:
                 ),
             )
         ]
-        return replay_innings(seed, replay_deliveries, replay_transitions)
+        # Anchors may refer to superseded revisions, but must stay in their own slot.
+        revisions_by_id = {
+            revision.id: delivery.attempted_sequence
+            for delivery in deliveries
+            for revision in delivery.revisions
+        }
+        for event in innings.transition_events:
+            if (
+                event.anchored_revision_id is not None
+                and revisions_by_id.get(event.anchored_revision_id)
+                != event.anchored_attempted_sequence
+            ):
+                raise ScoringReconciliationError(
+                    "Transition revision anchor is outside its delivery boundary."
+                )
+        side = next(
+            (
+                side
+                for side in match.scoring_sides
+                if side.id == innings.batting_side_id
+            ),
+            None,
+        )
+        side_code = (
+            side.side_code
+            if side
+            else capability.innings_sequence[innings.innings_number - 1]
+        )
+        return ReplayInnings(
+            innings.innings_number,
+            side_code,
+            seed,
+            tuple(replay_deliveries),
+            tuple(replay_transitions),
+        )
+
+    @staticmethod
+    def _completion_kind_from_history(
+        match: Match,
+        innings: Innings,
+        event: InningsTransitionEvent,
+    ) -> InningsCompletionMode | None:
+        if event.event_kind != InningsTransitionType.INNINGS_COMPLETED:
+            return None
+        if match.scoring_policy is None:
+            raise ScoringAuthorityError("Match scoring policy is not locked.")
+        capability = capability_from_locked_policy(match.scoring_policy)
+        if capability.capability_profile is FormatCapabilityProfile.OTHER:
+            return InningsCompletionMode.MANUAL
+        if capability.capability_profile is not FormatCapabilityProfile.TEST:
+            return None  # Fixed-over completion is always derived again.
+        # Test permits all-out or declaration. Recover the original distinction
+        # from revisions as they stood when the completion was recorded; a prior
+        # correction may have cleared the current completion projection.
+        wickets = 0
+        for delivery in innings.deliveries:
+            if delivery.attempted_sequence > (event.anchored_attempted_sequence or 0):
+                continue
+            revisions = [
+                revision
+                for revision in delivery.revisions
+                if revision.recorded_at <= event.created_at
+            ]
+            if not revisions:
+                raise ScoringReconciliationError(
+                    "Completion predates its delivery history."
+                )
+            revision = max(revisions, key=lambda item: item.revision_number)
+            if (
+                revision.wicket_event is not None
+                and revision.wicket_event.counts_as_team_wicket
+            ):
+                wickets += 1
+        return (
+            InningsCompletionMode.ALL_OUT
+            if wickets >= capability.wicket_limit
+            else InningsCompletionMode.DECLARATION
+        )
+
+    @classmethod
+    def _replay_orm(cls, match: Match, innings: Innings) -> ReplayState:
+        source = cls._replay_input(match, innings)
+        return replay_innings(source.seed, source.deliveries, source.transitions)
 
     @staticmethod
     def _last_replay_anchor(
@@ -622,7 +761,7 @@ class ScoringService:
         try:
             authorization = ScoringAuthorizationAdapter(self.session)
             context = await authorization.load_context(authenticated_user)
-            match = await self._load_match(match_id)
+            match = await self._load_match(match_id, for_update=True)
             self._validate_lockable(match)
             team_by_side = self._validate_match_identity(match, payload)
             academy_team_ids = {
@@ -747,7 +886,7 @@ class ScoringService:
             context = await ScoringAuthorizationAdapter(self.session).load_context(
                 authenticated_user
             )
-            match = await self._load_match(match_id)
+            match = await self._load_match(match_id, for_update=True)
             require_scoring_mutation_scope(context, match)
             if match.scoring_policy is None:
                 raise ScoringAuthorityError("Match scoring is not configured.")
@@ -763,6 +902,7 @@ class ScoringService:
                 raise ScoringSequenceError(
                     "Innings number exceeds the locked sequence."
                 )
+            self._require_progression(match)
             existing = sorted(
                 match.scoring_innings, key=lambda value: value.innings_number
             )
@@ -894,7 +1034,7 @@ class ScoringService:
             context = await ScoringAuthorizationAdapter(self.session).load_context(
                 authenticated_user
             )
-            match = await self._load_match(match_id)
+            match = await self._load_match(match_id, for_update=True)
             innings = await self._load_innings(match_id, innings_id)
             require_scoring_mutation_scope(context, match)
             if MatchLifecycleState(match.lifecycle_state) is not (
@@ -976,11 +1116,8 @@ class ScoringService:
                 raise ScoringConflictError(
                     f"Delivery bowler is ineligible: {decision.reason_code}."
                 )
-            next_version = await check_and_increment_version(
-                self.session,
-                Innings,
-                innings.id,
-                payload.innings_version_number,
+            next_version = await self._claim_innings_version(
+                match, innings, payload.innings_version_number
             )
             innings.version_number = next_version
             delivery = Delivery(
@@ -1061,6 +1198,7 @@ class ScoringService:
                     "outcome": "committed",
                 },
             )
+            reloaded_match = await self._load_match(match_id)
             reloaded = await self._load_innings(match_id, innings_id)
             persisted = next(
                 value for value in reloaded.deliveries if value.id == delivery.id
@@ -1068,7 +1206,7 @@ class ScoringService:
             return _delivery_response(
                 persisted,
                 reloaded,
-                await self._load_match(match_id),
+                reloaded_match,
             )
         except Exception as exc:
             await self.session.rollback()
@@ -1084,6 +1222,311 @@ class ScoringService:
                 },
             )
             raise
+
+    async def correct_delivery(
+        self,
+        match_id: UUID,
+        innings_id: UUID,
+        delivery_id: UUID,
+        payload: DeliveryCorrectionRequest,
+        authenticated_user: User | UUID,
+        *,
+        request_id: str | None = None,
+    ) -> DeliveryCorrectionResponse:
+        """Append one revision and atomically rebuild the Match under its OCC lock."""
+        try:
+            context = await ScoringAuthorizationAdapter(self.session).load_context(
+                authenticated_user
+            )
+            match = await self._load_match(match_id, for_update=True)
+            require_scoring_mutation_scope(context, match)
+            prior_lifecycle = MatchLifecycleState(match.lifecycle_state)
+            if prior_lifecycle not in {
+                MatchLifecycleState.IN_PROGRESS,
+                MatchLifecycleState.COMPLETED,
+            }:
+                raise ScoringLifecycleError(
+                    "Only an in-progress or completed Match may be corrected."
+                )
+            if (
+                match.scoring_policy is None
+                or match.scoring_authority != ScoringAuthority.DELIVERY_HISTORY
+            ):
+                raise ScoringAuthorityError(
+                    "Correction requires locked delivery-history scoring."
+                )
+            try:
+                capability = capability_from_locked_policy(match.scoring_policy)
+            except ValueError as exc:
+                raise ScoringReconciliationError(
+                    "The locked capability cannot be replayed."
+                ) from exc
+            all_innings = [
+                await self._load_innings(match.id, item.id)
+                for item in sorted(
+                    match.scoring_innings, key=lambda item: item.innings_number
+                )
+            ]
+            innings = next(
+                (item for item in all_innings if item.id == innings_id), None
+            )
+            if innings is None:
+                raise ScoringVisibilityError("Innings not found.")
+            delivery = next(
+                (item for item in innings.deliveries if item.id == delivery_id), None
+            )
+            if delivery is None:
+                raise ScoringVisibilityError("Delivery not found.")
+            side_ids = {side.id for side in match.scoring_sides}
+            if len(side_ids) != 2 or any(
+                {item.batting_side_id, item.fielding_side_id} != side_ids
+                for item in all_innings
+            ):
+                raise ScoringReconciliationError(
+                    "Innings sides differ from the locked Match sides."
+                )
+            for item in all_innings:
+                for attempt in item.deliveries:
+                    self._validate_revision_chain(attempt)
+            active = self._active_revision(delivery)
+            if active.revision_number != payload.expected_revision_number:
+                raise ScoringRevisionError("The active revision has changed.")
+            match.version_number = await check_and_increment_version(
+                self.session, Match, match.id, payload.match_version_number
+            )
+            # Always acquire roots in innings order after the Match lock.
+            for item in all_innings:
+                item.version_number = await check_and_increment_version(
+                    self.session,
+                    Innings,
+                    item.id,
+                    payload.innings_version_number
+                    if item.id == innings.id
+                    else item.version_number,
+                )
+            if prior_lifecycle is MatchLifecycleState.COMPLETED:
+                match.lifecycle_state = MatchLifecycleState.CORRECTION_REPROCESSING
+            try:
+                sources = [self._replay_input(match, item) for item in all_innings]
+            except (ValueError, KeyError, IndexError) as exc:
+                raise ScoringReconciliationError(
+                    "Stored history cannot be safely replayed."
+                ) from exc
+            index = innings.innings_number - 1
+            source = sources[index]
+            replacement_facts = DeliveryFactsRequest.model_validate(
+                payload.replacement.model_dump()
+            )
+            sources[index] = replace(
+                source,
+                deliveries=tuple(
+                    ReplayDelivery(attempt.attempted_sequence, replacement_facts)
+                    if attempt.attempted_sequence == delivery.attempted_sequence
+                    else attempt
+                    for attempt in source.deliveries
+                ),
+            )
+            # Validate all observed run totals, including history beyond a conflict.
+            checked_scoring_add(
+                *(
+                    classify_delivery(
+                        attempt.facts,
+                        legal_balls_before=0,
+                        over_length_legal_balls=capability.over_length_legal_balls,
+                        fielding_participant_ids=item.seed.fielding_participant_ids,
+                        allowed_dismissal_types=frozenset(
+                            capability.allowed_dismissal_types
+                        ),
+                    ).total_runs
+                    for item in sources
+                    for attempt in item.deliveries
+                ),
+                field_name="Match total",
+            )
+            replay = replay_match(
+                capability,
+                sources,
+                correction_innings_number=innings.innings_number,
+                correction_sequence=delivery.attempted_sequence,
+                prior_lifecycle_state=prior_lifecycle,
+                prior_result_code=MatchResultCode(match.result_code),
+                prior_result_details=match.result_details,
+            )
+            state = replay.innings_states[index]
+            if len(state.classifications) < delivery.attempted_sequence:
+                raise ScoringReconciliationError(
+                    "The correction cannot be applied before the unresolved boundary."
+                )
+            classification = state.classifications[delivery.attempted_sequence - 1]
+            material = self._revision_facts(active).model_dump(
+                exclude={"wicket": {"notes"}}
+            ) != replacement_facts.model_dump(exclude={"wicket": {"notes"}})
+            active.revision_state = DeliveryRevisionState.SUPERSEDED
+            # Free the partial unique index before inserting the replacement.
+            await self.session.flush()
+            revision = DeliveryRevision(
+                id=uuid4(),
+                delivery_id=delivery.id,
+                revision_number=active.revision_number + 1,
+                revision_state=DeliveryRevisionState.ACTIVE,
+                striker_participant_id=replacement_facts.striker_participant_id,
+                non_striker_participant_id=replacement_facts.non_striker_participant_id,
+                bowler_participant_id=replacement_facts.bowler_participant_id,
+                runs_off_bat=replacement_facts.runs_off_bat,
+                **replacement_facts.extras.model_dump(),
+                total_runs=classification.total_runs,
+                is_legal=classification.is_legal,
+                completed_runs=classification.completed_runs,
+                balls_faced=classification.balls_faced,
+                bowler_conceded_runs=classification.bowler_conceded_runs,
+                over_number=classification.over_number,
+                ball_in_over=classification.ball_in_over,
+                supersedes_revision_id=active.id,
+                replacement_reason=payload.reason,
+                recorded_by_user_id=context.user.id,
+                recorded_at=datetime.now(UTC),
+                wicket_event=None,
+                fielders=[],
+            )
+            if (
+                classification.wicket is not None
+                and replacement_facts.wicket is not None
+            ):
+                wicket = classification.wicket
+                revision.wicket_event = WicketEvent(
+                    dismissed_participant_id=wicket.dismissed_participant_id,
+                    dismissal_type=wicket.dismissal_type,
+                    dismissed_end=wicket.dismissed_end,
+                    counts_as_team_wicket=wicket.counts_as_team_wicket,
+                    credited_to_bowler=wicket.credited_to_bowler,
+                    primary_fielder_participant_id=wicket.primary_fielder_participant_id,
+                    notes=replacement_facts.wicket.notes,
+                )
+                revision.fielders = [
+                    DeliveryFielder(
+                        participant_id=item.participant_id,
+                        ordinal=ordinal,
+                        role=item.role,
+                    )
+                    for ordinal, item in enumerate(replacement_facts.wicket.fielders, 1)
+                ]
+            delivery.revisions.append(revision)
+            self.session.add(revision)
+            match.lifecycle_state = replay.lifecycle_state
+            match.result_code, match.result_details, match.result = (
+                replay.result_code,
+                replay.result_details,
+                replay.result,
+            )
+            for item, rebuilt in zip(all_innings, replay.innings_states, strict=True):
+                await persist_innings_projection(
+                    self.session,
+                    item,
+                    rebuilt,
+                    over_length_legal_balls=capability.over_length_legal_balls,
+                )
+                # Rebuild dismissal links solely from the compatible active stream.
+                dismissal_ids = {
+                    classification.wicket.dismissed_participant_id: attempt.id
+                    for attempt, classification in zip(
+                        sorted(
+                            item.deliveries, key=lambda value: value.attempted_sequence
+                        ),
+                        rebuilt.classifications,
+                        strict=False,
+                    )
+                    if classification.wicket is not None
+                }
+                for entry in item.batting_entries:
+                    entry.dismissal_delivery_id = dismissal_ids.get(
+                        entry.participant_id
+                    )
+            await self.session.flush()
+            await record_delivery_corrected(
+                BusinessAuditService(self.session),
+                actor=context.user,
+                match=match,
+                innings=innings,
+                delivery_id=delivery.id,
+                prior_revision_id=active.id,
+                revision=revision,
+                prior_lifecycle=prior_lifecycle,
+                request_id=request_id,
+            )
+            if material:
+                await stage_scoring_refresh(
+                    self.session,
+                    match_id=match.id,
+                    innings_id=innings.id,
+                    projection_revision=innings.projection_revision,
+                    reason="correction",
+                )
+            # Serialize before committing so response failure also rolls back.
+            response = DeliveryCorrectionResponse(
+                **_delivery_response(delivery, innings, match).model_dump(),
+                match_id=match.id,
+                match_version_number=match.version_number,
+                match_lifecycle_state=(
+                    MatchLifecycleState.COMPLETED
+                    if replay.lifecycle_state is MatchLifecycleState.COMPLETED
+                    else MatchLifecycleState.IN_PROGRESS
+                ),
+                innings_lifecycle_state=state.lifecycle_state,
+                reconciliation_reason=(
+                    "incompatible_replay"
+                    if state.reconciliation_sequence is not None
+                    else None
+                ),
+                reconciliation_sequence=state.reconciliation_sequence,
+                unreplayed_attempts=state.unreplayed_attempts,
+                result_code=replay.result_code,
+                result_details=replay.result_details,
+                match_blocking_state=BlockingStateResponse.model_validate(
+                    replay.blocking_state.as_dict()
+                ),
+            )
+            await self.session.commit()
+            logger.info(
+                "Scoring delivery corrected",
+                extra={
+                    "request_id": request_id,
+                    "match_id": str(match_id),
+                    "innings_id": str(innings_id),
+                    "delivery_id": str(delivery_id),
+                    "expected_version": payload.innings_version_number,
+                    "resulting_version": innings.version_number,
+                    "outcome": "committed",
+                },
+            )
+            return response
+        except Exception as exc:
+            await self.session.rollback()
+            logger.info(
+                "Scoring correction rejected",
+                extra={
+                    "request_id": request_id,
+                    "match_id": str(match_id),
+                    "innings_id": str(innings_id),
+                    "delivery_id": str(delivery_id),
+                    "outcome": type(exc).__name__,
+                },
+            )
+            raise
+
+    @classmethod
+    def _validate_revision_chain(cls, delivery: Delivery) -> None:
+        revisions = sorted(delivery.revisions, key=lambda item: item.revision_number)
+        active = cls._active_revision(delivery)
+        if [item.revision_number for item in revisions] != list(
+            range(1, len(revisions) + 1)
+        ) or active is not revisions[-1]:
+            raise ScoringRevisionError(
+                "Delivery revision history is not a single active chain."
+            )
+        for index, revision in enumerate(revisions):
+            expected = revisions[index - 1].id if index else None
+            if revision.supersedes_revision_id != expected:
+                raise ScoringRevisionError("Delivery revision predecessor is invalid.")
 
     async def get_innings(
         self,
@@ -1129,7 +1572,7 @@ class ScoringService:
             context = await ScoringAuthorizationAdapter(self.session).load_context(
                 authenticated_user
             )
-            match = await self._load_match(match_id)
+            match = await self._load_match(match_id, for_update=True)
             require_scoring_mutation_scope(context, match)
             innings = await self._load_innings(match_id, innings_id)
             if (
@@ -1175,8 +1618,8 @@ class ScoringService:
                 raise ScoringValidationError(
                     "An alternative to the suggestion requires override_reason."
                 )
-            next_version = await check_and_increment_version(
-                self.session, Innings, innings.id, payload.innings_version_number
+            next_version = await self._claim_innings_version(
+                match, innings, payload.innings_version_number
             )
             innings.version_number = next_version
             anchor_sequence, anchor_revision_id = self._last_replay_anchor(innings)
@@ -1283,7 +1726,7 @@ class ScoringService:
             context = await ScoringAuthorizationAdapter(self.session).load_context(
                 authenticated_user
             )
-            match = await self._load_match(match_id)
+            match = await self._load_match(match_id, for_update=True)
             innings = await self._load_innings(match_id, innings_id)
             require_scoring_mutation_scope(context, match)
             if InningsLifecycleState(innings.lifecycle_state) is not (
@@ -1323,11 +1766,8 @@ class ScoringService:
                 raise ScoringValidationError(
                     "The selected next batter is no longer eligible."
                 )
-            next_version = await check_and_increment_version(
-                self.session,
-                Innings,
-                innings.id,
-                payload.innings_version_number,
+            next_version = await self._claim_innings_version(
+                match, innings, payload.innings_version_number
             )
             innings.version_number = next_version
             anchor_sequence, anchor_revision_id = self._last_replay_anchor(innings)
@@ -1371,7 +1811,7 @@ class ScoringService:
             context = await ScoringAuthorizationAdapter(self.session).load_context(
                 authenticated_user
             )
-            match = await self._load_match(match_id)
+            match = await self._load_match(match_id, for_update=True)
             innings = await self._load_innings(match_id, innings_id)
             require_scoring_mutation_scope(context, match)
             if InningsLifecycleState(innings.lifecycle_state) is not (
@@ -1412,11 +1852,8 @@ class ScoringService:
                 raise ScoringValidationError(
                     "A retired-hurt return requires that participant and a vacancy."
                 )
-            next_version = await check_and_increment_version(
-                self.session,
-                Innings,
-                innings.id,
-                payload.innings_version_number,
+            next_version = await self._claim_innings_version(
+                match, innings, payload.innings_version_number
             )
             innings.version_number = next_version
             anchor_sequence, anchor_revision_id = self._last_replay_anchor(innings)

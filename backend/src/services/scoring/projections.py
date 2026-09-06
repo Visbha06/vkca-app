@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.enums import ParticipationState, ScoringDismissalType
+from src.enums import (
+    InningsLifecycleState,
+    InningsReconciliationReason,
+    ParticipationState,
+    ScoringDismissalType,
+)
 from src.models.scoring.innings import Innings
 from src.models.scoring.over import InningsOver
 from src.models.scoring.participant_summary import InningsParticipantSummary
@@ -120,6 +126,10 @@ def build_innings_projection(
             "bowler_participant_id": str(state.opening_bowler_participant_id),
         },
         "blocking_state": state.blocking_state.as_dict(),
+        "reconciliation": {
+            "attempted_sequence": state.reconciliation_sequence,
+            "unreplayed_attempts": state.unreplayed_attempts,
+        },
         "extras": dict(state.extras),
         "fall_of_wickets": list(state.fall_of_wickets),
         "target": {
@@ -160,6 +170,17 @@ async def persist_innings_projection(
     )
     next_revision = innings.projection_revision + 1
     innings.lifecycle_state = state.lifecycle_state
+    innings.reconciliation_reason = (
+        InningsReconciliationReason.INCOMPATIBLE_REPLAY
+        if state.lifecycle_state is InningsLifecycleState.RECONCILIATION_REQUIRED
+        else None
+    )
+    innings.completion_reason = state.completion_reason
+    innings.completed_at = (
+        (innings.completed_at or datetime.now(UTC))
+        if (state.lifecycle_state is InningsLifecycleState.COMPLETED)
+        else None
+    )
     innings.striker_participant_id = projection.striker_participant_id
     innings.non_striker_participant_id = projection.non_striker_participant_id
     innings.current_bowler_participant_id = projection.current_bowler_participant_id

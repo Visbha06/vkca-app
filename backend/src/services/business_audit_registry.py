@@ -196,6 +196,23 @@ ACTION_REGISTRY: dict[AuditActionType, AuditActionDefinition] = {
             }
         ),
     ),
+    AuditActionType.SCORING_DELIVERY_CORRECTED: AuditActionDefinition(
+        AuditActionCategory.SCORING,
+        AuditEntityType.MATCH,
+        "{actor} corrected a delivery for {target}",
+        frozenset(
+            {
+                "innings_id",
+                "delivery_id",
+                "prior_revision_id",
+                "revision_id",
+                "revision_number",
+                "reason",
+                "prior_lifecycle",
+                "final_lifecycle",
+            }
+        ),
+    ),
 }
 
 

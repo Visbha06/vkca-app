@@ -124,6 +124,7 @@ def coalesce_rag_reconciliation_payloads(
         mode="targets",
         reason=reason,
         targets=tuple(targets[key] for key in sorted(targets)),
+        scoring_refresh=new.scoring_refresh or old.scoring_refresh,
     )
 
 

@@ -115,10 +115,23 @@ class RagTargetRef(BaseModel):
         return normalized
 
 
+class ScoringRefreshRef(BaseModel):
+    """Identifiers for a coalesced scoring refresh; never a scoring snapshot."""
+
+    match_id: UUID
+    innings_id: UUID
+    projection_revision: int = Field(ge=1)
+    reason: Literal["completion", "correction"]
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
 class RagReconciliationPayloadV1(BaseModel):
     """Bounded durable payload that instructs later current-state reconciliation."""
 
     mode: Literal["targets", "incremental_safety"] = "targets"
+    scoring_refresh: ScoringRefreshRef | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     reason: Literal["mutation", "manual", "repair", "safety"] = "mutation"
     targets: tuple[RagTargetRef, ...] = Field(
         default=(),

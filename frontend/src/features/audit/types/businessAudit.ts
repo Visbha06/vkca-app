@@ -53,6 +53,8 @@ const BUSINESS_AUDIT_ACTION_ORDER = {
   'calendar.occurrence_moved': true,
   'calendar.occurrence_deleted': true,
   'scoring.initialized': true,
+  'scoring.innings_started': true,
+  'scoring.delivery_corrected': true,
 } satisfies Record<BusinessAuditActionType, true>
 
 export const BUSINESS_AUDIT_ACTION_TYPES = Object.keys(

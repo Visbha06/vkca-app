@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from src.enums import (
     SCORING_RUN_COMPONENT_MAX,
@@ -573,6 +573,13 @@ class DeliveryCorrectionRequest(StrictScoringRequest):
     reason: str = Field(min_length=1, max_length=MAX_SCORING_REASON_LENGTH)
     replacement: DeliveryReplacementRequest
 
+    @field_validator("reason")
+    @classmethod
+    def validate_reason(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("A correction reason must not be blank.")
+        return value.strip()
+
 
 class InningsCompletionRequest(StrictScoringRequest):
     innings_version_number: int = Field(ge=1)
@@ -736,6 +743,21 @@ class DeliveryResponse(ScoringResponse):
     blocking_state: BlockingStateResponse
 
 
+class DeliveryCorrectionResponse(DeliveryResponse):
+    match_id: UUID
+    match_version_number: int = Field(ge=1)
+    match_lifecycle_state: Literal[
+        MatchLifecycleState.IN_PROGRESS, MatchLifecycleState.COMPLETED
+    ]
+    innings_lifecycle_state: InningsLifecycleState
+    reconciliation_reason: str | None
+    reconciliation_sequence: int | None = Field(default=None, ge=0)
+    unreplayed_attempts: int = Field(default=0, ge=0)
+    result_code: MatchResultCode
+    result_details: dict[str, Any]
+    match_blocking_state: BlockingStateResponse
+
+
 class InningsOverResponse(ScoringResponse):
     over_number: int = Field(ge=0)
     bowler_participant_id: UUID
@@ -806,6 +828,8 @@ class InningsResponse(ScoringResponse):
     fielding_side_id: UUID
     lifecycle_state: InningsLifecycleState
     reconciliation_reason: str | None
+    reconciliation_sequence: int | None = Field(default=None, ge=0)
+    unreplayed_attempts: int = Field(default=0, ge=0)
     striker_participant_id: UUID | None
     non_striker_participant_id: UUID | None
     current_bowler_participant_id: UUID | None
