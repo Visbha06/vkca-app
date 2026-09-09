@@ -119,7 +119,7 @@ class ScoringRefreshRef(BaseModel):
     """Identifiers for a coalesced scoring refresh; never a scoring snapshot."""
 
     match_id: UUID
-    innings_id: UUID
+    innings_id: UUID | None
     projection_revision: int = Field(ge=1)
     reason: Literal["completion", "correction"]
     model_config = ConfigDict(extra="forbid", frozen=True)

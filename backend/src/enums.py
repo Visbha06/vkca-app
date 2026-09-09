@@ -125,6 +125,8 @@ class AuditActionType(StrEnum):
     CALENDAR_OCCURRENCE_DELETED = "calendar.occurrence_deleted"
     SCORING_INITIALIZED = "scoring.initialized"
     SCORING_INNINGS_STARTED = "scoring.innings_started"
+    SCORING_INNINGS_COMPLETED = "scoring.innings_completed"
+    SCORING_MATCH_COMPLETED = "scoring.match_completed"
     SCORING_DELIVERY_CORRECTED = "scoring.delivery_corrected"
 
 

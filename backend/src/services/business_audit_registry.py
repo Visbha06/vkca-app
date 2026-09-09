@@ -196,6 +196,18 @@ ACTION_REGISTRY: dict[AuditActionType, AuditActionDefinition] = {
             }
         ),
     ),
+    AuditActionType.SCORING_INNINGS_COMPLETED: AuditActionDefinition(
+        AuditActionCategory.SCORING,
+        AuditEntityType.MATCH,
+        "{actor} completed an innings for {target}",
+        frozenset({"innings_id", "innings_number", "completion_kind", "reason"}),
+    ),
+    AuditActionType.SCORING_MATCH_COMPLETED: AuditActionDefinition(
+        AuditActionCategory.SCORING,
+        AuditEntityType.MATCH,
+        "{actor} completed {target}",
+        frozenset({"result_code", "lifecycle_state", "reason"}),
+    ),
     AuditActionType.SCORING_DELIVERY_CORRECTED: AuditActionDefinition(
         AuditActionCategory.SCORING,
         AuditEntityType.MATCH,

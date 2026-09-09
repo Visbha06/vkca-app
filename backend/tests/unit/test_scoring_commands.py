@@ -330,6 +330,8 @@ async def test_configuration_handler_is_mounted_strict_and_versioned(
 def _innings_response() -> InningsResponse:
     return InningsResponse(
         id=uuid4(),
+        match_version_number=1,
+        wickets_remaining=10,
         match_id=uuid4(),
         innings_number=1,
         batting_side_id=uuid4(),

@@ -9,8 +9,6 @@ from src.enums import (
     BlockingReasonCode,
     BlockingStateKind,
     DismissedEnd,
-    ExplicitMatchCompletionBoundary,
-    FormatCapabilityProfile,
     InningsCompletionMode,
     InningsLifecycleState,
     InningsTransitionType,
@@ -25,8 +23,10 @@ from src.services.scoring.errors import ScoringReconciliationError
 from src.services.scoring.policy import FormatCapability, bowler_eligibility
 from src.services.scoring.rules import (
     DeliveryClassification,
+    automatic_innings_completion,
     checked_scoring_add,
     classify_delivery,
+    derive_match_result,
 )
 
 
@@ -116,6 +116,8 @@ class ReplayState:
     completion_reason: InningsCompletionMode | None = None
     reconciliation_sequence: int | None = None
     unreplayed_attempts: int = 0
+    legal_ball_limit: int | None = None
+    wicket_limit: int = 10
     legal_balls: int = 0
     total_runs: int = 0
     wickets_lost: int = 0
@@ -386,25 +388,13 @@ def _apply_transition(
 def _automatic_completion(
     state: ReplayState, capability: FormatCapability
 ) -> InningsCompletionMode | None:
-    modes = capability.allowed_innings_completion_modes
-    if (
-        InningsCompletionMode.TARGET_REACHED in modes
-        and state.target_runs is not None
-        and state.total_runs >= state.target_runs
-    ):
-        return InningsCompletionMode.TARGET_REACHED
-    if (
-        InningsCompletionMode.ALL_OUT in modes
-        and state.wickets_lost >= capability.wicket_limit
-    ):
-        return InningsCompletionMode.ALL_OUT
-    if (
-        InningsCompletionMode.LEGAL_BALL_LIMIT in modes
-        and capability.legal_ball_limit is not None
-        and state.legal_balls >= capability.legal_ball_limit
-    ):
-        return InningsCompletionMode.LEGAL_BALL_LIMIT
-    return None
+    return automatic_innings_completion(
+        capability,
+        total_runs=state.total_runs,
+        legal_balls=state.legal_balls,
+        wickets_lost=state.wickets_lost,
+        target_runs=state.target_runs,
+    )
 
 
 def _apply_delivery(
@@ -589,6 +579,8 @@ def replay_innings(
         non_striker_participant_id=seed.opening_non_striker_participant_id,
         current_bowler_participant_id=seed.opening_bowler_participant_id,
         target_runs=seed.target_runs,
+        legal_ball_limit=seed.capability.legal_ball_limit,
+        wicket_limit=seed.capability.wicket_limit,
         participants=summaries,
     )
     transitions_by_anchor: dict[int, list[ReplayTransition]] = {}
@@ -693,80 +685,6 @@ class MatchReplayState:
     blocking_state: BlockingState
 
 
-def _match_result(
-    capability: FormatCapability,
-    states: list[ReplayState],
-    prior_lifecycle_state: MatchLifecycleState,
-    prior_result_code: MatchResultCode,
-    prior_result_details: dict[str, object],
-) -> tuple[MatchResultCode, dict[str, object], str]:
-    if any(
-        s.lifecycle_state is InningsLifecycleState.RECONCILIATION_REQUIRED
-        for s in states
-    ):
-        return MatchResultCode.PENDING, {}, "Pending"
-    complete = bool(states) and all(
-        s.lifecycle_state is InningsLifecycleState.COMPLETED for s in states
-    )
-    if (
-        complete
-        and len(states) == len(capability.innings_sequence)
-        and capability.capability_profile is not FormatCapabilityProfile.OTHER
-    ):
-        totals: dict[str, int] = {}
-        for code, state in zip(capability.innings_sequence, states, strict=True):
-            totals[code.value] = checked_scoring_add(
-                state.total_runs, current=totals.get(code.value, 0)
-            )
-        first_code, second_code = capability.innings_sequence[:2]
-        first_total, second_total = totals[first_code.value], totals[second_code.value]
-        if first_total == second_total:
-            return MatchResultCode.TIE, {"side_totals": totals}, "Match tied"
-        winner = first_code if first_total > second_total else second_code
-        if states[-1].completion_reason is InningsCompletionMode.TARGET_REACHED:
-            margin = max(0, capability.wicket_limit - states[-1].wickets_lost)
-            return (
-                MatchResultCode.WIN_BY_WICKETS,
-                {
-                    "winning_side_code": winner.value,
-                    "wickets_remaining": margin,
-                    "side_totals": totals,
-                },
-                f"{winner.value} won by {margin} wickets",
-            )
-        margin = abs(first_total - second_total)
-        return (
-            MatchResultCode.WIN_BY_RUNS,
-            {
-                "winning_side_code": winner.value,
-                "runs_margin": margin,
-                "side_totals": totals,
-            },
-            f"{winner.value} won by {margin} runs",
-        )
-    if (
-        prior_lifecycle_state is MatchLifecycleState.COMPLETED
-        and prior_result_code
-        in {
-            MatchResultCode.DRAW,
-            MatchResultCode.DECLARED,
-            MatchResultCode.MANUAL,
-        }
-        and prior_result_code in capability.allowed_result_codes
-    ):
-        boundary = capability.explicit_match_completion_boundary
-        if boundary is ExplicitMatchCompletionBoundary.ANY_NONTERMINAL_STATE or (
-            boundary is ExplicitMatchCompletionBoundary.AFTER_COMPLETED_INNINGS
-            and complete
-        ):
-            return (
-                prior_result_code,
-                dict(prior_result_details),
-                prior_result_code.value.capitalize(),
-            )
-    return MatchResultCode.PENDING, {}, "Pending"
-
-
 def replay_match(
     capability: FormatCapability,
     innings: list[ReplayInnings] | tuple[ReplayInnings, ...],
@@ -859,7 +777,7 @@ def replay_match(
     checked_scoring_add(
         *(state.total_runs for state in states), field_name="Match total"
     )
-    code, details, text = _match_result(
+    code, details, text = derive_match_result(
         capability,
         states,
         prior_lifecycle_state,

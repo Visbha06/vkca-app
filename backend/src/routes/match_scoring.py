@@ -15,7 +15,10 @@ from src.schemas.scoring import (
     DeliveryCorrectionResponse,
     DeliveryHistoryResponse,
     DeliveryResponse,
+    InningsCompletionRequest,
     InningsResponse,
+    MatchCompletionRequest,
+    MatchCompletionResponse,
     MatchConfigurationRequest,
     MatchConfigurationResponse,
     NextBowlerResponse,
@@ -236,4 +239,37 @@ async def correct_match_delivery(
         payload,
         current_user[0],
         request_id=request_id,
+    )
+
+
+@match_scoring_router.post(
+    "/{match_id}/innings/{innings_id}/completion", response_model=InningsResponse
+)
+async def complete_innings(
+    match_id: UUID,
+    innings_id: UUID,
+    payload: InningsCompletionRequest,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
+) -> InningsResponse:
+    """Complete using the locked capability and server-derived scoring state."""
+    return await MatchService(session).complete_innings(
+        match_id, innings_id, payload, current_user[0], request_id=request_id
+    )
+
+
+@match_scoring_router.post(
+    "/{match_id}/completion", response_model=MatchCompletionResponse
+)
+async def complete_match(
+    match_id: UUID,
+    payload: MatchCompletionRequest,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
+) -> MatchCompletionResponse:
+    """Complete using the locked capability and server-derived scoring state."""
+    return await MatchService(session).complete_match(
+        match_id, payload, current_user[0], request_id=request_id
     )

@@ -345,3 +345,44 @@ def test_duplicate_conflicting_and_reserved_wickets_are_rejected() -> None:
     }
     with pytest.raises(ValidationError):
         AppendDeliveryRequest.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("profile", "limit", "balls", "wickets", "target", "runs", "expected"),
+    [
+        ("T20", None, 119, 9, None, 0, None),
+        ("T20", None, 120, 9, None, 0, "legal_ball_limit"),
+        ("T20", None, 5, 10, None, 0, "all_out"),
+        ("T20", None, 120, 10, 10, 10, "target_reached"),
+        ("one-day", 240, 239, 0, None, 0, None),
+        ("one-day", 240, 240, 0, None, 0, "legal_ball_limit"),
+        ("test", None, 1000, 9, None, 0, None),
+        ("test", None, 1000, 10, None, 0, "all_out"),
+    ],
+)
+def test_completion_limits_and_target_precedence(
+    profile, limit, balls, wickets, target, runs, expected
+):
+    from src.services.scoring.policy import resolve_format_capability
+    from src.services.scoring.rules import automatic_innings_completion
+
+    policy = {
+        "policy_code": profile,
+        "capability_profile": profile,
+        "innings_sequence": ["home", "away"] * (2 if profile == "test" else 1),
+    }
+    if limit:
+        policy["legal_ball_limit"] = limit
+    capability = resolve_format_capability(policy)
+    assert (
+        automatic_innings_completion(
+            capability,
+            total_runs=runs,
+            legal_balls=balls,
+            wickets_lost=wickets,
+            target_runs=target,
+        )
+        == expected
+    )
+    if profile == "one-day":
+        assert capability.bowler_quota_legal_balls == limit // 5

@@ -105,3 +105,55 @@ async def record_delivery_corrected(
             "final_lifecycle": str(match.lifecycle_state),
         },
     )
+
+
+async def record_innings_completed(
+    audit_service: BusinessAuditService,
+    *,
+    actor: User,
+    match: Match,
+    innings: Innings,
+    reason: str | None = None,
+    request_id: str | None = None,
+) -> None:
+    """Record one completion in the caller's transaction, without score payloads."""
+    await audit_service.record(
+        actor=AuditActorContext.from_user(actor, request_id=request_id),
+        action_type=AuditActionType.SCORING_INNINGS_COMPLETED,
+        target=AuditTargetContext(
+            entity_type=AuditEntityType.MATCH,
+            entity_id=match.id,
+            label=f"Match {match.match_date} at {match.venue}"[:255],
+        ),
+        metadata={
+            "innings_id": str(innings.id),
+            "innings_number": innings.innings_number,
+            "completion_kind": str(innings.completion_reason),
+            "reason": reason,
+        },
+    )
+
+
+async def record_match_completed(
+    audit_service: BusinessAuditService,
+    *,
+    actor: User,
+    match: Match,
+    reason: str | None = None,
+    request_id: str | None = None,
+) -> None:
+    """Record the terminal Match outcome within the completion transaction."""
+    await audit_service.record(
+        actor=AuditActorContext.from_user(actor, request_id=request_id),
+        action_type=AuditActionType.SCORING_MATCH_COMPLETED,
+        target=AuditTargetContext(
+            entity_type=AuditEntityType.MATCH,
+            entity_id=match.id,
+            label=f"Match {match.match_date} at {match.venue}"[:255],
+        ),
+        metadata={
+            "result_code": str(match.result_code),
+            "lifecycle_state": str(match.lifecycle_state),
+            "reason": reason,
+        },
+    )

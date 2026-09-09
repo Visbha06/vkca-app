@@ -2,18 +2,28 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Protocol
 from uuid import UUID
 
 from src.enums import (
     SCORING_RUN_COMPONENT_MAX,
     SCORING_RUN_TOTAL_MAX,
     DismissedEnd,
+    ExplicitMatchCompletionBoundary,
     FielderRole,
+    FormatCapabilityProfile,
+    InningsCompletionMode,
+    InningsLifecycleState,
+    MatchCompletionMode,
+    MatchLifecycleState,
+    MatchResultCode,
     ScoringDismissalType,
 )
 from src.schemas.scoring import DeliveryFactsRequest, WicketRequest
 from src.services.scoring.errors import ScoringValidationError
+from src.services.scoring.policy import FormatCapability
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,4 +244,159 @@ __all__ = [
     "classify_delivery",
     "classify_delivery_facts",
     "classify_wicket",
+    "automatic_innings_completion",
+    "derive_match_result",
 ]
+
+
+class InningsResultState(Protocol):
+    """Read-only projection fields shared by ORM and replay results."""
+
+    @property
+    def lifecycle_state(self) -> InningsLifecycleState: ...
+    @property
+    def total_runs(self) -> int: ...
+    @property
+    def wickets_lost(self) -> int: ...
+    @property
+    def completion_reason(self) -> InningsCompletionMode | None: ...
+
+
+def automatic_innings_completion(
+    capability: FormatCapability,
+    *,
+    total_runs: int,
+    legal_balls: int,
+    wickets_lost: int,
+    target_runs: int | None,
+) -> InningsCompletionMode | None:
+    """Apply target, wicket, then legal-ball precedence from the locked policy."""
+    modes = capability.allowed_innings_completion_modes
+    if (
+        InningsCompletionMode.TARGET_REACHED in modes
+        and target_runs is not None
+        and total_runs >= target_runs
+    ):
+        return InningsCompletionMode.TARGET_REACHED
+    if (
+        InningsCompletionMode.ALL_OUT in modes
+        and wickets_lost >= capability.wicket_limit
+    ):
+        return InningsCompletionMode.ALL_OUT
+    if (
+        InningsCompletionMode.LEGAL_BALL_LIMIT in modes
+        and capability.legal_ball_limit is not None
+        and legal_balls >= capability.legal_ball_limit
+    ):
+        return InningsCompletionMode.LEGAL_BALL_LIMIT
+    return None
+
+
+def _derive_match_result(
+    capability: FormatCapability,
+    states: Sequence[InningsResultState],
+    prior_lifecycle_state: MatchLifecycleState,
+    prior_result_code: MatchResultCode,
+    prior_result_details: dict[str, object],
+) -> tuple[MatchResultCode, dict[str, object], str]:
+    """Derive the same bounded result for live completion and correction replay."""
+    checked_scoring_add(*(s.total_runs for s in states), field_name="Match total")
+    if any(
+        s.lifecycle_state == InningsLifecycleState.RECONCILIATION_REQUIRED
+        for s in states
+    ):
+        return MatchResultCode.PENDING, {}, "Pending"
+    if prior_lifecycle_state is MatchLifecycleState.ABANDONED:
+        return MatchResultCode.NO_RESULT, dict(prior_result_details), "No result"
+    complete = bool(states) and all(
+        s.lifecycle_state == InningsLifecycleState.COMPLETED for s in states
+    )
+    if (
+        complete
+        and len(states) == len(capability.innings_sequence)
+        and capability.capability_profile is not FormatCapabilityProfile.OTHER
+    ):
+        totals: dict[str, int] = {}
+        for code, state in zip(capability.innings_sequence, states, strict=True):
+            totals[code.value] = checked_scoring_add(
+                state.total_runs, current=totals.get(code.value, 0)
+            )
+        first_code, second_code = capability.innings_sequence[:2]
+        first_total, second_total = totals[first_code.value], totals[second_code.value]
+        if first_total == second_total:
+            return MatchResultCode.TIE, {"side_totals": totals}, "Match tied"
+        winner = first_code if first_total > second_total else second_code
+        if states[-1].completion_reason == InningsCompletionMode.TARGET_REACHED:
+            margin = max(0, capability.wicket_limit - states[-1].wickets_lost)
+            return (
+                MatchResultCode.WIN_BY_WICKETS,
+                {
+                    "winning_side_code": winner.value,
+                    "wickets_remaining": margin,
+                    "side_totals": totals,
+                },
+                f"{winner.value} won by {margin} wickets",
+            )
+        margin = abs(first_total - second_total)
+        return (
+            MatchResultCode.WIN_BY_RUNS,
+            {
+                "winning_side_code": winner.value,
+                "runs_margin": margin,
+                "side_totals": totals,
+            },
+            f"{winner.value} won by {margin} runs",
+        )
+    if (
+        prior_lifecycle_state is MatchLifecycleState.COMPLETED
+        and prior_result_code
+        in {
+            MatchResultCode.DRAW,
+            MatchResultCode.DECLARED,
+            MatchResultCode.MANUAL,
+        }
+        and prior_result_code in capability.allowed_result_codes
+    ):
+        boundary = capability.explicit_match_completion_boundary
+        if boundary is ExplicitMatchCompletionBoundary.ANY_NONTERMINAL_STATE or (
+            boundary is ExplicitMatchCompletionBoundary.AFTER_COMPLETED_INNINGS
+            and complete
+        ):
+            return (
+                prior_result_code,
+                dict(prior_result_details),
+                prior_result_code.value.capitalize(),
+            )
+    return MatchResultCode.PENDING, {}, "Pending"
+
+
+def derive_match_result(
+    capability: FormatCapability,
+    states: Sequence[InningsResultState],
+    prior_lifecycle_state: MatchLifecycleState = MatchLifecycleState.IN_PROGRESS,
+    prior_result_code: MatchResultCode = MatchResultCode.PENDING,
+    prior_result_details: dict[str, object] | None = None,
+) -> tuple[MatchResultCode, dict[str, object], str]:
+    """Reject results outside the locked capability, including on correction."""
+    result = _derive_match_result(
+        capability,
+        states,
+        prior_lifecycle_state,
+        prior_result_code,
+        prior_result_details or {},
+    )
+    if result[0] not in capability.allowed_result_codes:
+        raise ScoringValidationError("Result is not allowed by the locked capability.")
+    explicit_modes = {
+        MatchResultCode.DRAW: MatchCompletionMode.DRAW,
+        MatchResultCode.DECLARED: MatchCompletionMode.DECLARED,
+        MatchResultCode.MANUAL: MatchCompletionMode.MANUAL,
+    }
+    if (
+        result[0] in explicit_modes
+        and explicit_modes[result[0]] not in capability.allowed_match_completion_modes
+    ):
+        raise ScoringValidationError(
+            "Completion mode is not allowed by the locked capability."
+        )
+    return result

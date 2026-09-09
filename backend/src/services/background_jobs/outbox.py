@@ -1058,9 +1058,10 @@ async def stage_scoring_refresh(
     session: AsyncSession,
     *,
     match_id: UUID,
-    innings_id: UUID,
+    innings_id: UUID | None,
     projection_revision: int,
     reason: Literal["completion", "correction"],
+    refresh_version: int | None = None,
 ) -> BackgroundWorkItem:
     """Stage the shared completion/correction refresh through the existing outbox."""
     from src.services.rag.contracts import (
@@ -1083,7 +1084,11 @@ async def stage_scoring_refresh(
         session,
         "rag_reconciliation",
         payload,
-        idempotency_key=f"scoring:{match_id}:{innings_id}:{projection_revision}",
+        idempotency_key=(
+            f"scoring:{match_id}:version:{refresh_version}"
+            if refresh_version is not None
+            else f"scoring:{match_id}:{innings_id}:{projection_revision}"
+        ),
         coalescing_key=f"rag:match:{match_id}",
         source_type="match",
         source_key=str(match_id),

@@ -969,3 +969,458 @@ async def test_phase4_authoritative_delivery_and_transition_flow(
         await session.execute(delete(Innings).where(Innings.match_id == match_id))
         await session.execute(delete(Match).where(Match.id == match_id))
         await session.commit()
+
+
+async def _phase7_configuration(
+    client, profile, external, match_ids, boundary="after_completed_innings"
+):
+    from tests.unit.test_scoring_projections import _completion_policy
+
+    unique = uuid4().hex[:8]
+    async with AsyncSessionFactory() as session:
+        teams = [
+            Team(name=f"Completion-{side}-{unique}", age_group="U15")
+            for side in ("home", "away")
+        ]
+        players = [
+            [await _player(f"{side}-{i}", unique) for i in range(11)]
+            for side in ("home", "away")
+        ]
+        session.add_all([*teams, *players[0], *players[1]])
+        await session.flush()
+        session.add_all(
+            [
+                TeamPlayer(team_id=team.id, player_id=p.id, roster_order=i)
+                for team, roster in zip(teams, players, strict=True)
+                for i, p in enumerate(roster, 1)
+            ]
+        )
+        match = _match(
+            home_team_id=teams[0].id,
+            away_team_id=None if external else teams[1].id,
+            opponent="Visitors" if external else None,
+            format=MatchFormat(profile),
+        )
+        session.add(match)
+        await session.commit()
+        match_ids.append(match.id)
+        policy = {
+            "policy_code": profile,
+            "capability_profile": profile,
+            "innings_sequence": ["home", "away"] * (2 if profile == "test" else 1),
+        }
+        if profile == "other":
+            columns = _completion_policy(profile, boundary).policy_columns()
+            policy.update(
+                {
+                    key: value
+                    for key, value in columns.items()
+                    if key not in {"policy_version"}
+                }
+            )
+        response = await client.put(
+            f"/api/v1/matches/{match.id}/configuration",
+            json={
+                "match_version_number": 1,
+                "format": profile,
+                "policy": policy,
+                "sides": [
+                    {
+                        "side_code": "home",
+                        "side_kind": "academy",
+                        "team_id": str(teams[0].id),
+                    },
+                    {
+                        "side_code": "away",
+                        "side_kind": "external",
+                        "display_name": "Visitors",
+                    }
+                    if external
+                    else {
+                        "side_code": "away",
+                        "side_kind": "academy",
+                        "team_id": str(teams[1].id),
+                    },
+                ],
+                "participants": [
+                    *[
+                        _participant("home", p.id, i)
+                        for i, p in enumerate(players[0], 1)
+                    ],
+                    *[
+                        {
+                            "side_code": "away",
+                            "participant_kind": "external",
+                            "display_name": f"Visitor {i}",
+                            "batting_order_position": i,
+                        }
+                        if external
+                        else _participant("away", p.id, i)
+                        for i, p in enumerate(players[1], 1)
+                    ],
+                ],
+            },
+        )
+    assert response.status_code == 200, response.text
+    config = response.json()
+    sides = {s["side_code"]: s["id"] for s in config["sides"]}
+    participants = {
+        code: [p["id"] for p in config["participants"] if p["side_id"] == id]
+        for code, id in sides.items()
+    }
+    return config, participants
+
+
+async def _phase7_start(client, config, participants, number, version):
+    side = config["policy"]["innings_sequence"][number - 1]
+    fielding = "away" if side == "home" else "home"
+    response = await client.post(
+        f"/api/v1/matches/{config['match_id']}/innings",
+        json={
+            "match_version_number": version,
+            "innings_number": number,
+            "opening_striker_participant_id": participants[side][0],
+            "opening_non_striker_participant_id": participants[side][1],
+            "opening_bowler_participant_id": participants[fielding][0],
+        },
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+async def _phase7_score(client, match_id, state, sequence, runs=0, wicket=False):
+    base = f"/api/v1/matches/{match_id}/innings/{state['id']}"
+    response = await client.post(
+        base + "/deliveries",
+        json={
+            "innings_version_number": state["version_number"],
+            "attempted_sequence": sequence,
+            "striker_participant_id": state["striker_participant_id"],
+            "non_striker_participant_id": state["non_striker_participant_id"],
+            "bowler_participant_id": state["current_bowler_participant_id"],
+            "runs_off_bat": runs,
+            "wicket": {
+                "dismissal_type": "bowled",
+                "dismissed_participant_id": state["striker_participant_id"],
+                "fielders": [],
+            }
+            if wicket
+            else None,
+        },
+    )
+    assert response.status_code == 200, response.text
+    read = await client.get(base)
+    assert read.status_code == 200, read.text
+    return read.json(), response.json()
+
+
+async def _phase7_all_out(client, match_id, state, batters, bowlers, runs):
+    state, _ = await _phase7_score(client, match_id, state, 1, runs=runs)
+    base = f"/api/v1/matches/{match_id}/innings/{state['id']}"
+    for wicket in range(10):
+        dismissed = state["striker_participant_id"]
+        state, _ = await _phase7_score(client, match_id, state, wicket + 2, wicket=True)
+        if wicket == 9:
+            break
+        response = await client.post(
+            base + "/next-batter",
+            json={
+                "innings_version_number": state["version_number"],
+                "batter_participant_id": batters[wicket + 2],
+                "replacing_participant_id": dismissed,
+                "reason": "dismissal",
+            },
+        )
+        assert response.status_code == 200, response.text
+        state = response.json()
+        if state["current_bowler_participant_id"] is None:
+            response = await client.post(
+                base + "/next-bowler",
+                json={
+                    "innings_version_number": state["version_number"],
+                    "bowler_participant_id": bowlers[1],
+                    "override_reason": "Tactical change",
+                },
+            )
+            assert response.status_code == 200, response.text
+            state = response.json()
+    assert state["lifecycle_state"] == "completed"
+    assert state["completion_reason"] == "all_out"
+    assert state["wickets_lost"] == 10
+    return state
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("authenticated_client")
+@pytest.mark.parametrize("external", [False, True])
+@pytest.mark.parametrize("outcome", ["chase", "tie", "runs"])
+async def test_phase7_fixed_over_completion_chase_and_tie(
+    client, external, outcome, phase5_matches
+):
+    from src.models.background_work_item import BackgroundWorkItem
+
+    config, participants = await _phase7_configuration(
+        client, "T20", external, phase5_matches
+    )
+    match_id = config["match_id"]
+    first = await _phase7_start(
+        client, config, participants, 1, config["match_version_number"]
+    )
+    first = await _phase7_all_out(
+        client, match_id, first, participants["home"], participants["away"], 4
+    )
+    second = await _phase7_start(
+        client, config, participants, 2, first["match_version_number"]
+    )
+    assert second["target_runs"] == 5
+    if outcome == "chase":
+        second, _ = await _phase7_score(client, match_id, second, 1, runs=6)
+        assert second["completion_reason"] == "target_reached"
+    else:
+        second = await _phase7_all_out(
+            client,
+            match_id,
+            second,
+            participants["away"],
+            participants["home"],
+            4 if outcome == "tie" else 2,
+        )
+    assert second["blocking_state"]["kind"] == "match_completed"
+    async with AsyncSessionFactory() as session:
+        match = await session.get(Match, UUID(match_id))
+        assert match.lifecycle_state == "completed"
+        assert (
+            match.result_code
+            == {"chase": "win_by_wickets", "tie": "tie", "runs": "win_by_runs"}[outcome]
+        )
+        if outcome == "chase":
+            assert match.result_details["wickets_remaining"] == 10
+        audits = list(
+            (
+                await session.scalars(
+                    select(BusinessAuditEvent).where(
+                        BusinessAuditEvent.target_entity_id == UUID(match_id)
+                    )
+                )
+            ).all()
+        )
+        assert sum(a.action_type == "scoring.innings_completed" for a in audits) == 2
+        assert sum(a.action_type == "scoring.match_completed" for a in audits) == 1
+        jobs = list(
+            (
+                await session.scalars(
+                    select(BackgroundWorkItem).where(
+                        BackgroundWorkItem.source_key == match_id
+                    )
+                )
+            ).all()
+        )
+        assert len(jobs) == 1
+    rejected = await client.post(
+        f"/api/v1/matches/{match_id}/completion",
+        json={
+            "match_version_number": second["match_version_number"],
+            "completion_kind": "abandonment",
+            "reason": "Rain",
+        },
+    )
+    assert rejected.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("authenticated_client")
+@pytest.mark.parametrize("external", [False, True])
+@pytest.mark.parametrize("kind", ["draw", "declared", "manual"])
+async def test_phase7_test_declaration_and_explicit_match_boundary(
+    client, external, kind, phase5_matches
+):
+    config, participants = await _phase7_configuration(
+        client, "test", external, phase5_matches
+    )
+    match_id = config["match_id"]
+    state = await _phase7_start(
+        client, config, participants, 1, config["match_version_number"]
+    )
+    base = f"/api/v1/matches/{match_id}"
+    invalid = await client.post(
+        base + "/completion",
+        json={
+            "match_version_number": state["match_version_number"],
+            "completion_kind": kind,
+            "reason": "Close of play",
+        },
+    )
+    assert invalid.status_code == 409
+    invalid = await client.post(
+        base + f"/innings/{state['id']}/completion",
+        json={
+            "innings_version_number": state["version_number"],
+            "completion_kind": "abandonment",
+            "reason": "Rain",
+        },
+    )
+    assert invalid.status_code == 422
+    completed = await client.post(
+        base + f"/innings/{state['id']}/completion",
+        json={
+            "innings_version_number": state["version_number"],
+            "completion_kind": "declaration",
+            "reason": "Captain declares",
+        },
+    )
+    assert completed.status_code == 200, completed.text
+    state = completed.json()
+    stale = await client.post(
+        base + "/completion",
+        json={
+            "match_version_number": state["match_version_number"] - 1,
+            "completion_kind": kind,
+            "reason": "Close of play",
+        },
+    )
+    assert stale.status_code == 409
+    completed = await client.post(
+        base + "/completion",
+        json={
+            "match_version_number": state["match_version_number"],
+            "completion_kind": kind,
+            "reason": "Close of play",
+        },
+    )
+    assert completed.status_code == 200, completed.text
+    assert completed.json()["result_code"] == kind
+    assert completed.json()["blocking_state"]["kind"] == "match_completed"
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("authenticated_client")
+@pytest.mark.parametrize(
+    "boundary", ["after_completed_innings", "any_nonterminal_state"]
+)
+async def test_phase7_other_manual_boundary(client, boundary, phase5_matches):
+    config, participants = await _phase7_configuration(
+        client, "other", True, phase5_matches, boundary
+    )
+    match_id = config["match_id"]
+    state = await _phase7_start(
+        client, config, participants, 1, config["match_version_number"]
+    )
+    base = f"/api/v1/matches/{match_id}"
+    if boundary == "after_completed_innings":
+        rejected = await client.post(
+            base + "/completion",
+            json={
+                "match_version_number": state["match_version_number"],
+                "completion_kind": "manual",
+                "reason": "Agreed end",
+            },
+        )
+        assert rejected.status_code == 409
+        completed = await client.post(
+            base + f"/innings/{state['id']}/completion",
+            json={
+                "innings_version_number": state["version_number"],
+                "completion_kind": "manual",
+                "reason": "Close innings",
+            },
+        )
+        assert completed.status_code == 200, completed.text
+        state = completed.json()
+    completed = await client.post(
+        base + "/completion",
+        json={
+            "match_version_number": state["match_version_number"],
+            "completion_kind": "manual",
+            "reason": "Agreed end",
+        },
+    )
+    assert completed.status_code == 200, completed.text
+    assert completed.json()["result_code"] == "manual"
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("authenticated_client")
+@pytest.mark.parametrize("started", [False, True])
+async def test_phase7_abandonment_preserves_underlying_innings(
+    client, started, phase5_matches
+):
+    config, participants = await _phase7_configuration(
+        client, "T20", True, phase5_matches
+    )
+    match_id, version = config["match_id"], config["match_version_number"]
+    if started:
+        state = await _phase7_start(client, config, participants, 1, version)
+        version = state["match_version_number"]
+    response = await client.post(
+        f"/api/v1/matches/{match_id}/completion",
+        json={
+            "match_version_number": version,
+            "completion_kind": "abandonment",
+            "reason": "Rain",
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["lifecycle_state"] == "abandoned"
+    assert body["result_code"] == "no_result"
+    assert body["blocking_state"]["kind"] == "match_abandoned"
+    if started:
+        assert body["innings"][0]["lifecycle_state"] == "in_progress"
+        assert body["innings"][0]["completion_reason"] is None
+        assert body["innings"][0]["blocking_state"]["kind"] == "match_abandoned"
+    else:
+        assert body["innings"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("authenticated_client")
+async def test_phase7_test_ordered_four_innings_aggregate_result(
+    client, phase5_matches
+):
+    config, participants = await _phase7_configuration(
+        client, "test", False, phase5_matches
+    )
+    match_id = config["match_id"]
+    version = config["match_version_number"]
+    for number, runs in enumerate([2, 4, 6, 8], 1):
+        state = await _phase7_start(client, config, participants, number, version)
+        assert state["target_runs"] is None
+        assert state["legal_balls"] == state["total_runs"] == 0
+        state, _ = await _phase7_score(client, match_id, state, 1, runs=runs)
+        denied = await client.post(
+            f"/api/v1/matches/{match_id}/completion",
+            json={
+                "match_version_number": state["match_version_number"],
+                "completion_kind": "draw",
+                "reason": "Close of play",
+            },
+        )
+        assert denied.status_code == 409
+        response = await client.post(
+            f"/api/v1/matches/{match_id}/innings/{state['id']}/completion",
+            json={
+                "innings_version_number": state["version_number"],
+                "completion_kind": "declaration",
+                "reason": "Captain declares",
+            },
+        )
+        assert response.status_code == 200, response.text
+        version = response.json()["match_version_number"]
+    assert response.json()["blocking_state"]["kind"] == "match_completed"
+    async with AsyncSessionFactory() as session:
+        match = await session.get(Match, UUID(match_id))
+        assert match.result_code == "win_by_runs"
+        assert match.result_details == {
+            "winning_side_code": "away",
+            "runs_margin": 4,
+            "side_totals": {"home": 8, "away": 12},
+        }
+    rejected = await client.post(
+        f"/api/v1/matches/{match_id}/completion",
+        json={
+            "match_version_number": version,
+            "completion_kind": "draw",
+            "reason": "Close of play",
+        },
+    )
+    assert rejected.status_code == 409

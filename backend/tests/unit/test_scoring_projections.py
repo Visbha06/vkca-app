@@ -328,6 +328,8 @@ def test_projection_reconciles_totals_overs_participants_target_and_blocker() ->
     assert projection.state_snapshot["target"] == {
         "target_runs": 10,
         "runs_required": 6,
+        "wickets_remaining": 10,
+        "legal_balls_remaining": 119,
     }
     assert projection.state_snapshot["opening_selections"] == {
         "striker_participant_id": str(striker),
@@ -339,3 +341,209 @@ def test_projection_reconciles_totals_overs_participants_target_and_blocker() ->
         "is_blocked": False,
         "reason_code": None,
     }
+
+
+def _completion_policy(profile="T20", boundary="after_completed_innings"):
+    policy = {
+        "policy_code": profile,
+        "capability_profile": profile,
+        "innings_sequence": ["home", "away"] * (2 if profile == "test" else 1),
+    }
+    if profile == "other":
+        policy.update(
+            {
+                "innings_per_side": 1,
+                "legal_ball_limit": None,
+                "over_length_legal_balls": 6,
+                "bowler_quota_legal_balls": None,
+                "wicket_limit": 10,
+                "consecutive_overs_prohibited": True,
+                "target_mode": "none",
+                "allow_declaration": False,
+                "allow_draw": False,
+                "allow_manual_completion": True,
+                "explicit_match_completion_boundary": boundary,
+                "allowed_dismissal_types": ["bowled"],
+                "allowed_transition_types": [],
+                "allowed_innings_completion_modes": ["manual"],
+                "allowed_match_completion_modes": ["manual", "abandonment"],
+                "allowed_result_codes": ["pending", "manual", "no_result"],
+            }
+        )
+    return resolve_format_capability(policy)
+
+
+def _result_state(runs=0, lifecycle="completed", reason="all_out", wickets=10):
+    from types import SimpleNamespace
+
+    from src.enums import InningsCompletionMode, InningsLifecycleState
+
+    return SimpleNamespace(
+        total_runs=runs,
+        lifecycle_state=InningsLifecycleState(lifecycle),
+        completion_reason=InningsCompletionMode(reason) if reason else None,
+        wickets_lost=wickets,
+    )
+
+
+@pytest.mark.parametrize(
+    "profile,totals,reason,expected,margin",
+    [
+        ("T20", [20, 12], "all_out", "win_by_runs", 8),
+        ("T20", [20, 21], "target_reached", "win_by_wickets", 7),
+        ("T20", [20, 20], "all_out", "tie", None),
+        ("test", [20, 30, 40, 50], "declaration", "win_by_runs", 20),
+        ("test", [20, 30, 40, 30], "all_out", "tie", None),
+    ],
+)
+def test_completion_result_projection(profile, totals, reason, expected, margin):
+    from src.services.scoring.rules import derive_match_result
+
+    states = [_result_state(total) for total in totals]
+    states[-1] = _result_state(totals[-1], reason=reason, wickets=3)
+    code, details, text = derive_match_result(_completion_policy(profile), states)
+    assert code == expected
+    if margin is not None:
+        assert details.get("runs_margin", details.get("wickets_remaining")) == margin
+    assert details["side_totals"] == {
+        "home": sum(totals[::2]),
+        "away": sum(totals[1::2]),
+    }
+    assert text
+
+
+@pytest.mark.parametrize(
+    "profile,kind",
+    [("test", "draw"), ("test", "declared"), ("test", "manual"), ("other", "manual")],
+)
+@pytest.mark.parametrize(
+    "boundary", ["after_completed_innings", "any_nonterminal_state"]
+)
+@pytest.mark.parametrize(
+    "lifecycle",
+    [None, "pending", "in_progress", "completed", "reconciliation_required"],
+)
+def test_explicit_result_boundaries(profile, kind, boundary, lifecycle):
+    from src.enums import MatchLifecycleState, MatchResultCode
+    from src.services.scoring.rules import derive_match_result
+
+    states = [] if lifecycle is None else [_result_state(lifecycle=lifecycle)]
+    code, _, _ = derive_match_result(
+        _completion_policy(profile, boundary),
+        states,
+        MatchLifecycleState.COMPLETED,
+        MatchResultCode(kind),
+        {"reason": "Agreed close"},
+    )
+    allowed = lifecycle == "completed" or (
+        profile == "other"
+        and boundary == "any_nonterminal_state"
+        and lifecycle != "reconciliation_required"
+    )
+    assert code == (kind if allowed else "pending")
+
+
+@pytest.mark.parametrize(
+    "lifecycle",
+    [None, "pending", "in_progress", "completed", "reconciliation_required"],
+)
+def test_abandonment_result_and_reconciliation_precedence(lifecycle):
+    from src.enums import MatchLifecycleState
+    from src.services.scoring.rules import derive_match_result
+
+    states = [] if lifecycle is None else [_result_state(lifecycle=lifecycle)]
+    code, _, _ = derive_match_result(
+        _completion_policy(), states, MatchLifecycleState.ABANDONED
+    )
+    assert code == (
+        "pending" if lifecycle == "reconciliation_required" else "no_result"
+    )
+    if states:
+        assert states[0].lifecycle_state == lifecycle
+
+
+def test_result_overflow_and_disallowed_codes_fail_closed():
+    from dataclasses import replace
+
+    from src.enums import SCORING_RUN_TOTAL_MAX, MatchResultCode
+    from src.services.scoring.errors import ScoringValidationError
+    from src.services.scoring.rules import derive_match_result
+
+    with pytest.raises(ScoringValidationError, match="Match total"):
+        derive_match_result(
+            _completion_policy(),
+            [_result_state(SCORING_RUN_TOTAL_MAX), _result_state(1)],
+        )
+    capability = replace(
+        _completion_policy(), allowed_result_codes=(MatchResultCode.PENDING,)
+    )
+    with pytest.raises(ScoringValidationError, match="Result"):
+        derive_match_result(capability, [_result_state(1), _result_state(0)])
+
+
+@pytest.mark.parametrize("profile,limit", [("T20", 120), ("one-day", 240)])
+def test_replay_completes_at_exact_locked_ball_limit(profile, limit):
+    from src.enums import InningsTransitionType
+
+    policy = {
+        "policy_code": profile,
+        "capability_profile": profile,
+        "innings_sequence": ["home", "away"],
+    }
+    if profile == "one-day":
+        policy["legal_ball_limit"] = limit
+    capability = resolve_format_capability(policy)
+    batters, bowlers = [uuid4(), uuid4()], [uuid4() for _ in range(5)]
+    seed = ReplaySeed(
+        capability,
+        tuple(ReplayParticipant(p, i) for i, p in enumerate(batters, 1)),
+        frozenset(bowlers),
+        *batters,
+        bowlers[0],
+    )
+    deliveries, transitions = [], []
+    for i in range(limit):
+        bowler = bowlers[(i // 6) % 5]
+        if i and i % 6 == 0:
+            batters.reverse()
+            transitions.append(
+                ReplayTransition(InningsTransitionType.NEXT_BOWLER, bowler, i)
+            )
+        deliveries.append(
+            ReplayDelivery(
+                i + 1,
+                DeliveryFactsRequest(
+                    striker_participant_id=batters[0],
+                    non_striker_participant_id=batters[1],
+                    bowler_participant_id=bowler,
+                    runs_off_bat=0,
+                ),
+            )
+        )
+    penultimate = replay_innings(
+        seed, deliveries[:-1], transitions, derive_completion=True
+    )
+    assert penultimate.lifecycle_state == "in_progress"
+    final = replay_innings(seed, deliveries, transitions, derive_completion=True)
+    assert final.lifecycle_state == "completed"
+    assert final.completion_reason == "legal_ball_limit"
+    projection = build_innings_projection(final, over_length_legal_balls=6)
+    assert projection.state_snapshot["target"]["legal_balls_remaining"] == 0
+    assert max(p.bowling_legal_balls for p in final.participants.values()) == limit // 5
+
+
+def test_result_projection_accepts_persisted_string_values():
+    from types import SimpleNamespace
+
+    from src.services.scoring.rules import derive_match_result
+
+    states = [
+        SimpleNamespace(
+            total_runs=runs,
+            lifecycle_state="completed",
+            completion_reason=reason,
+            wickets_lost=0,
+        )
+        for runs, reason in [(4, "all_out"), (6, "target_reached")]
+    ]
+    assert derive_match_result(_completion_policy(), states)[0] == "win_by_wickets"

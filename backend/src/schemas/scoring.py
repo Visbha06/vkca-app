@@ -590,6 +590,15 @@ class InningsCompletionRequest(StrictScoringRequest):
         max_length=MAX_SCORING_REASON_LENGTH,
     )
 
+    @field_validator("reason")
+    @classmethod
+    def validate_nonblank_reason(cls, value: str | None) -> str | None:
+        if value is not None:
+            if not value.strip():
+                raise ValueError("Completion reason must not be blank.")
+            return value.strip()
+        return value
+
     @model_validator(mode="after")
     def validate_reason(self) -> Self:
         explicit = {
@@ -609,6 +618,15 @@ class MatchCompletionRequest(StrictScoringRequest):
         min_length=1,
         max_length=MAX_SCORING_REASON_LENGTH,
     )
+
+    @field_validator("reason")
+    @classmethod
+    def validate_nonblank_reason(cls, value: str | None) -> str | None:
+        if value is not None:
+            if not value.strip():
+                raise ValueError("Completion reason must not be blank.")
+            return value.strip()
+        return value
 
     @model_validator(mode="after")
     def validate_reason(self) -> Self:
@@ -823,6 +841,10 @@ class NextBowlerResponse(ScoringResponse):
 class InningsResponse(ScoringResponse):
     id: UUID
     match_id: UUID
+    match_version_number: int = Field(ge=1)
+    runs_required: int | None = Field(default=None, ge=0)
+    wickets_remaining: int = Field(ge=0)
+    legal_balls_remaining: int | None = Field(default=None, ge=0)
     innings_number: int = Field(ge=1)
     batting_side_id: UUID
     fielding_side_id: UUID
@@ -936,3 +958,14 @@ class ScoringErrorResponse(ScoringResponse):
 ScoringPolicyRequest = ScoringPolicyConfigurationRequest
 MatchScoringConfigurationRequest = MatchConfigurationRequest
 AppendScoringDeliveryRequest = AppendDeliveryRequest
+
+
+class MatchCompletionResponse(ScoringResponse):
+    match_id: UUID
+    match_version_number: int = Field(ge=1)
+    lifecycle_state: MatchLifecycleState
+    result_code: MatchResultCode
+    result_details: dict[str, object]
+    compatibility_result: str
+    blocking_state: BlockingStateResponse
+    innings: list[InningsResponse]

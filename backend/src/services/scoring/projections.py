@@ -133,6 +133,12 @@ def build_innings_projection(
         "extras": dict(state.extras),
         "fall_of_wickets": list(state.fall_of_wickets),
         "target": {
+            "wickets_remaining": max(0, state.wicket_limit - state.wickets_lost),
+            "legal_balls_remaining": (
+                max(0, state.legal_ball_limit - state.legal_balls)
+                if state.legal_ball_limit is not None
+                else None
+            ),
             "target_runs": state.target_runs,
             "runs_required": (
                 max(0, state.target_runs - state.total_runs)

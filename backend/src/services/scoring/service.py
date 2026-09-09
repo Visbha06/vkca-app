@@ -15,10 +15,12 @@ from src.enums import (
     BlockingReasonCode,
     BlockingStateKind,
     DeliveryRevisionState,
+    ExplicitMatchCompletionBoundary,
     FormatCapabilityProfile,
     InningsCompletionMode,
     InningsLifecycleState,
     InningsTransitionType,
+    MatchCompletionMode,
     MatchLifecycleState,
     MatchParticipantKind,
     MatchParticipantType,
@@ -52,8 +54,11 @@ from src.schemas.scoring import (
     DeliveryHistoryResponse,
     DeliveryResponse,
     DeliveryRevisionResponse,
+    InningsCompletionRequest,
     InningsOverResponse,
     InningsResponse,
+    MatchCompletionRequest,
+    MatchCompletionResponse,
     MatchConfigurationRequest,
     MatchConfigurationResponse,
     MatchParticipantResponse,
@@ -75,7 +80,9 @@ from src.services.business_audit_service import BusinessAuditService
 from src.services.occ import check_and_increment_version
 from src.services.scoring.audit import (
     record_delivery_corrected,
+    record_innings_completed,
     record_innings_started,
+    record_match_completed,
     record_scoring_initialization,
 )
 from src.services.scoring.authorization import (
@@ -113,7 +120,11 @@ from src.services.scoring.replay import (
     replay_innings,
     replay_match,
 )
-from src.services.scoring.rules import checked_scoring_add, classify_delivery
+from src.services.scoring.rules import (
+    checked_scoring_add,
+    classify_delivery,
+    derive_match_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +182,20 @@ def _blocking_response(innings: Innings, match: Match) -> BlockingStateResponse:
 def _innings_response(innings: Innings, match: Match) -> InningsResponse:
     return InningsResponse(
         id=innings.id,
+        match_version_number=match.version_number,
+        runs_required=max(0, innings.target_runs - innings.total_runs)
+        if innings.target_runs is not None
+        else None,
+        wickets_remaining=max(
+            0, match.scoring_policy.wicket_limit - innings.wickets_lost
+        )
+        if match.scoring_policy
+        else 0,
+        legal_balls_remaining=max(
+            0, match.scoring_policy.legal_ball_limit - innings.legal_balls
+        )
+        if match.scoring_policy and match.scoring_policy.legal_ball_limit is not None
+        else None,
         match_id=innings.match_id,
         innings_number=innings.innings_number,
         batting_side_id=innings.batting_side_id,
@@ -663,7 +688,12 @@ class ScoringService:
     @classmethod
     def _replay_orm(cls, match: Match, innings: Innings) -> ReplayState:
         source = cls._replay_input(match, innings)
-        return replay_innings(source.seed, source.deliveries, source.transitions)
+        return replay_innings(
+            replace(source.seed, lifecycle_state=InningsLifecycleState.IN_PROGRESS),
+            source.deliveries,
+            source.transitions,
+            derive_completion=True,
+        )
 
     @staticmethod
     def _last_replay_anchor(
@@ -1019,6 +1049,272 @@ class ScoringService:
             await self.session.rollback()
             raise
 
+    @staticmethod
+    def _ordered_innings(match: Match) -> list[Innings]:
+        if match.scoring_policy is None:
+            raise ScoringAuthorityError("Match scoring policy is not locked.")
+        ordered = sorted(match.scoring_innings, key=lambda item: item.innings_number)
+        sequence = match.scoring_policy.innings_sequence
+        sides = {side.id: str(side.side_code) for side in match.scoring_sides}
+        if len(ordered) > len(sequence) or any(
+            item.innings_number != index + 1
+            or sides.get(item.batting_side_id) != sequence[index]
+            or item.fielding_side_id not in sides
+            or item.fielding_side_id == item.batting_side_id
+            for index, item in enumerate(ordered)
+        ):
+            raise ScoringSequenceError("Innings do not follow the locked sequence.")
+        if any(
+            item.lifecycle_state != InningsLifecycleState.COMPLETED
+            for item in ordered[:-1]
+        ):
+            raise ScoringLifecycleError("A prior Innings is incomplete.")
+        return ordered
+
+    async def _record_match_completion(
+        self,
+        match: Match,
+        actor: User,
+        *,
+        reason: str | None = None,
+        request_id: str | None = None,
+    ) -> None:
+        await record_match_completed(
+            BusinessAuditService(self.session),
+            actor=actor,
+            match=match,
+            reason=reason,
+            request_id=request_id,
+        )
+        current = max(
+            match.scoring_innings, key=lambda i: i.innings_number, default=None
+        )
+        await stage_scoring_refresh(
+            self.session,
+            match_id=match.id,
+            innings_id=current.id if current else None,
+            # Match OCC identifies each logical completion even if its Innings
+            # projection did not change (manual/abandonment).
+            projection_revision=current.projection_revision if current else 1,
+            refresh_version=match.version_number,
+            reason="completion",
+        )
+
+    async def _finish_derived_match(
+        self,
+        match: Match,
+        actor: User,
+        *,
+        request_id: str | None = None,
+    ) -> None:
+        ordered = self._ordered_innings(match)
+        assert match.scoring_policy is not None
+        code, details, text = derive_match_result(
+            capability_from_locked_policy(match.scoring_policy),
+            ordered,
+        )
+        match.result_code, match.result_details, match.result = code, details, text
+        if code is not MatchResultCode.PENDING:
+            match.lifecycle_state = MatchLifecycleState.COMPLETED
+            await self._record_match_completion(match, actor, request_id=request_id)
+
+    async def complete_innings(
+        self,
+        match_id: UUID,
+        innings_id: UUID,
+        payload: InningsCompletionRequest,
+        authenticated_user: User | UUID,
+        *,
+        request_id: str | None = None,
+    ) -> InningsResponse:
+        """Complete from replay or a capability-listed explicit transition."""
+        try:
+            context = await ScoringAuthorizationAdapter(self.session).load_context(
+                authenticated_user
+            )
+            match = await self._load_match(match_id, for_update=True)
+            innings = await self._load_innings(match_id, innings_id)
+            require_scoring_mutation_scope(context, match)
+            self._require_progression(match)
+            ordered = self._ordered_innings(match)
+            if (
+                not ordered
+                or ordered[-1].id != innings.id
+                or innings.lifecycle_state != InningsLifecycleState.IN_PROGRESS
+            ):
+                raise ScoringLifecycleError(
+                    "Only the current in-progress Innings can complete."
+                )
+            assert match.scoring_policy is not None
+            capability = capability_from_locked_policy(match.scoring_policy)
+            if (
+                payload.completion_kind
+                not in capability.allowed_innings_completion_modes
+            ):
+                raise ScoringValidationError(
+                    "Innings completion mode is not allowed by the capability."
+                )
+            state = self._replay_orm(match, innings)
+            automatic = state.completion_reason
+            if payload.completion_kind in {
+                InningsCompletionMode.DECLARATION,
+                InningsCompletionMode.MANUAL,
+            }:
+                if automatic is not None:
+                    raise ScoringLifecycleError(
+                        "Explicit completion cannot override an automatic result."
+                    )
+            elif automatic is None:
+                raise ScoringLifecycleError(
+                    "Delivery history does not satisfy automatic completion."
+                )
+            innings.version_number = await self._claim_innings_version(
+                match, innings, payload.innings_version_number
+            )
+            if automatic is None:
+                sequence, revision_id = self._last_replay_anchor(innings)
+                innings.transition_events.append(
+                    InningsTransitionEvent(
+                        id=uuid4(),
+                        event_kind=InningsTransitionType.INNINGS_COMPLETED,
+                        anchored_attempted_sequence=sequence,
+                        anchored_revision_id=revision_id,
+                        created_by_user_id=context.user.id,
+                        created_at=datetime.now(UTC),
+                        reason=payload.reason,
+                    )
+                )
+                state = self._replay_orm(match, innings)
+            await persist_innings_projection(
+                self.session,
+                innings,
+                state,
+                over_length_legal_balls=capability.over_length_legal_balls,
+            )
+            await record_innings_completed(
+                BusinessAuditService(self.session),
+                actor=context.user,
+                match=match,
+                innings=innings,
+                reason=payload.reason,
+                request_id=request_id,
+            )
+            await self._finish_derived_match(match, context.user, request_id=request_id)
+            await self.session.commit()
+            reloaded_match = await self._load_match(match_id)
+            reloaded_innings = await self._load_innings(match_id, innings_id)
+            return _innings_response(reloaded_innings, reloaded_match)
+        except Exception:
+            await self.session.rollback()
+            raise
+
+    async def complete_match(
+        self,
+        match_id: UUID,
+        payload: MatchCompletionRequest,
+        authenticated_user: User | UUID,
+        *,
+        request_id: str | None = None,
+    ) -> MatchCompletionResponse:
+        """Apply a terminal Match outcome while preserving abandoned Innings."""
+        try:
+            context = await ScoringAuthorizationAdapter(self.session).load_context(
+                authenticated_user
+            )
+            match = await self._load_match(match_id, for_update=True)
+            require_scoring_mutation_scope(context, match)
+            self._require_progression(match)
+            ordered = self._ordered_innings(match)
+            assert match.scoring_policy is not None
+            capability = capability_from_locked_policy(match.scoring_policy)
+            kind = payload.completion_kind
+            if kind not in capability.allowed_match_completion_modes:
+                raise ScoringValidationError(
+                    "Match completion mode is not allowed by the capability."
+                )
+            code, details, text = derive_match_result(capability, ordered)
+            if kind is MatchCompletionMode.ABANDONMENT:
+                code, details, text = derive_match_result(
+                    capability,
+                    ordered,
+                    MatchLifecycleState.ABANDONED,
+                    MatchResultCode.NO_RESULT,
+                    {"reason": payload.reason},
+                )
+                lifecycle = MatchLifecycleState.ABANDONED
+            elif kind is MatchCompletionMode.DERIVED_RESULT:
+                if code is MatchResultCode.PENDING:
+                    raise ScoringLifecycleError("Required Innings have not completed.")
+                lifecycle = MatchLifecycleState.COMPLETED
+            else:
+                if code is not MatchResultCode.PENDING:
+                    raise ScoringLifecycleError(
+                        "Explicit completion cannot override an automatic result."
+                    )
+                boundary = capability.explicit_match_completion_boundary
+                if boundary is ExplicitMatchCompletionBoundary.NONE or (
+                    boundary is ExplicitMatchCompletionBoundary.AFTER_COMPLETED_INNINGS
+                    and (
+                        not ordered
+                        or ordered[-1].lifecycle_state
+                        != InningsLifecycleState.COMPLETED
+                    )
+                ):
+                    raise ScoringLifecycleError(
+                        "Explicit completion requires the locked innings boundary."
+                    )
+                code, details, text = derive_match_result(
+                    capability,
+                    ordered,
+                    MatchLifecycleState.COMPLETED,
+                    MatchResultCode(kind.value),
+                    {"reason": payload.reason},
+                )
+                if code is MatchResultCode.PENDING:
+                    raise ScoringLifecycleError(
+                        "Explicit completion is not supported at this boundary."
+                    )
+                lifecycle = MatchLifecycleState.COMPLETED
+            match.version_number = await check_and_increment_version(
+                self.session, Match, match.id, payload.match_version_number
+            )
+            match.lifecycle_state = lifecycle
+            match.result_code, match.result_details, match.result = code, details, text
+            await self._record_match_completion(
+                match, context.user, reason=payload.reason, request_id=request_id
+            )
+            await self.session.commit()
+            match = await self._load_match(match_id)
+            response_innings = [
+                _innings_response(
+                    await self._load_innings(match_id, item.id, include_history=False),
+                    match,
+                )
+                for item in sorted(
+                    match.scoring_innings, key=lambda i: i.innings_number
+                )
+            ]
+            blocker = derive_innings_blocking_state(
+                match_lifecycle_state=MatchLifecycleState(match.lifecycle_state),
+                innings_lifecycle_state=InningsLifecycleState.PENDING,
+                striker_participant_id=None,
+                non_striker_participant_id=None,
+                current_bowler_participant_id=None,
+            )
+            return MatchCompletionResponse(
+                match_id=match.id,
+                match_version_number=match.version_number,
+                lifecycle_state=match.lifecycle_state,
+                result_code=match.result_code,
+                result_details=match.result_details,
+                compatibility_result=match.result or "",
+                blocking_state=BlockingStateResponse.model_validate(blocker.as_dict()),
+                innings=response_innings,
+            )
+        except Exception:
+            await self.session.rollback()
+            raise
+
     async def append_delivery(
         self,
         match_id: UUID,
@@ -1185,6 +1481,17 @@ class ScoringService:
                 state,
                 over_length_legal_balls=capability.over_length_legal_balls,
             )
+            if state.lifecycle_state is InningsLifecycleState.COMPLETED:
+                await record_innings_completed(
+                    BusinessAuditService(self.session),
+                    actor=context.user,
+                    match=match,
+                    innings=innings,
+                    request_id=request_id,
+                )
+                await self._finish_derived_match(
+                    match, context.user, request_id=request_id
+                )
             await self.session.commit()
             logger.info(
                 "Scoring delivery appended",
@@ -1459,6 +1766,7 @@ class ScoringService:
                     match_id=match.id,
                     innings_id=innings.id,
                     projection_revision=innings.projection_revision,
+                    refresh_version=match.version_number,
                     reason="correction",
                 )
             # Serialize before committing so response failure also rolls back.

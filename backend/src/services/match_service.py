@@ -9,13 +9,21 @@ from sqlalchemy.orm import selectinload
 from src.enums import MatchParticipantType, ScoringAuthority
 from src.models.match import Match
 from src.models.team import Team
+from src.models.user import User
 from src.schemas.match import (
     ExternalMatchParticipantRequest,
     MatchCreate,
     MatchParticipantRequest,
     MatchUpdate,
 )
-from src.schemas.scoring import MatchConfigurationRequest, MatchConfigurationResponse
+from src.schemas.scoring import (
+    InningsCompletionRequest,
+    InningsResponse,
+    MatchCompletionRequest,
+    MatchCompletionResponse,
+    MatchConfigurationRequest,
+    MatchConfigurationResponse,
+)
 from src.services.occ import check_and_increment_version
 from src.services.rag.contracts import (
     RagMutationImpact,
@@ -221,4 +229,35 @@ class MatchService:
             payload,
             authenticated_user,
             request_id=request_id,
+        )
+
+    async def complete_innings(
+        self,
+        match_id: UUID,
+        innings_id: UUID,
+        payload: InningsCompletionRequest,
+        authenticated_user: User | UUID,
+        *,
+        request_id: str | None = None,
+    ) -> InningsResponse:
+        """Delegate completion to the transactional scoring boundary."""
+        from src.services.scoring.service import ScoringService
+
+        return await ScoringService(self.session).complete_innings(
+            match_id, innings_id, payload, authenticated_user, request_id=request_id
+        )
+
+    async def complete_match(
+        self,
+        match_id: UUID,
+        payload: MatchCompletionRequest,
+        authenticated_user: User | UUID,
+        *,
+        request_id: str | None = None,
+    ) -> MatchCompletionResponse:
+        """Delegate completion to the transactional scoring boundary."""
+        from src.services.scoring.service import ScoringService
+
+        return await ScoringService(self.session).complete_match(
+            match_id, payload, authenticated_user, request_id=request_id
         )
