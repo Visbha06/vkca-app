@@ -319,6 +319,48 @@ def test_correction_preserves_safe_boundary_when_later_actors_conflict():
     assert stream[1].facts.striker_participant_id == batters[0]
 
 
+def test_correction_replays_one_hundred_attempts_to_a_clean_equivalent():
+    from src.services.scoring.replay import ReplayInnings, replay_match
+
+    seed, batters, bowlers = _seed()
+    stream = tuple(
+        ReplayDelivery(
+            sequence,
+            _facts(
+                batters[0],
+                batters[1],
+                bowlers[0],
+                extras={"wide_runs": 1},
+            ),
+        )
+        for sequence in range(1, 101)
+    )
+    replacement_facts = _facts(batters[0], batters[1], bowlers[0], runs_off_bat=4)
+    corrected_stream = tuple(
+        ReplayDelivery(
+            item.attempted_sequence,
+            replacement_facts if item.attempted_sequence == 50 else item.facts,
+        )
+        for item in stream
+    )
+
+    corrected = replay_match(
+        seed.capability,
+        [ReplayInnings(1, "home", seed, corrected_stream)],
+        correction_innings_number=1,
+        correction_sequence=50,
+    ).innings_states[0]
+    clean = replay_innings(seed, corrected_stream)
+
+    assert len(stream) == 100
+    assert sum(item.facts.extras.wide_runs > 0 for item in stream) == 100
+    assert corrected.total_runs == clean.total_runs == 103
+    assert corrected.legal_balls == clean.legal_balls == 1
+    assert corrected.participants == clean.participants
+    assert corrected.overs == clean.overs
+    assert corrected.blocking_state == clean.blocking_state
+
+
 def test_correction_cannot_replace_actors_at_an_invalid_boundary():
     import pytest
 

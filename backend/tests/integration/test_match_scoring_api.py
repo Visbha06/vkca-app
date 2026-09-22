@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 import httpx
 import pytest
 import pytest_asyncio
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, insert, select
 
 from src.database import AsyncSessionFactory
 from src.enums import (
@@ -25,8 +25,11 @@ from src.models.match import Match
 from src.models.player import Player
 from src.models.scoring.delivery import Delivery
 from src.models.scoring.delivery_fielder import DeliveryFielder
+from src.models.scoring.delivery_revision import DeliveryRevision
 from src.models.scoring.innings import Innings
+from src.models.scoring.over import InningsOver
 from src.models.scoring.participant import MatchParticipant
+from src.models.scoring.participant_summary import InningsParticipantSummary
 from src.models.scoring.scoring_policy import ScoringPolicy
 from src.models.scoring.transition_event import InningsTransitionEvent
 from src.models.scoring.wicket_event import WicketEvent
@@ -1424,3 +1427,225 @@ async def test_phase7_test_ordered_four_innings_aggregate_result(
         },
     )
     assert rejected.status_code == 409
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("authenticated_client")
+async def test_sc002_projected_scorecard_meets_warm_read_budget(
+    client, phase5_matches, data_quality_query_counter
+):
+    """Measure one cold read and 30 warm projection-only scorecard reads."""
+
+    from time import perf_counter
+
+    from src.enums import InningsTransitionType
+    from src.models.scoring.transition_event import InningsTransitionEvent
+
+    config, participants = await _phase7_configuration(
+        client, "test", True, phase5_matches
+    )
+    started = await _phase7_start(
+        client, config, participants, 1, config["match_version_number"]
+    )
+    match_id = UUID(config["match_id"])
+    innings_id = UUID(started["id"])
+    batting_ids = [UUID(value) for value in participants["home"]]
+    fielding_ids = [UUID(value) for value in participants["away"]]
+    endpoint = f"/api/v1/matches/{match_id}/scorecard"
+
+    async with AsyncSessionFactory() as session:
+        actor_id = await session.scalar(
+            select(InningsTransitionEvent.created_by_user_id)
+            .where(InningsTransitionEvent.innings_id == innings_id)
+            .limit(1)
+        )
+        assert actor_id is not None
+
+        delivery_rows: list[dict[str, object]] = []
+        revision_rows: list[dict[str, object]] = []
+        transitions: list[InningsTransitionEvent] = []
+        legal_seen = 0
+        for sequence in range(1, 1001):
+            delivery_id, revision_id = uuid4(), uuid4()
+            is_legal = sequence > 100
+            if is_legal:
+                legal_seen += 1
+            over_index = max(0, (legal_seen - 1) // 6)
+            bowler_id = fielding_ids[over_index % 2]
+            wide_runs = 1 if not is_legal else 0
+            delivery_rows.append(
+                {
+                    "id": delivery_id,
+                    "innings_id": innings_id,
+                    "attempted_sequence": sequence,
+                }
+            )
+            revision_rows.append(
+                {
+                    "id": revision_id,
+                    "delivery_id": delivery_id,
+                    "revision_number": 1,
+                    "revision_state": "active",
+                    "striker_participant_id": batting_ids[0],
+                    "non_striker_participant_id": batting_ids[1],
+                    "bowler_participant_id": bowler_id,
+                    "runs_off_bat": 0,
+                    "wide_runs": wide_runs,
+                    "no_ball_penalty_runs": 0,
+                    "bye_runs": 0,
+                    "leg_bye_runs": 0,
+                    "penalty_runs": 0,
+                    "total_runs": wide_runs,
+                    "is_legal": is_legal,
+                    "completed_runs": 0,
+                    "balls_faced": is_legal,
+                    "bowler_conceded_runs": wide_runs,
+                    "over_number": over_index,
+                    "ball_in_over": ((legal_seen - 1) % 6 + 1) if is_legal else 1,
+                    "recorded_by_user_id": actor_id,
+                }
+            )
+            if is_legal and legal_seen % 6 == 0 and legal_seen < 900:
+                next_over = legal_seen // 6
+                transitions.append(
+                    InningsTransitionEvent(
+                        innings_id=innings_id,
+                        event_kind=InningsTransitionType.NEXT_BOWLER,
+                        participant_id=fielding_ids[next_over % 2],
+                        anchored_attempted_sequence=sequence,
+                        anchored_revision_id=revision_id,
+                        over_number=next_over,
+                        reason="Performance fixture over rotation",
+                        created_by_user_id=actor_id,
+                    )
+                )
+
+        assert legal_seen == 900
+        await session.execute(insert(Delivery), delivery_rows)
+        await session.execute(insert(DeliveryRevision), revision_rows)
+        session.add_all(transitions)
+
+        session.add_all(
+            [
+                InningsOver(
+                    innings_id=innings_id,
+                    over_number=over_number,
+                    bowler_participant_id=fielding_ids[over_number % 2],
+                    legal_ball_count=6,
+                    total_runs=100 if over_number == 0 else 0,
+                    runs_conceded=100 if over_number == 0 else 0,
+                    wickets=0,
+                    is_complete=True,
+                    projection_revision=1000,
+                )
+                for over_number in range(150)
+            ]
+        )
+        summaries = {
+            item.participant_id: item
+            for item in (
+                await session.scalars(
+                    select(InningsParticipantSummary).where(
+                        InningsParticipantSummary.innings_id == innings_id
+                    )
+                )
+            ).all()
+        }
+        batting_summary = summaries[batting_ids[0]]
+        batting_summary.participation_state = "active"
+        batting_summary.batting_runs = 0
+        batting_summary.balls_faced = 900
+        batting_summary.projection_revision = 1000
+        summaries[batting_ids[1]].participation_state = "active"
+        summaries[batting_ids[1]].projection_revision = 1000
+        summaries[fielding_ids[0]].bowling_legal_balls = 450
+        summaries[fielding_ids[0]].bowling_overs_completed = 75
+        summaries[fielding_ids[0]].runs_conceded = 100
+        summaries[fielding_ids[0]].wides = 100
+        summaries[fielding_ids[0]].projection_revision = 1000
+        summaries[fielding_ids[1]].bowling_legal_balls = 450
+        summaries[fielding_ids[1]].bowling_overs_completed = 75
+        summaries[fielding_ids[1]].projection_revision = 1000
+        innings = await session.get(Innings, innings_id)
+        assert innings is not None
+        innings.legal_balls = 900
+        innings.total_runs = 100
+        innings.wickets_lost = 0
+        innings.projection_revision = 1000
+        innings.striker_participant_id = batting_ids[0]
+        innings.non_striker_participant_id = batting_ids[1]
+        innings.current_bowler_participant_id = None
+        snapshot = dict(innings.state_snapshot)
+        snapshot.pop("blocking_state", None)
+        snapshot["extras"] = {
+            "wides": 100,
+            "no_balls": 0,
+            "byes": 0,
+            "leg_byes": 0,
+            "penalty_runs": 0,
+        }
+        innings.state_snapshot = snapshot
+        await session.commit()
+
+        assert (
+            await session.scalar(
+                select(func.count(DeliveryRevision.id))
+                .join(Delivery)
+                .where(
+                    Delivery.innings_id == innings_id,
+                    DeliveryRevision.revision_state == "active",
+                )
+            )
+            == 1000
+        )
+        assert (
+            await session.scalar(
+                select(func.count(DeliveryRevision.id)).where(
+                    DeliveryRevision.delivery_id.in_(
+                        select(Delivery.id).where(Delivery.innings_id == innings_id)
+                    ),
+                    DeliveryRevision.is_legal.is_(True),
+                )
+            )
+            == 900
+        )
+        assert (
+            await session.scalar(
+                select(func.count(DeliveryRevision.id)).where(
+                    DeliveryRevision.delivery_id.in_(
+                        select(Delivery.id).where(Delivery.innings_id == innings_id)
+                    ),
+                    DeliveryRevision.is_legal.is_(False),
+                )
+            )
+            == 100
+        )
+
+    cold_start = perf_counter()
+    cold = await client.get(endpoint)
+    cold_elapsed = perf_counter() - cold_start
+    assert cold.status_code == 200, cold.text
+    assert cold_elapsed >= 0
+    assert cold.json()["innings"][0]["projection_revision"] == 1000
+    assert cold.json()["innings"][0]["total_runs"] == 100
+    assert cold.json()["innings"][0]["legal_balls"] == 900
+
+    for _ in range(5):
+        warmup = await client.get(endpoint)
+        assert warmup.status_code == 200, warmup.text
+
+    with data_quality_query_counter.count() as counter:
+        warm_durations = []
+        for _ in range(30):
+            warm_start = perf_counter()
+            response = await client.get(endpoint)
+            warm_durations.append(perf_counter() - warm_start)
+            assert response.status_code == 200, response.text
+
+    assert sum(duration <= 1.0 for duration in warm_durations) >= 29
+    normalized_sql = [statement.lower() for statement in counter.statements]
+    assert not any(
+        " from deliveries" in statement or " from delivery_revisions" in statement
+        for statement in normalized_sql
+    )
+    assert counter.total <= 30 * 20

@@ -57,13 +57,16 @@ def retrieval_service():
     return service
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(loop_scope="session")
 async def client(current_user, retrieval_service):
     async def authenticated():
         return current_user, object()
 
+    async def provide_retrieval_service():
+        return retrieval_service
+
     app.dependency_overrides[get_current_user] = authenticated
-    app.dependency_overrides[get_rag_retrieval_service] = lambda: retrieval_service
+    app.dependency_overrides[get_rag_retrieval_service] = provide_retrieval_service
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
     async with httpx.AsyncClient(
         transport=transport,

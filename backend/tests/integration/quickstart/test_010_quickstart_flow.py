@@ -122,6 +122,7 @@ async def test_academy_data_quality_quickstart_flow(quality_data_builder) -> Non
                 "rosters": 0,
                 "coaches": 3,
                 "calendar": 0,
+                "scoring": 0,
             },
         }
         ordered_rule_ids = [item["rule_id"] for item in body["findings"]]
