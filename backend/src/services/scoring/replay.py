@@ -91,6 +91,9 @@ class ParticipantReplaySummary:
     wides: int = 0
     no_balls: int = 0
     fielding_dismissals: int = 0
+    catches: int = 0
+    stumpings: int = 0
+    run_out_involvements: int = 0
 
 
 @dataclass(slots=True)
@@ -490,7 +493,17 @@ def _apply_delivery(
             bowler.bowling_wickets += 1
         if facts.wicket is not None:
             for fielder in facts.wicket.fielders:
-                state.participants[fielder.participant_id].fielding_dismissals += 1
+                fielder_summary = state.participants[fielder.participant_id]
+                fielder_summary.fielding_dismissals += 1
+                if wicket.dismissal_type in {
+                    ScoringDismissalType.CAUGHT,
+                    ScoringDismissalType.CAUGHT_AND_BOWLED,
+                }:
+                    fielder_summary.catches += 1
+                elif wicket.dismissal_type is ScoringDismissalType.STUMPED:
+                    fielder_summary.stumpings += 1
+                elif wicket.dismissal_type is ScoringDismissalType.RUN_OUT:
+                    fielder_summary.run_out_involvements += 1
         if state.striker_participant_id == wicket.dismissed_participant_id:
             state.striker_participant_id = None
         if state.non_striker_participant_id == wicket.dismissed_participant_id:

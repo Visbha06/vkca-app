@@ -27,6 +27,7 @@ class QualityDomain(StrEnum):
     ROSTERS = "rosters"
     COACHES = "coaches"
     CALENDAR = "calendar"
+    SCORING = "scoring"
 
 
 class QualityAction(StrEnum):
@@ -57,6 +58,16 @@ class QualityRuleId(StrEnum):
     COACH_ASSIGNMENT_INVALID_ROLE = "coach.assignment_invalid_role"
     CALENDAR_RECURRENCE_END_BEFORE_START = "calendar.recurrence_end_before_start"
     CALENDAR_STALE_OCCURRENCE_EXCEPTION = "calendar.stale_occurrence_exception"
+    SCORING_PROJECTION_MISMATCH = "scoring.projection_mismatch"
+    SCORING_ACTIVE_REVISION_CONFLICT = "scoring.active_revision_conflict"
+    SCORING_SEQUENCE_CONFLICT = "scoring.sequence_conflict"
+    SCORING_PARTICIPANT_IDENTITY_INVALID = "scoring.participant_identity_invalid"
+    SCORING_LIFECYCLE_INVALID = "scoring.lifecycle_invalid"
+    SCORING_OVER_QUOTA_INVALID = "scoring.over_quota_invalid"
+    SCORING_WICKET_CARDINALITY_INVALID = "scoring.wicket_cardinality_invalid"
+    SCORING_RECONCILIATION_REQUIRED = "scoring.reconciliation_required"
+    SCORING_LEGACY_DIVERGENCE = "scoring.legacy_divergence"
+    SCORING_HISTORICAL_STATE_MALFORMED = "scoring.historical_state_malformed"
 
 
 class QualityEntityType(StrEnum):
@@ -72,6 +83,10 @@ class QualityEntityType(StrEnum):
     RECURRENCE_SERIES = "recurrence_series"
     OCCURRENCE_EXCEPTION = "occurrence_exception"
     ACADEMY = "academy"
+    MATCH = "match"
+    INNINGS = "innings"
+    DELIVERY = "delivery"
+    MATCH_PARTICIPANT = "match_participant"
 
 
 class AuditActionCategory(StrEnum):

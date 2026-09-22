@@ -16,6 +16,9 @@ from src.enums import (
     ScoringDismissalType,
 )
 from src.models.scoring.innings import Innings
+from src.models.scoring.match_participant_performance import (
+    MatchParticipantPerformance,
+)
 from src.models.scoring.over import InningsOver
 from src.models.scoring.participant_summary import InningsParticipantSummary
 from src.services.scoring.replay import ReplayState
@@ -49,6 +52,9 @@ class ParticipantProjection:
     wides: int
     no_balls: int
     fielding_dismissals: int
+    catches: int
+    stumpings: int
+    run_out_involvements: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +111,9 @@ def build_innings_projection(
             wides=value.wides,
             no_balls=value.no_balls,
             fielding_dismissals=value.fielding_dismissals,
+            catches=value.catches,
+            stumpings=value.stumpings,
+            run_out_involvements=value.run_out_involvements,
         )
         for participant_id, value in sorted(
             state.participants.items(), key=lambda item: str(item[0])
@@ -161,6 +170,87 @@ def build_innings_projection(
     )
 
 
+def innings_projection_matches(
+    innings: Innings,
+    projection: InningsProjection,
+) -> bool:
+    """Compare a persisted read model with one deterministic replay projection."""
+
+    if (
+        innings.total_runs,
+        innings.legal_balls,
+        innings.wickets_lost,
+        innings.striker_participant_id,
+        innings.non_striker_participant_id,
+        innings.current_bowler_participant_id,
+        innings.target_runs,
+    ) != (
+        projection.total_runs,
+        projection.legal_balls,
+        projection.wickets_lost,
+        projection.striker_participant_id,
+        projection.non_striker_participant_id,
+        projection.current_bowler_participant_id,
+        projection.target_runs,
+    ):
+        return False
+    for key in ("extras", "fall_of_wickets", "target"):
+        if innings.state_snapshot.get(key) != projection.state_snapshot.get(key):
+            return False
+    stored_overs = sorted(
+        (
+            over.over_number,
+            over.bowler_participant_id,
+            over.legal_ball_count,
+            over.total_runs,
+            over.runs_conceded,
+            over.wickets,
+            over.is_complete,
+        )
+        for over in innings.overs
+    )
+    expected_overs = sorted(
+        (
+            over.over_number,
+            over.bowler_participant_id,
+            over.legal_ball_count,
+            over.total_runs,
+            over.runs_conceded,
+            over.wickets,
+            over.is_complete,
+        )
+        for over in projection.overs
+    )
+    if stored_overs != expected_overs:
+        return False
+    summary_fields = (
+        "participant_id",
+        "participation_state",
+        "dismissal_type",
+        "batting_runs",
+        "balls_faced",
+        "fours",
+        "sixes",
+        "bowling_legal_balls",
+        "bowling_overs_completed",
+        "bowling_balls_in_partial_over",
+        "runs_conceded",
+        "bowling_wickets",
+        "wides",
+        "no_balls",
+        "fielding_dismissals",
+    )
+    stored_summaries = sorted(
+        tuple(getattr(summary, field) for field in summary_fields)
+        for summary in innings.participant_summaries
+    )
+    expected_summaries = sorted(
+        tuple(getattr(summary, field) for field in summary_fields)
+        for summary in projection.participant_summaries
+    )
+    return stored_summaries == expected_summaries
+
+
 async def persist_innings_projection(
     session: AsyncSession,
     innings: Innings,
@@ -205,6 +295,11 @@ async def persist_innings_projection(
             InningsParticipantSummary.innings_id == innings.id
         )
     )
+    await session.execute(
+        delete(MatchParticipantPerformance).where(
+            MatchParticipantPerformance.innings_id == innings.id
+        )
+    )
     session.add_all(
         [
             InningsOver(
@@ -224,6 +319,31 @@ async def persist_innings_projection(
                 },
             )
             for over in projection.overs
+        ]
+    )
+    session.add_all(
+        [
+            MatchParticipantPerformance(
+                match_id=innings.match_id,
+                innings_id=innings.id,
+                participant_id=summary.participant_id,
+                batting_runs=summary.batting_runs,
+                balls_faced=summary.balls_faced,
+                fours=summary.fours,
+                sixes=summary.sixes,
+                dismissal_type=summary.dismissal_type,
+                bowling_legal_balls=summary.bowling_legal_balls,
+                runs_conceded=summary.runs_conceded,
+                bowling_wickets=summary.bowling_wickets,
+                wides=summary.wides,
+                no_balls=summary.no_balls,
+                extras_conceded=summary.wides + summary.no_balls,
+                catches=summary.catches,
+                stumpings=summary.stumpings,
+                run_out_involvements=summary.run_out_involvements,
+                projection_revision=next_revision,
+            )
+            for summary in projection.participant_summaries
         ]
     )
     session.add_all(
@@ -274,5 +394,6 @@ __all__ = [
     "ParticipantProjection",
     "build_innings_projection",
     "build_projection",
+    "innings_projection_matches",
     "persist_innings_projection",
 ]

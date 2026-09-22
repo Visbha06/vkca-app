@@ -19,6 +19,10 @@ from src.models.match_fielding_performance import MatchFieldingPerformance
 from src.models.player import Player
 from src.models.player_batting_stats import PlayerBattingStats
 from src.models.player_bowling_stats import PlayerBowlingStats
+from src.models.scoring.innings import Innings
+from src.models.scoring.match_participant_performance import (
+    MatchParticipantPerformance,
+)
 from src.models.team import Team
 from src.models.team_coach import TeamCoach
 from src.models.team_player import TeamPlayer
@@ -640,6 +644,35 @@ async def _match_relationships(
                 )
             ).scalars()
         }
+    match_ids = [record.id for record in records]
+    innings_rows = (
+        await session.scalars(
+            select(Innings)
+            .where(Innings.match_id.in_(match_ids))
+            .order_by(Innings.match_id, Innings.innings_number)
+            .execution_options(populate_existing=True)
+        )
+    ).all()
+    performance_rows = (
+        await session.scalars(
+            select(MatchParticipantPerformance)
+            .where(MatchParticipantPerformance.match_id.in_(match_ids))
+            .order_by(
+                MatchParticipantPerformance.match_id,
+                MatchParticipantPerformance.innings_id,
+                MatchParticipantPerformance.participant_id,
+            )
+            .execution_options(populate_existing=True)
+        )
+    ).all()
+    innings_by_match: defaultdict[UUID, list[Innings]] = defaultdict(list)
+    performances_by_match: defaultdict[UUID, list[MatchParticipantPerformance]] = (
+        defaultdict(list)
+    )
+    for innings in innings_rows:
+        innings_by_match[innings.match_id].append(innings)
+    for performance in performance_rows:
+        performances_by_match[performance.match_id].append(performance)
     return {
         str(record.id): {
             "home_team": (
@@ -652,6 +685,8 @@ async def _match_relationships(
                 if record.away_team_id is not None
                 else None
             ),
+            "scoring_innings": tuple(innings_by_match[record.id]),
+            "scoring_performances": tuple(performances_by_match[record.id]),
         }
         for record in records
     }

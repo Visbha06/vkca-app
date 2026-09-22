@@ -32,7 +32,7 @@ describe('DataQualityPage', () => {
 
     resolveInitial({
       findings: [],
-      summary: { total_findings: 0, critical_count: 0, warning_count: 0, info_count: 0, domain_counts: { players: 0, teams: 0, rosters: 0, coaches: 0, calendar: 0 } },
+      summary: { total_findings: 0, critical_count: 0, warning_count: 0, info_count: 0, domain_counts: { players: 0, teams: 0, rosters: 0, coaches: 0, calendar: 0, scoring: 0 } },
       page: 1, page_size: 20, total_findings: 0, total_pages: 0, has_previous: false, has_next: false,
     })
 
@@ -43,7 +43,7 @@ describe('DataQualityPage', () => {
   it('shows the unfiltered summary and a finding explanation', async () => {
     vi.mocked(fetchDataQuality).mockResolvedValue({
       findings: [{ finding_id: 'player.active_unassigned:1', rule_id: 'player.active_unassigned', severity: 'warning', domain: 'players', entity_type: 'player', entity_id: '1', entity_label: 'Asha Patel', title: 'Active player is not assigned to a team', explanation: 'Asha is active but has no roster.', recommended_action: 'Review the player in Teams.', direct_remediation: null, related_entities: [] }],
-      summary: { total_findings: 1, critical_count: 0, warning_count: 1, info_count: 0, domain_counts: { players: 1, teams: 0, rosters: 0, coaches: 0, calendar: 0 } },
+      summary: { total_findings: 1, critical_count: 0, warning_count: 1, info_count: 0, domain_counts: { players: 1, teams: 0, rosters: 0, coaches: 0, calendar: 0, scoring: 0 } },
       page: 1, page_size: 20, total_findings: 1, total_pages: 1, has_previous: false, has_next: false,
     })
 
@@ -59,7 +59,7 @@ describe('DataQualityPage', () => {
   it('shows the explicit healthy state after an empty response', async () => {
     vi.mocked(fetchDataQuality).mockResolvedValue({
       findings: [],
-      summary: { total_findings: 0, critical_count: 0, warning_count: 0, info_count: 0, domain_counts: { players: 0, teams: 0, rosters: 0, coaches: 0, calendar: 0 } },
+      summary: { total_findings: 0, critical_count: 0, warning_count: 0, info_count: 0, domain_counts: { players: 0, teams: 0, rosters: 0, coaches: 0, calendar: 0, scoring: 0 } },
       page: 1, page_size: 20, total_findings: 0, total_pages: 0, has_previous: false, has_next: false,
     })
 
@@ -73,7 +73,7 @@ describe('DataQualityPage', () => {
       .mockRejectedValueOnce(new Error('offline'))
       .mockResolvedValueOnce({
         findings: [],
-        summary: { total_findings: 0, critical_count: 0, warning_count: 0, info_count: 0, domain_counts: { players: 0, teams: 0, rosters: 0, coaches: 0, calendar: 0 } },
+        summary: { total_findings: 0, critical_count: 0, warning_count: 0, info_count: 0, domain_counts: { players: 0, teams: 0, rosters: 0, coaches: 0, calendar: 0, scoring: 0 } },
         page: 1, page_size: 20, total_findings: 0, total_pages: 0, has_previous: false, has_next: false,
       })
 
@@ -102,7 +102,7 @@ describe('DataQualityPage', () => {
     vi.mocked(fetchDataQuality)
       .mockResolvedValueOnce({
         findings: [{ finding_id: 'player.active_unassigned:1', rule_id: 'player.active_unassigned', severity: 'warning', domain: 'players', entity_type: 'player', entity_id: '1', entity_label: 'Asha Patel', title: 'Active player is not assigned to a team', explanation: 'Asha is active but has no roster.', recommended_action: 'Review the player in Teams.', direct_remediation: null, related_entities: [] }],
-        summary: { total_findings: 1, critical_count: 0, warning_count: 1, info_count: 0, domain_counts: { players: 1, teams: 0, rosters: 0, coaches: 0, calendar: 0 } },
+        summary: { total_findings: 1, critical_count: 0, warning_count: 1, info_count: 0, domain_counts: { players: 1, teams: 0, rosters: 0, coaches: 0, calendar: 0, scoring: 0 } },
         page: 1, page_size: 20, total_findings: 1, total_pages: 1, has_previous: false, has_next: false,
       })
       .mockReturnValueOnce(refresh)
@@ -145,7 +145,7 @@ describe('DataQualityPage', () => {
       })
       vi.mocked(fetchDataQuality).mockResolvedValue({
         findings: [],
-        summary: { total_findings: 0, critical_count: 0, warning_count: 0, info_count: 0, domain_counts: { players: 0, teams: 0, rosters: 0, coaches: 0, calendar: 0 } },
+        summary: { total_findings: 0, critical_count: 0, warning_count: 0, info_count: 0, domain_counts: { players: 0, teams: 0, rosters: 0, coaches: 0, calendar: 0, scoring: 0 } },
         page: 1, page_size: 20, total_findings: 0, total_pages: 0, has_previous: false, has_next: false,
       })
 

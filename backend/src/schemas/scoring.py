@@ -806,6 +806,23 @@ class ParticipantSummaryResponse(ScoringResponse):
     projection_revision: int = Field(ge=0)
 
 
+class InningsExtrasResponse(ScoringResponse):
+    wides: int = Field(default=0, ge=0, le=SCORING_RUN_TOTAL_MAX)
+    no_balls: int = Field(default=0, ge=0, le=SCORING_RUN_TOTAL_MAX)
+    byes: int = Field(default=0, ge=0, le=SCORING_RUN_TOTAL_MAX)
+    leg_byes: int = Field(default=0, ge=0, le=SCORING_RUN_TOTAL_MAX)
+    penalty_runs: int = Field(default=0, ge=0, le=SCORING_RUN_TOTAL_MAX)
+    total: int = Field(default=0, ge=0, le=SCORING_RUN_TOTAL_MAX)
+
+
+class FallOfWicketResponse(ScoringResponse):
+    attempted_sequence: int = Field(ge=1)
+    score: int = Field(ge=0, le=SCORING_RUN_TOTAL_MAX)
+    wicket_number: int = Field(ge=1)
+    participant_id: UUID
+    dismissal_type: ScoringDismissalType
+
+
 class OverProgressResponse(ScoringResponse):
     over_length_legal_balls: int = Field(ge=1)
     overs_completed: int = Field(ge=0)
@@ -871,6 +888,8 @@ class InningsResponse(ScoringResponse):
     policy: ScoringPolicyResponse | None = None
     over_progress: OverProgressResponse | None = None
     completed_bowler_participant_ids: list[UUID] = Field(default_factory=list)
+    extras: InningsExtrasResponse = Field(default_factory=InningsExtrasResponse)
+    fall_of_wickets: list[FallOfWicketResponse] = Field(default_factory=list)
 
 
 class DeliveryHistoryResponse(ScoringResponse):

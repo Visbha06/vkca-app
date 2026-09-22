@@ -604,6 +604,10 @@ def _build_initial_registry() -> RagSourceRegistry[object]:
             cast(Match, _loaded_record(item)),
             home_team=cast(Team | None, _relationships(item).get("home_team")),
             away_team=cast(Team | None, _relationships(item).get("away_team")),
+            scoring_innings=cast(Any, _relationships(item).get("scoring_innings", ())),
+            scoring_performances=cast(
+                Any, _relationships(item).get("scoring_performances", ())
+            ),
         ),
         lambda item: True,
     )

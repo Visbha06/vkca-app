@@ -29,6 +29,13 @@ describe('DataQualityFindingCard', () => {
     expect(screen.queryByRole('button', { name: 'Navigate to Fix' })).not.toBeInTheDocument()
   })
 
+  it('keeps scoring findings read-only', () => {
+    render(<DataQualityFindingCard finding={{ finding_id: 'scoring', rule_id: 'scoring.projection_mismatch', severity: 'critical', domain: 'scoring', entity_type: 'innings', entity_id: 'innings', entity_label: 'Match innings 1', title: 'Projection mismatch', explanation: 'Replay differs.', recommended_action: 'Use the scoring correction workflow.', direct_remediation: null, related_entities: [] }} onNavigate={vi.fn()} />)
+
+    expect(screen.getByText('Manual review required')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Navigate to Fix' })).not.toBeInTheDocument()
+  })
+
   it('provides a deterministic navigate action for a reviewable finding', () => {
     const onNavigate = vi.fn()
     render(<DataQualityFindingCard finding={{ finding_id: 'player', rule_id: 'player.active_unassigned', severity: 'warning', domain: 'players', entity_type: 'player', entity_id: 'player', entity_label: 'Asha', title: 'Unassigned', explanation: 'Review.', recommended_action: 'Open Players.', direct_remediation: null, related_entities: [] }} onNavigate={onNavigate} />)

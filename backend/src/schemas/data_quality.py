@@ -132,6 +132,22 @@ class DataQualitySummary(DataQualitySchema):
     info_count: int = Field(ge=0)
     domain_counts: dict[QualityDomain, int]
 
+    @model_validator(mode="before")
+    @classmethod
+    def include_new_domains(cls, value: object) -> object:
+        """Treat omitted newly introduced domains as zero for old internal callers."""
+
+        if not isinstance(value, dict) or not isinstance(
+            value.get("domain_counts"), dict
+        ):
+            return value
+        normalized = dict(value)
+        counts = dict(normalized["domain_counts"])
+        for domain in QualityDomain:
+            counts.setdefault(domain.value, 0)
+        normalized["domain_counts"] = counts
+        return normalized
+
     @model_validator(mode="after")
     def validate_counts(self) -> Self:
         """Require complete, internally consistent summary metadata."""

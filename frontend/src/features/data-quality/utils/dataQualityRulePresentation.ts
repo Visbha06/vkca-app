@@ -77,6 +77,46 @@ export const DATA_QUALITY_RULE_PRESENTATION = {
     label: 'Saved occurrence change no longer matches',
     domain: 'calendar',
   },
+  'scoring.projection_mismatch': {
+    label: 'Score projection differs from delivery history',
+    domain: 'scoring',
+  },
+  'scoring.active_revision_conflict': {
+    label: 'Conflicting active delivery revisions',
+    domain: 'scoring',
+  },
+  'scoring.sequence_conflict': {
+    label: 'Delivery sequence conflict',
+    domain: 'scoring',
+  },
+  'scoring.participant_identity_invalid': {
+    label: 'Invalid scoring participant identity',
+    domain: 'scoring',
+  },
+  'scoring.lifecycle_invalid': {
+    label: 'Scoring lifecycle conflict',
+    domain: 'scoring',
+  },
+  'scoring.over_quota_invalid': {
+    label: 'Over or bowler quota conflict',
+    domain: 'scoring',
+  },
+  'scoring.wicket_cardinality_invalid': {
+    label: 'Wicket or fielder conflict',
+    domain: 'scoring',
+  },
+  'scoring.reconciliation_required': {
+    label: 'Innings requires reconciliation',
+    domain: 'scoring',
+  },
+  'scoring.legacy_divergence': {
+    label: 'Legacy performance differs from scoring',
+    domain: 'scoring',
+  },
+  'scoring.historical_state_malformed': {
+    label: 'Scoring history cannot be replayed',
+    domain: 'scoring',
+  },
 } satisfies Record<QualityRuleId, DataQualityRulePresentation>
 
 export const DATA_QUALITY_RULE_GROUPS = [
@@ -85,6 +125,7 @@ export const DATA_QUALITY_RULE_GROUPS = [
   { domain: 'rosters', label: 'Rosters' },
   { domain: 'coaches', label: 'Coaches' },
   { domain: 'calendar', label: 'Calendar' },
+  { domain: 'scoring', label: 'Scoring' },
 ] as const satisfies readonly { domain: QualityDomain; label: string }[]
 
 export function getDataQualityRulesForDomain(domain: QualityDomain) {

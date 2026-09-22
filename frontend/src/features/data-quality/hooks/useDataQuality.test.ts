@@ -9,7 +9,7 @@ vi.mock('../api/dataQualityApi', () => ({ fetchDataQuality: vi.fn() }))
 
 const response = {
   findings: [],
-  summary: { total_findings: 2, critical_count: 0, warning_count: 2, info_count: 0, domain_counts: { players: 2, teams: 0, rosters: 0, coaches: 0, calendar: 0 } },
+  summary: { total_findings: 2, critical_count: 0, warning_count: 2, info_count: 0, domain_counts: { players: 2, teams: 0, rosters: 0, coaches: 0, calendar: 0, scoring: 0 } },
   page: 1, page_size: 20, total_findings: 0, total_pages: 0, has_previous: false, has_next: false,
 }
 

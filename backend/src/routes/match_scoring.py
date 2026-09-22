@@ -24,6 +24,7 @@ from src.schemas.scoring import (
     NextBowlerResponse,
     RetiredHurtReturnRequest,
     RetireHurtRequest,
+    ScorecardResponse,
     SelectNextBatterRequest,
     SelectNextBowlerRequest,
     StartInningsRequest,
@@ -33,6 +34,20 @@ from src.services.scoring.service import ScoringService
 
 match_scoring_router = APIRouter(prefix="/matches", tags=["match-scoring"])
 router = match_scoring_router
+
+
+@match_scoring_router.get(
+    "/{match_id}/scorecard",
+    response_model=ScorecardResponse,
+)
+async def read_match_scorecard(
+    match_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+) -> ScorecardResponse:
+    """Return the protected persisted scorecard and current Match blocker."""
+
+    return await MatchService(session).get_scorecard(match_id, current_user[0])
 
 
 @match_scoring_router.get(

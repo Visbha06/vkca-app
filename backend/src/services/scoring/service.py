@@ -54,13 +54,16 @@ from src.schemas.scoring import (
     DeliveryHistoryResponse,
     DeliveryResponse,
     DeliveryRevisionResponse,
+    FallOfWicketResponse,
     InningsCompletionRequest,
+    InningsExtrasResponse,
     InningsOverResponse,
     InningsResponse,
     MatchCompletionRequest,
     MatchCompletionResponse,
     MatchConfigurationRequest,
     MatchConfigurationResponse,
+    MatchParticipantPerformanceResponse,
     MatchParticipantResponse,
     MatchSideResponse,
     NextBowlerResponse,
@@ -68,6 +71,7 @@ from src.schemas.scoring import (
     ParticipantSummaryResponse,
     RetiredHurtReturnRequest,
     RetireHurtRequest,
+    ScorecardResponse,
     ScoringPolicyResponse,
     SelectNextBatterRequest,
     SelectNextBowlerRequest,
@@ -180,6 +184,16 @@ def _blocking_response(innings: Innings, match: Match) -> BlockingStateResponse:
 
 
 def _innings_response(innings: Innings, match: Match) -> InningsResponse:
+    extras = innings.state_snapshot.get("extras", {})
+    if not isinstance(extras, dict):
+        extras = {}
+    extras_values = {
+        key: int(extras.get(key, 0))
+        for key in ("wides", "no_balls", "byes", "leg_byes", "penalty_runs")
+    }
+    fall_of_wickets = innings.state_snapshot.get("fall_of_wickets", [])
+    if not isinstance(fall_of_wickets, list):
+        fall_of_wickets = []
     return InningsResponse(
         id=innings.id,
         match_version_number=match.version_number,
@@ -227,6 +241,15 @@ def _innings_response(innings: Innings, match: Match) -> InningsResponse:
         ),
         over_progress=_over_progress(innings, match),
         completed_bowler_participant_ids=_completed_bowlers(innings),
+        extras=InningsExtrasResponse(
+            **extras_values,
+            total=sum(extras_values.values()),
+        ),
+        fall_of_wickets=[
+            FallOfWicketResponse.model_validate(item)
+            for item in fall_of_wickets
+            if isinstance(item, dict)
+        ],
         overs=[
             InningsOverResponse.model_validate(over)
             for over in sorted(innings.overs, key=lambda value: value.over_number)
@@ -238,6 +261,110 @@ def _innings_response(innings: Innings, match: Match) -> InningsResponse:
                 key=lambda value: str(value.participant_id),
             )
         ],
+    )
+
+
+def _match_blocking_response(match: Match) -> BlockingStateResponse:
+    lifecycle = MatchLifecycleState(match.lifecycle_state)
+    if lifecycle is MatchLifecycleState.ABANDONED:
+        return BlockingStateResponse(
+            kind=BlockingStateKind.MATCH_ABANDONED,
+            is_blocked=True,
+            reason_code=BlockingReasonCode.MATCH_ABANDONED,
+        )
+    if lifecycle is MatchLifecycleState.COMPLETED:
+        return BlockingStateResponse(
+            kind=BlockingStateKind.MATCH_COMPLETED,
+            is_blocked=True,
+            reason_code=BlockingReasonCode.MATCH_COMPLETED,
+        )
+    ordered = sorted(match.scoring_innings, key=lambda value: value.innings_number)
+    reconciliation = next(
+        (
+            innings
+            for innings in ordered
+            if InningsLifecycleState(innings.lifecycle_state)
+            is InningsLifecycleState.RECONCILIATION_REQUIRED
+        ),
+        None,
+    )
+    if reconciliation is not None:
+        return _blocking_response(reconciliation, match)
+    active = next(
+        (
+            innings
+            for innings in reversed(ordered)
+            if InningsLifecycleState(innings.lifecycle_state)
+            is InningsLifecycleState.IN_PROGRESS
+        ),
+        None,
+    )
+    if active is not None:
+        return _blocking_response(active, match)
+    required = (
+        len(match.scoring_policy.innings_sequence)
+        if match.scoring_policy is not None
+        else 0
+    )
+    if len(ordered) < required or any(
+        InningsLifecycleState(innings.lifecycle_state) is InningsLifecycleState.PENDING
+        for innings in ordered
+    ):
+        return BlockingStateResponse(
+            kind=BlockingStateKind.INNINGS_NOT_STARTED,
+            is_blocked=True,
+            reason_code=BlockingReasonCode.INNINGS_NOT_STARTED,
+        )
+    return BlockingStateResponse(
+        kind=BlockingStateKind.NONE,
+        is_blocked=False,
+        reason_code=None,
+    )
+
+
+def _scorecard_response(match: Match) -> ScorecardResponse:
+    innings = sorted(match.scoring_innings, key=lambda value: value.innings_number)
+    sides = sorted(match.scoring_sides, key=lambda value: str(value.side_code))
+    side_codes = {side.id: str(side.side_code) for side in sides}
+    participants = sorted(
+        match.scoring_participants,
+        key=lambda item: (
+            side_codes.get(item.side_id, ""),
+            item.batting_order_position,
+            str(item.id),
+        ),
+    )
+    performances = sorted(
+        match.scoring_performances,
+        key=lambda item: (str(item.innings_id), str(item.participant_id)),
+    )
+    return ScorecardResponse(
+        match_id=match.id,
+        lifecycle_state=match.lifecycle_state,
+        scoring_authority=match.scoring_authority,
+        result_code=match.result_code,
+        result_details=dict(match.result_details),
+        compatibility_result=match.result,
+        policy=(
+            ScoringPolicyResponse.model_validate(match.scoring_policy)
+            if match.scoring_policy is not None
+            else None
+        ),
+        sides=[MatchSideResponse.model_validate(side) for side in sides],
+        participants=[
+            MatchParticipantResponse.model_validate(participant)
+            for participant in participants
+        ],
+        innings=[_innings_response(item, match) for item in innings],
+        participant_performances=[
+            MatchParticipantPerformanceResponse.model_validate(item)
+            for item in performances
+        ],
+        blocking_state=_match_blocking_response(match),
+        match_version_number=match.version_number,
+        projection_revision=max(
+            (item.projection_revision for item in innings), default=0
+        ),
     )
 
 
@@ -392,6 +519,11 @@ class ScoringService:
                 selectinload(Match.scoring_sides),
                 selectinload(Match.scoring_participants),
                 selectinload(Match.scoring_innings),
+                selectinload(Match.scoring_innings).selectinload(Innings.overs),
+                selectinload(Match.scoring_innings).selectinload(
+                    Innings.participant_summaries
+                ),
+                selectinload(Match.scoring_performances),
             )
             .where(Match.id == match_id)
             .execution_options(populate_existing=True)
@@ -1850,6 +1982,20 @@ class ScoringService:
         return _innings_response(
             await self._load_innings(match_id, innings_id, include_history=False), match
         )
+
+    async def get_scorecard(
+        self,
+        match_id: UUID,
+        authenticated_user: User | UUID,
+    ) -> ScorecardResponse:
+        """Read the bounded persisted scorecard without replaying delivery history."""
+
+        context = await ScoringAuthorizationAdapter(self.session).load_context(
+            authenticated_user
+        )
+        match = await self._load_match(match_id)
+        require_scoring_read_scope(context, match)
+        return _scorecard_response(match)
 
     async def get_next_bowler(
         self,

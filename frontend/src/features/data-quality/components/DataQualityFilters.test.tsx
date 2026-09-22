@@ -15,7 +15,7 @@ describe('DataQualityFilters', () => {
     const ruleSelect = screen.getByRole('combobox', { name: 'Rule' })
     const presentations = Object.entries(DATA_QUALITY_RULE_PRESENTATION)
 
-    expect(presentations).toHaveLength(17)
+    expect(presentations).toHaveLength(27)
     for (const [ruleId, { label }] of presentations) {
       expect(within(ruleSelect).getByRole('option', { name: label })).toHaveValue(ruleId)
       expect(within(ruleSelect).queryByRole('option', { name: ruleId })).not.toBeInTheDocument()

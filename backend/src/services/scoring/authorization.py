@@ -218,10 +218,17 @@ def require_configuration_scope(
 def academy_team_ids_for_match(match: Match) -> set[UUID]:
     """Return the configured academy sides that anchor scoring scope."""
 
-    return {
+    configured = {
         side.team_id
         for side in match.scoring_sides
         if side.side_kind == MatchSideKind.ACADEMY and side.team_id is not None
+    }
+    if configured:
+        return configured
+    return {
+        team_id
+        for team_id in (match.home_team_id, match.away_team_id)
+        if team_id is not None
     }
 
 

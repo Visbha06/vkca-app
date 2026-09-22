@@ -1,5 +1,7 @@
 """Phase 4 replay-to-projection coverage."""
 
+from datetime import UTC, date, datetime
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
@@ -547,3 +549,370 @@ def test_result_projection_accepts_persisted_string_values():
         for runs, reason in [(4, "all_out"), (6, "target_reached")]
     ]
     assert derive_match_result(_completion_policy(), states)[0] == "win_by_wickets"
+
+
+def _scorecard_match(*, lifecycle: str = "in_progress"):
+    from src.models.match import Match
+    from src.models.scoring.innings import Innings
+    from src.models.scoring.match_participant_performance import (
+        MatchParticipantPerformance,
+    )
+    from src.models.scoring.match_side import MatchSide
+    from src.models.scoring.over import InningsOver
+    from src.models.scoring.participant import MatchParticipant
+    from src.models.scoring.participant_summary import InningsParticipantSummary
+
+    match_id, academy_side_id, external_side_id = uuid4(), uuid4(), uuid4()
+    internal_player_id = uuid4()
+    internal_id, external_id, bowler_id = uuid4(), uuid4(), uuid4()
+    policy = _completion_policy().to_model(match_id)
+    policy.id = uuid4()
+    policy.version_number = 1
+    sides = [
+        MatchSide(
+            id=academy_side_id,
+            match_id=match_id,
+            side_code="home",
+            side_kind="academy",
+            team_id=uuid4(),
+            display_name_snapshot="Academy XI",
+            version_number=1,
+        ),
+        MatchSide(
+            id=external_side_id,
+            match_id=match_id,
+            side_code="away",
+            side_kind="external",
+            team_id=None,
+            display_name_snapshot="Visitors XI",
+            version_number=1,
+        ),
+    ]
+    participants = [
+        MatchParticipant(
+            id=internal_id,
+            match_id=match_id,
+            side_id=academy_side_id,
+            participant_kind="internal",
+            player_id=internal_player_id,
+            display_name_snapshot="Academy Batter",
+            batting_order_position=1,
+            version_number=1,
+        ),
+        MatchParticipant(
+            id=external_id,
+            match_id=match_id,
+            side_id=external_side_id,
+            participant_kind="external",
+            player_id=None,
+            display_name_snapshot="Visiting Batter",
+            batting_order_position=1,
+            version_number=1,
+        ),
+        MatchParticipant(
+            id=bowler_id,
+            match_id=match_id,
+            side_id=external_side_id,
+            participant_kind="external",
+            player_id=None,
+            display_name_snapshot="Visiting Bowler",
+            batting_order_position=2,
+            version_number=1,
+        ),
+    ]
+    innings_id = uuid4()
+    innings = Innings(
+        id=innings_id,
+        match_id=match_id,
+        innings_number=1,
+        batting_side_id=academy_side_id,
+        fielding_side_id=external_side_id,
+        lifecycle_state="in_progress",
+        striker_participant_id=internal_id,
+        non_striker_participant_id=internal_id,
+        current_bowler_participant_id=bowler_id,
+        legal_balls=7,
+        total_runs=12,
+        wickets_lost=1,
+        target_runs=20,
+        projection_revision=4,
+        version_number=3,
+        state_snapshot={
+            "extras": {
+                "wides": 2,
+                "no_balls": 1,
+                "byes": 1,
+                "leg_byes": 2,
+                "penalty_runs": 0,
+            },
+            "fall_of_wickets": [
+                {
+                    "attempted_sequence": 5,
+                    "score": 9,
+                    "wicket_number": 1,
+                    "participant_id": str(internal_id),
+                    "dismissal_type": "run_out",
+                }
+            ],
+            "blocking_state": {
+                "kind": "none",
+                "is_blocked": False,
+                "reason_code": None,
+            },
+        },
+        overs=[
+            InningsOver(
+                innings_id=innings_id,
+                over_number=0,
+                bowler_participant_id=bowler_id,
+                legal_ball_count=6,
+                total_runs=10,
+                runs_conceded=7,
+                wickets=1,
+                is_complete=True,
+                projection_revision=4,
+            )
+        ],
+        participant_summaries=[
+            InningsParticipantSummary(
+                innings_id=innings_id,
+                participant_id=internal_id,
+                participation_state="dismissed",
+                dismissal_type="run_out",
+                batting_runs=6,
+                balls_faced=5,
+                fours=1,
+                sixes=0,
+                bowling_legal_balls=0,
+                bowling_overs_completed=0,
+                bowling_balls_in_partial_over=0,
+                runs_conceded=0,
+                bowling_wickets=0,
+                wides=0,
+                no_balls=0,
+                fielding_dismissals=0,
+                projection_revision=4,
+            )
+        ],
+    )
+    performance = MatchParticipantPerformance(
+        match_id=match_id,
+        innings_id=innings_id,
+        participant_id=internal_id,
+        batting_runs=6,
+        balls_faced=5,
+        fours=1,
+        sixes=0,
+        bowling_legal_balls=0,
+        runs_conceded=0,
+        bowling_wickets=0,
+        wides=0,
+        no_balls=0,
+        extras_conceded=0,
+        catches=0,
+        stumpings=0,
+        run_out_involvements=0,
+        projection_revision=4,
+        provenance="delivery_derived",
+    )
+    return Match(
+        id=match_id,
+        match_date=date(2026, 9, 10),
+        format="T20",
+        participant_type="external",
+        home_team_id=sides[0].team_id,
+        away_team_id=None,
+        external_opponent_name="Visitors XI",
+        venue="Academy",
+        result="In progress",
+        lifecycle_state=lifecycle,
+        scoring_authority="delivery_history",
+        result_code="pending",
+        result_details={"target_runs": 20},
+        configured_at=datetime.now(UTC),
+        version_number=5,
+        scoring_policy=policy,
+        scoring_sides=sides,
+        scoring_participants=participants,
+        scoring_innings=[innings],
+        scoring_performances=[performance],
+    )
+
+
+def test_scorecard_serializes_bounded_current_projection_and_external_identity():
+    from src.services.scoring.service import _scorecard_response
+
+    response = _scorecard_response(_scorecard_match())
+
+    assert response.scoring_authority == "delivery_history"
+    assert response.policy is not None
+    assert response.policy.innings_sequence == ["home", "away"]
+    assert [side.side_code for side in response.sides] == ["away", "home"]
+    external = next(
+        item for item in response.participants if item.participant_kind == "external"
+    )
+    assert external.player_id is None
+    assert response.innings[0].extras.model_dump() == {
+        "wides": 2,
+        "no_balls": 1,
+        "byes": 1,
+        "leg_byes": 2,
+        "penalty_runs": 0,
+        "total": 6,
+    }
+    assert response.innings[0].fall_of_wickets[0].model_dump(mode="json") == {
+        "attempted_sequence": 5,
+        "score": 9,
+        "wicket_number": 1,
+        "participant_id": str(response.innings[0].fall_of_wickets[0].participant_id),
+        "dismissal_type": "run_out",
+    }
+    assert response.innings[0].overs[0].legal_ball_count == 6
+    assert response.innings[0].participant_summaries[0].batting_runs == 6
+    assert response.innings[0].runs_required == 8
+    assert response.participant_performances[0].provenance == "delivery_derived"
+    assert response.projection_revision == 4
+    assert response.result_details == {"target_runs": 20}
+
+
+def test_legacy_scorecard_keeps_aggregate_authority_label_without_history():
+    from src.models.match import Match
+    from src.services.scoring.service import _scorecard_response
+
+    match = Match(
+        id=uuid4(),
+        match_date=date(2026, 9, 10),
+        format="T20",
+        participant_type="internal",
+        home_team_id=uuid4(),
+        away_team_id=uuid4(),
+        venue="Legacy Ground",
+        result="Home won",
+        lifecycle_state="completed",
+        scoring_authority="legacy_aggregate",
+        result_code="pending",
+        result_details={},
+        version_number=2,
+        scoring_sides=[],
+        scoring_participants=[],
+        scoring_innings=[],
+        scoring_performances=[],
+    )
+
+    response = _scorecard_response(match)
+
+    assert response.scoring_authority == "legacy_aggregate"
+    assert response.policy is None
+    assert response.innings == []
+    assert response.participant_performances == []
+    assert response.blocking_state.kind == "match_completed"
+
+
+@pytest.mark.parametrize(
+    ("lifecycle", "innings_lifecycle", "expected"),
+    [
+        ("completed", "reconciliation_required", "match_completed"),
+        ("abandoned", "reconciliation_required", "match_abandoned"),
+        ("in_progress", "reconciliation_required", "reconciliation_required"),
+        ("in_progress", "pending", "innings_not_started"),
+        ("in_progress", "in_progress", "none"),
+    ],
+)
+def test_match_blocking_state_uses_canonical_terminal_reconciliation_precedence(
+    lifecycle, innings_lifecycle, expected
+):
+    from src.services.scoring.service import _match_blocking_response
+
+    match = _scorecard_match(lifecycle=lifecycle)
+    match.scoring_innings[0].lifecycle_state = innings_lifecycle
+    match.scoring_innings[0].state_snapshot["blocking_state"] = (
+        {
+            "kind": "reconciliation_required",
+            "is_blocked": True,
+            "reason_code": "incompatible_replay",
+        }
+        if innings_lifecycle == "reconciliation_required"
+        else {
+            "kind": "none",
+            "is_blocked": False,
+            "reason_code": None,
+        }
+    )
+    if innings_lifecycle == "pending":
+        match.scoring_innings[0].state_snapshot.pop("blocking_state")
+
+    assert _match_blocking_response(match).kind == expected
+
+
+def test_delivery_serializes_ordered_fielders_and_primary_fielder():
+    from src.services.scoring.service import _delivery_response
+
+    match = _scorecard_match()
+    persisted_innings = match.scoring_innings[0]
+    first, second = uuid4(), uuid4()
+    active = SimpleNamespace(
+        id=uuid4(),
+        revision_number=1,
+        revision_state="active",
+        striker_participant_id=match.scoring_participants[0].id,
+        non_striker_participant_id=match.scoring_participants[0].id,
+        bowler_participant_id=match.scoring_participants[2].id,
+        runs_off_bat=0,
+        wide_runs=0,
+        no_ball_penalty_runs=0,
+        bye_runs=0,
+        leg_bye_runs=0,
+        penalty_runs=0,
+        total_runs=0,
+        is_legal=True,
+        completed_runs=0,
+        balls_faced=True,
+        bowler_conceded_runs=0,
+        fielders=[
+            SimpleNamespace(participant_id=second, ordinal=2, role="assister"),
+            SimpleNamespace(participant_id=first, ordinal=1, role="thrower"),
+        ],
+        wicket_event=SimpleNamespace(
+            dismissal_type="run_out",
+            dismissed_participant_id=match.scoring_participants[0].id,
+            dismissed_end="striker_end",
+            counts_as_team_wicket=True,
+            credited_to_bowler=False,
+            notes=None,
+        ),
+        replacement_reason=None,
+        supersedes_revision_id=None,
+        recorded_by_user_id=uuid4(),
+        recorded_at=datetime.now(UTC),
+    )
+    delivery = SimpleNamespace(
+        id=uuid4(),
+        innings_id=persisted_innings.id,
+        attempted_sequence=1,
+        revisions=[active],
+    )
+    innings = SimpleNamespace(
+        **{
+            key: getattr(persisted_innings, key)
+            for key in (
+                "id",
+                "version_number",
+                "total_runs",
+                "legal_balls",
+                "wickets_lost",
+                "striker_participant_id",
+                "non_striker_participant_id",
+                "current_bowler_participant_id",
+                "lifecycle_state",
+                "state_snapshot",
+            )
+        },
+        blocking_state=persisted_innings.blocking_state,
+        deliveries=[delivery],
+    )
+
+    wicket = _delivery_response(delivery, innings, match).active_revision.wicket
+
+    assert wicket is not None
+    assert [item.participant_id for item in wicket.fielders] == [first, second]
+    assert wicket.primary_fielder_participant_id == first

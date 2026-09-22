@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from src.services.background_jobs.retry import (
     SAFE_FAILURE_MESSAGES,
@@ -120,11 +121,22 @@ def coalesce_rag_reconciliation_payloads(
             reason="safety",
         )
     reason = "mutation" if "mutation" in {old.reason, new.reason} else new.reason
+    scoring_refresh = None
+    refreshes = [
+        value
+        for value in (old.scoring_refresh, new.scoring_refresh)
+        if value is not None
+    ]
+    if refreshes:
+        scoring_refresh = max(
+            enumerate(refreshes),
+            key=lambda item: (item[1].projection_revision, item[0]),
+        )[1]
     return RagReconciliationPayloadV1(
         mode="targets",
         reason=reason,
         targets=tuple(targets[key] for key in sorted(targets)),
-        scoring_refresh=new.scoring_refresh or old.scoring_refresh,
+        scoring_refresh=scoring_refresh,
     )
 
 
@@ -142,8 +154,31 @@ async def rag_reconciliation_handler(context: object, payload: BaseModel) -> Non
         # Reject unknown source families before opening a run. The indexing service
         # resolves current dependency closure from the same registry afterward.
         source_registry.validate_targets(typed_payload.targets)
+        if typed_payload.scoring_refresh is not None and not any(
+            target.source_type == "match"
+            and target.source_key == str(typed_payload.scoring_refresh.match_id)
+            for target in typed_payload.targets
+        ):
+            raise ValueError("A scoring refresh must target its current Match source.")
 
     async with session_factory() as session:
+        if typed_payload.scoring_refresh is not None:
+            from src.models.scoring.scoring_policy import ScoringPolicy
+            from src.services.performance_service import (
+                sync_delivery_derived_legacy_performances,
+            )
+
+            policy = await session.scalar(
+                select(ScoringPolicy).where(
+                    ScoringPolicy.match_id == typed_payload.scoring_refresh.match_id
+                )
+            )
+            if policy is not None:
+                await sync_delivery_derived_legacy_performances(
+                    session,
+                    match_id=typed_payload.scoring_refresh.match_id,
+                    over_length_legal_balls=policy.over_length_legal_balls,
+                )
         service = RagIndexingService(
             session,
             provider=provider,

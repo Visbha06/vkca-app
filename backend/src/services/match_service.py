@@ -23,6 +23,7 @@ from src.schemas.scoring import (
     MatchCompletionResponse,
     MatchConfigurationRequest,
     MatchConfigurationResponse,
+    ScorecardResponse,
 )
 from src.services.occ import check_and_increment_version
 from src.services.rag.contracts import (
@@ -245,6 +246,19 @@ class MatchService:
 
         return await ScoringService(self.session).complete_innings(
             match_id, innings_id, payload, authenticated_user, request_id=request_id
+        )
+
+    async def get_scorecard(
+        self,
+        match_id: UUID,
+        authenticated_user: User | UUID,
+    ) -> ScorecardResponse:
+        """Delegate protected scorecard reads to the scoring query boundary."""
+
+        from src.services.scoring.service import ScoringService
+
+        return await ScoringService(self.session).get_scorecard(
+            match_id, authenticated_user
         )
 
     async def complete_match(

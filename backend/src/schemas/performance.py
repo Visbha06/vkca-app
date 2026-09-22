@@ -5,7 +5,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
-from src.enums import DismissalType
+from src.enums import (
+    DismissalType,
+    PerformanceProvenance,
+    ScoringAuthority,
+    ScoringDismissalType,
+)
 from src.schemas.base import BaseRequestSchema
 
 # A match can include two complete academy team rosters, with a small buffer.
@@ -95,3 +100,66 @@ class BatchPerformanceResponse(BaseModel):
     bowling_records: int = Field(ge=0)
     fielding_records: int = Field(ge=0)
     players_stats_updated: int = Field(ge=0)
+
+
+class LegacyBattingPerformanceResponse(BaseModel):
+    player_id: UUID
+    runs_scored: int = Field(ge=0)
+    balls_faced: int = Field(ge=0)
+    dismissal: DismissalType
+    fours: int = Field(ge=0)
+    sixes: int = Field(ge=0)
+    notes: str | None
+
+
+class LegacyBowlingPerformanceResponse(BaseModel):
+    player_id: UUID
+    overs_bowled: Decimal = Field(ge=0)
+    maidens: int = Field(ge=0)
+    runs_conceded: int = Field(ge=0)
+    wickets_taken: int = Field(ge=0)
+    wides: int = Field(ge=0)
+    notes: str | None
+
+
+class LegacyFieldingPerformanceResponse(BaseModel):
+    player_id: UUID
+    catches: int = Field(ge=0)
+    stumpings: int = Field(ge=0)
+    run_outs: int = Field(ge=0)
+    dropped_catches: int = Field(ge=0)
+    notes: str | None
+
+
+class DerivedParticipantPerformanceResponse(BaseModel):
+    participant_id: UUID
+    innings_id: UUID
+    player_id: UUID | None
+    display_name: str = Field(min_length=1, max_length=200)
+    batting_runs: int = Field(ge=0)
+    balls_faced: int = Field(ge=0)
+    fours: int = Field(ge=0)
+    sixes: int = Field(ge=0)
+    dismissal_type: ScoringDismissalType | None
+    bowling_legal_balls: int = Field(ge=0)
+    runs_conceded: int = Field(ge=0)
+    bowling_wickets: int = Field(ge=0)
+    wides: int = Field(ge=0)
+    no_balls: int = Field(ge=0)
+    extras_conceded: int = Field(ge=0)
+    catches: int = Field(ge=0)
+    stumpings: int = Field(ge=0)
+    run_out_involvements: int = Field(ge=0)
+    projection_revision: int = Field(ge=0)
+    provenance: PerformanceProvenance
+
+
+class MatchPerformanceResponse(BaseModel):
+    match_id: UUID
+    scoring_authority: ScoringAuthority
+    derived: list[DerivedParticipantPerformanceResponse] = Field(default_factory=list)
+    legacy_batting: list[LegacyBattingPerformanceResponse] = Field(default_factory=list)
+    legacy_bowling: list[LegacyBowlingPerformanceResponse] = Field(default_factory=list)
+    legacy_fielding: list[LegacyFieldingPerformanceResponse] = Field(
+        default_factory=list
+    )

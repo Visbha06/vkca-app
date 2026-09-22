@@ -193,7 +193,7 @@ export interface components {
          * @description Stable identifiers for the initial business-audit action catalogue.
          * @enum {string}
          */
-        AuditActionType: "coach.created" | "coach.activated" | "coach.deactivated" | "coach.team_assignments_updated" | "player.created" | "player.updated" | "player.account_linked" | "player.account_unlinked" | "player.account_reassigned" | "team.created" | "team.updated" | "roster.added" | "roster.removed" | "roster.reordered" | "calendar.standalone_created" | "calendar.standalone_updated" | "calendar.standalone_deleted" | "calendar.series_created" | "calendar.series_updated" | "calendar.series_deleted" | "calendar.occurrence_updated" | "calendar.occurrence_moved" | "calendar.occurrence_deleted" | "scoring.initialized" | "scoring.innings_started" | "scoring.delivery_corrected";
+        AuditActionType: "coach.created" | "coach.activated" | "coach.deactivated" | "coach.team_assignments_updated" | "player.created" | "player.updated" | "player.account_linked" | "player.account_unlinked" | "player.account_reassigned" | "team.created" | "team.updated" | "roster.added" | "roster.removed" | "roster.reordered" | "calendar.standalone_created" | "calendar.standalone_updated" | "calendar.standalone_deleted" | "calendar.series_created" | "calendar.series_updated" | "calendar.series_deleted" | "calendar.occurrence_updated" | "calendar.occurrence_moved" | "calendar.occurrence_deleted" | "scoring.initialized" | "scoring.innings_started" | "scoring.innings_completed" | "scoring.match_completed" | "scoring.delivery_corrected";
         /**
          * AuditEntityType
          * @description Historical target kinds supported by the business-audit feed.
@@ -1632,6 +1632,53 @@ export interface components {
          * @enum {string}
          */
         DeliveryRevisionState: "active" | "superseded";
+        /** DerivedParticipantPerformanceResponse */
+        DerivedParticipantPerformanceResponse: {
+            /** Balls Faced */
+            balls_faced: number;
+            /** Batting Runs */
+            batting_runs: number;
+            /** Bowling Legal Balls */
+            bowling_legal_balls: number;
+            /** Bowling Wickets */
+            bowling_wickets: number;
+            /** Catches */
+            catches: number;
+            dismissal_type: components["schemas"]["ScoringDismissalType"] | null;
+            /** Display Name */
+            display_name: string;
+            /** Extras Conceded */
+            extras_conceded: number;
+            /** Fours */
+            fours: number;
+            /**
+             * Innings Id
+             * Format: uuid
+             */
+            innings_id: string;
+            /** No Balls */
+            no_balls: number;
+            /**
+             * Participant Id
+             * Format: uuid
+             */
+            participant_id: string;
+            /** Player Id */
+            player_id: string | null;
+            /** Projection Revision */
+            projection_revision: number;
+            provenance: components["schemas"]["PerformanceProvenance"];
+            /** Run Out Involvements */
+            run_out_involvements: number;
+            /** Runs Conceded */
+            runs_conceded: number;
+            /** Sixes */
+            sixes: number;
+            /** Stumpings */
+            stumpings: number;
+            /** Wides */
+            wides: number;
+        };
         DirectQualityRemediation: components["schemas"]["NormalizeRosterOrderRemediation"] | components["schemas"]["RemoveInactivePlayerRemediation"] | components["schemas"]["RemoveInactiveAssistantAssignmentRemediation"];
         /**
          * DismissalType
@@ -1699,6 +1746,21 @@ export interface components {
             /** Opponent Name */
             opponent_name: string;
         };
+        /** FallOfWicketResponse */
+        FallOfWicketResponse: {
+            /** Attempted Sequence */
+            attempted_sequence: number;
+            dismissal_type: components["schemas"]["ScoringDismissalType"];
+            /**
+             * Participant Id
+             * Format: uuid
+             */
+            participant_id: string;
+            /** Score */
+            score: number;
+            /** Wicket Number */
+            wicket_number: number;
+        };
         /**
          * FielderRole
          * @description Ordered role played by a fielder in one wicket event.
@@ -1750,6 +1812,47 @@ export interface components {
          * @enum {string}
          */
         InningsCompletionMode: "all_out" | "legal_ball_limit" | "target_reached" | "declaration" | "manual";
+        /** InningsCompletionRequest */
+        InningsCompletionRequest: {
+            completion_kind: components["schemas"]["InningsCompletionMode"];
+            /** Innings Version Number */
+            innings_version_number: number;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** InningsExtrasResponse */
+        InningsExtrasResponse: {
+            /**
+             * Byes
+             * @default 0
+             */
+            byes: number;
+            /**
+             * Leg Byes
+             * @default 0
+             */
+            leg_byes: number;
+            /**
+             * No Balls
+             * @default 0
+             */
+            no_balls: number;
+            /**
+             * Penalty Runs
+             * @default 0
+             */
+            penalty_runs: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /**
+             * Wides
+             * @default 0
+             */
+            wides: number;
+        };
         /**
          * InningsLifecycleState
          * @description Authoritative Innings lifecycle, including reconciliation state.
@@ -1793,6 +1896,9 @@ export interface components {
             completion_reason: components["schemas"]["InningsCompletionMode"] | null;
             /** Current Bowler Participant Id */
             current_bowler_participant_id: string | null;
+            extras?: components["schemas"]["InningsExtrasResponse"];
+            /** Fall Of Wickets */
+            fall_of_wickets?: components["schemas"]["FallOfWicketResponse"][];
             /**
              * Fielding Side Id
              * Format: uuid
@@ -1807,12 +1913,16 @@ export interface components {
             innings_number: number;
             /** Legal Balls */
             legal_balls: number;
+            /** Legal Balls Remaining */
+            legal_balls_remaining?: number | null;
             lifecycle_state: components["schemas"]["InningsLifecycleState"];
             /**
              * Match Id
              * Format: uuid
              */
             match_id: string;
+            /** Match Version Number */
+            match_version_number: number;
             /** Non Striker Participant Id */
             non_striker_participant_id: string | null;
             over_progress?: components["schemas"]["OverProgressResponse"] | null;
@@ -1827,6 +1937,8 @@ export interface components {
             reconciliation_reason: string | null;
             /** Reconciliation Sequence */
             reconciliation_sequence?: number | null;
+            /** Runs Required */
+            runs_required?: number | null;
             /** Striker Participant Id */
             striker_participant_id: string | null;
             /** Target Runs */
@@ -1842,6 +1954,8 @@ export interface components {
             version_number: number;
             /** Wickets Lost */
             wickets_lost: number;
+            /** Wickets Remaining */
+            wickets_remaining: number;
         };
         /**
          * InningsTransitionType
@@ -1883,6 +1997,63 @@ export interface components {
              */
             kind: "internal";
         };
+        /** LegacyBattingPerformanceResponse */
+        LegacyBattingPerformanceResponse: {
+            /** Balls Faced */
+            balls_faced: number;
+            dismissal: components["schemas"]["DismissalType"];
+            /** Fours */
+            fours: number;
+            /** Notes */
+            notes: string | null;
+            /**
+             * Player Id
+             * Format: uuid
+             */
+            player_id: string;
+            /** Runs Scored */
+            runs_scored: number;
+            /** Sixes */
+            sixes: number;
+        };
+        /** LegacyBowlingPerformanceResponse */
+        LegacyBowlingPerformanceResponse: {
+            /** Maidens */
+            maidens: number;
+            /** Notes */
+            notes: string | null;
+            /** Overs Bowled */
+            overs_bowled: string;
+            /**
+             * Player Id
+             * Format: uuid
+             */
+            player_id: string;
+            /** Runs Conceded */
+            runs_conceded: number;
+            /** Wickets Taken */
+            wickets_taken: number;
+            /** Wides */
+            wides: number;
+        };
+        /** LegacyFieldingPerformanceResponse */
+        LegacyFieldingPerformanceResponse: {
+            /** Catches */
+            catches: number;
+            /** Dropped Catches */
+            dropped_catches: number;
+            /** Notes */
+            notes: string | null;
+            /**
+             * Player Id
+             * Format: uuid
+             */
+            player_id: string;
+            /** Run Outs */
+            run_outs: number;
+            /** Stumpings */
+            stumpings: number;
+        };
         /**
          * LoginRequest
          * @description Email and plaintext password credentials supplied during login.
@@ -1899,6 +2070,35 @@ export interface components {
          * @enum {string}
          */
         MatchCompletionMode: "derived_result" | "draw" | "declared" | "manual" | "abandonment";
+        /** MatchCompletionRequest */
+        MatchCompletionRequest: {
+            completion_kind: components["schemas"]["MatchCompletionMode"];
+            /** Match Version Number */
+            match_version_number: number;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** MatchCompletionResponse */
+        MatchCompletionResponse: {
+            blocking_state: components["schemas"]["BlockingStateResponse"];
+            /** Compatibility Result */
+            compatibility_result: string;
+            /** Innings */
+            innings: components["schemas"]["InningsResponse"][];
+            lifecycle_state: components["schemas"]["MatchLifecycleState"];
+            /**
+             * Match Id
+             * Format: uuid
+             */
+            match_id: string;
+            /** Match Version Number */
+            match_version_number: number;
+            result_code: components["schemas"]["MatchResultCode"];
+            /** Result Details */
+            result_details: {
+                [key: string]: unknown;
+            };
+        };
         /**
          * MatchConfigurationRequest
          * @description Atomic fixed-side, participant, and capability configuration command.
@@ -1985,7 +2185,67 @@ export interface components {
          * @enum {string}
          */
         MatchParticipantKind: "internal" | "external";
+        /** MatchParticipantPerformanceResponse */
+        MatchParticipantPerformanceResponse: {
+            /** Balls Faced */
+            balls_faced: number;
+            /** Batting Runs */
+            batting_runs: number;
+            /** Bowling Legal Balls */
+            bowling_legal_balls: number;
+            /** Bowling Wickets */
+            bowling_wickets: number;
+            /** Catches */
+            catches: number;
+            dismissal_type: components["schemas"]["ScoringDismissalType"] | null;
+            /** Extras Conceded */
+            extras_conceded: number;
+            /** Fours */
+            fours: number;
+            /**
+             * Innings Id
+             * Format: uuid
+             */
+            innings_id: string;
+            /** No Balls */
+            no_balls: number;
+            /**
+             * Participant Id
+             * Format: uuid
+             */
+            participant_id: string;
+            /** Projection Revision */
+            projection_revision: number;
+            provenance: components["schemas"]["PerformanceProvenance"];
+            /** Run Out Involvements */
+            run_out_involvements: number;
+            /** Runs Conceded */
+            runs_conceded: number;
+            /** Sixes */
+            sixes: number;
+            /** Stumpings */
+            stumpings: number;
+            /** Wides */
+            wides: number;
+        };
         MatchParticipantRequest: components["schemas"]["ExternalMatchParticipantRequest"] | components["schemas"]["InternalMatchParticipantRequest"];
+        /** MatchPerformanceResponse */
+        MatchPerformanceResponse: {
+            /** Derived */
+            derived?: components["schemas"]["DerivedParticipantPerformanceResponse"][];
+            /** Legacy Batting */
+            legacy_batting?: components["schemas"]["LegacyBattingPerformanceResponse"][];
+            /** Legacy Bowling */
+            legacy_bowling?: components["schemas"]["LegacyBowlingPerformanceResponse"][];
+            /** Legacy Fielding */
+            legacy_fielding?: components["schemas"]["LegacyFieldingPerformanceResponse"][];
+            /**
+             * Match Id
+             * Format: uuid
+             */
+            match_id: string;
+            scoring_authority: components["schemas"]["ScoringAuthority"];
+        };
         /**
          * MatchResponse
          * @description Complete server-managed Match representation.
@@ -2321,6 +2581,12 @@ export interface components {
          */
         ParticipationState: "not_batted" | "active" | "dismissed" | "retired_hurt" | "retired_out" | "completed";
         /**
+         * PerformanceProvenance
+         * @description Source marker for rebuildable Match participant projections.
+         * @enum {string}
+         */
+        PerformanceProvenance: "delivery_derived";
+        /**
          * PlayerAccountAssociationResponse
          * @description Safe result shared by link, unlink, and reassignment mutations.
          */
@@ -2534,19 +2800,19 @@ export interface components {
          * @description Allowlisted academy domains evaluated by Data Quality.
          * @enum {string}
          */
-        QualityDomain: "players" | "teams" | "rosters" | "coaches" | "calendar";
+        QualityDomain: "players" | "teams" | "rosters" | "coaches" | "calendar" | "scoring";
         /**
          * QualityEntityType
          * @description Entity labels permitted in current-state quality findings.
          * @enum {string}
          */
-        QualityEntityType: "player" | "team" | "roster" | "roster_membership" | "coach" | "coach_assignment" | "calendar_event" | "recurrence_series" | "occurrence_exception" | "academy";
+        QualityEntityType: "player" | "team" | "roster" | "roster_membership" | "coach" | "coach_assignment" | "calendar_event" | "recurrence_series" | "occurrence_exception" | "academy" | "match" | "innings" | "delivery" | "match_participant";
         /**
          * QualityRuleId
          * @description Stable identifiers for the initial Data Quality rule catalogue.
          * @enum {string}
          */
-        QualityRuleId: "player.active_unassigned" | "player.inactive_rostered" | "player.normalized_identity_duplicate" | "team.roster_below_minimum" | "team.roster_above_maximum" | "roster.order_non_positive" | "roster.order_duplicate" | "roster.order_gap" | "roster.order_non_contiguous" | "team.normalized_name_conflict" | "team.no_assigned_coach" | "coach.sole_head_coach_integrity" | "coach.inactive_assigned" | "coach.active_assistant_unassigned" | "coach.assignment_invalid_role" | "calendar.recurrence_end_before_start" | "calendar.stale_occurrence_exception";
+        QualityRuleId: "player.active_unassigned" | "player.inactive_rostered" | "player.normalized_identity_duplicate" | "team.roster_below_minimum" | "team.roster_above_maximum" | "roster.order_non_positive" | "roster.order_duplicate" | "roster.order_gap" | "roster.order_non_contiguous" | "team.normalized_name_conflict" | "team.no_assigned_coach" | "coach.sole_head_coach_integrity" | "coach.inactive_assigned" | "coach.active_assistant_unassigned" | "coach.assignment_invalid_role" | "calendar.recurrence_end_before_start" | "calendar.stale_occurrence_exception" | "scoring.projection_mismatch" | "scoring.active_revision_conflict" | "scoring.sequence_conflict" | "scoring.participant_identity_invalid" | "scoring.lifecycle_invalid" | "scoring.over_quota_invalid" | "scoring.wicket_cardinality_invalid" | "scoring.reconciliation_required" | "scoring.legacy_divergence" | "scoring.historical_state_malformed";
         /**
          * QualitySeverity
          * @description Operational impact levels exposed by Data Quality findings.
@@ -2841,6 +3107,37 @@ export interface components {
          * @enum {string}
          */
         ScopeKind: "age_group" | "all_academy";
+        /** ScorecardResponse */
+        ScorecardResponse: {
+            blocking_state: components["schemas"]["BlockingStateResponse"];
+            /** Compatibility Result */
+            compatibility_result: string;
+            /** Innings */
+            innings: components["schemas"]["InningsResponse"][];
+            lifecycle_state: components["schemas"]["MatchLifecycleState"];
+            /**
+             * Match Id
+             * Format: uuid
+             */
+            match_id: string;
+            /** Match Version Number */
+            match_version_number: number;
+            /** Participant Performances */
+            participant_performances: components["schemas"]["MatchParticipantPerformanceResponse"][];
+            /** Participants */
+            participants: components["schemas"]["src__schemas__scoring__MatchParticipantResponse"][];
+            policy: components["schemas"]["ScoringPolicyResponse"] | null;
+            /** Projection Revision */
+            projection_revision: number;
+            result_code: components["schemas"]["MatchResultCode"];
+            /** Result Details */
+            result_details: {
+                [key: string]: unknown;
+            };
+            scoring_authority: components["schemas"]["ScoringAuthority"];
+            /** Sides */
+            sides: components["schemas"]["MatchSideResponse"][];
+        };
         /**
          * ScoringAuthority
          * @description Authoritative source used for a Match's scoring figures.
