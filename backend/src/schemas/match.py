@@ -1,13 +1,28 @@
 """Pydantic boundaries for external and internal cricket Matches."""
 
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from src.enums import MatchFormat, MatchParticipantType
+from src.enums import (
+    MatchFormat,
+    MatchLifecycleState,
+    MatchParticipantType,
+    MatchResultCode,
+    ScoringAuthority,
+)
 from src.schemas.base import BaseRequestSchema
+from src.schemas.scoring import (
+    MatchParticipantResponse as ScoringMatchParticipantResponse,
+)
+from src.schemas.scoring import (
+    MatchSideResponse as ScoringMatchSideResponse,
+)
+from src.schemas.scoring import (
+    ScoringPolicyResponse,
+)
 
 if TYPE_CHECKING:
     from src.models.match import Match
@@ -122,6 +137,17 @@ class MatchResponse(BaseModel):
     format: MatchFormat
     venue: str
     result: str
+    lifecycle_state: MatchLifecycleState = MatchLifecycleState.SCHEDULED
+    scoring_authority: ScoringAuthority = ScoringAuthority.LEGACY_AGGREGATE
+    result_code: MatchResultCode = MatchResultCode.PENDING
+    result_details: dict[str, Any] = Field(default_factory=dict)
+    configured_at: datetime | None = None
+    scoring_policy: ScoringPolicyResponse | None = None
+    innings_sequence: list[str] = Field(default_factory=list)
+    scoring_sides: list[ScoringMatchSideResponse] = Field(default_factory=list)
+    scoring_participants: list[ScoringMatchParticipantResponse] = Field(
+        default_factory=list
+    )
     participants: MatchParticipantResponse
     created_at: datetime
     updated_at: datetime
@@ -159,12 +185,60 @@ class MatchResponse(BaseModel):
         else:
             raise ValueError("Match has an unsupported participant type")
 
+        scoring_policy = (
+            ScoringPolicyResponse.model_validate(match.scoring_policy)
+            if match.scoring_policy is not None
+            else None
+        )
+        scoring_sides = sorted(
+            match.scoring_sides,
+            key=lambda side: str(side.side_code),
+        )
+        side_codes = {side.id: str(side.side_code) for side in scoring_sides}
+        scoring_participants = sorted(
+            match.scoring_participants,
+            key=lambda item: (
+                side_codes.get(item.side_id, ""),
+                item.batting_order_position,
+                str(item.id),
+            ),
+        )
         return cls(
             id=match.id,
             match_date=match.match_date,
             format=match.format,
             venue=match.venue,
             result=match.result,
+            lifecycle_state=(
+                match.lifecycle_state
+                if match.lifecycle_state is not None
+                else MatchLifecycleState.SCHEDULED
+            ),
+            scoring_authority=(
+                match.scoring_authority
+                if match.scoring_authority is not None
+                else ScoringAuthority.LEGACY_AGGREGATE
+            ),
+            result_code=(
+                match.result_code
+                if match.result_code is not None
+                else MatchResultCode.PENDING
+            ),
+            result_details=match.result_details or {},
+            configured_at=match.configured_at,
+            scoring_policy=scoring_policy,
+            innings_sequence=(
+                list(match.scoring_policy.innings_sequence)
+                if match.scoring_policy is not None
+                else []
+            ),
+            scoring_sides=[
+                ScoringMatchSideResponse.model_validate(side) for side in scoring_sides
+            ],
+            scoring_participants=[
+                ScoringMatchParticipantResponse.model_validate(participant)
+                for participant in scoring_participants
+            ],
             participants=participants,
             created_at=match.created_at,
             updated_at=match.updated_at,

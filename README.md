@@ -388,6 +388,11 @@ uv run alembic upgrade head
 uv run uvicorn src.main:app --reload
 ```
 
+For subsequent local starts, `./scripts/start.sh` from the repository root
+applies pending Alembic migrations before launching the backend and frontend.
+It stops startup if a migration fails. When starting Uvicorn directly, run
+`uv run alembic upgrade head` after pulling changes and before restarting it.
+
 The API is available at:
 
 ```text

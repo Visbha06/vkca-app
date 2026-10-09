@@ -440,13 +440,8 @@ async def test_role_aware_dashboard_quickstart_flow(
                 )
             ).all()
         )
-    assert [event.action_type for event in events] == [
-        AuditActionType.PLAYER_ACCOUNT_LINKED.value,
-        AuditActionType.PLAYER_ACCOUNT_REASSIGNED.value,
-        AuditActionType.PLAYER_ACCOUNT_UNLINKED.value,
-    ]
-    assert [event.request_id for event in events] == [
-        "quickstart-link",
-        "quickstart-reassign",
-        "quickstart-unlink",
-    ]
+    assert {(event.action_type, event.request_id) for event in events} == {
+        (AuditActionType.PLAYER_ACCOUNT_LINKED.value, "quickstart-link"),
+        (AuditActionType.PLAYER_ACCOUNT_REASSIGNED.value, "quickstart-reassign"),
+        (AuditActionType.PLAYER_ACCOUNT_UNLINKED.value, "quickstart-unlink"),
+    }

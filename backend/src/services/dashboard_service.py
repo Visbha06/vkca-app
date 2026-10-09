@@ -8,7 +8,7 @@ from uuid import UUID
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 from src.enums import AgeGroup, EventType, ScopeKind, UserRole
 from src.models.match import Match
@@ -235,6 +235,9 @@ class DashboardService:
             statement.options(
                 joinedload(Match.home_team),
                 joinedload(Match.away_team),
+                selectinload(Match.scoring_policy),
+                selectinload(Match.scoring_sides),
+                selectinload(Match.scoring_participants),
             )
             .order_by(Match.match_date, Match.id)
             .limit(1)

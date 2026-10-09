@@ -103,10 +103,13 @@ def test_recurrence_identity_can_be_checked_for_exception_projection():
 
 def test_range_validation_accepts_the_inclusive_maximum_boundary():
     range_start = date(2026, 1, 1)
-    assert validate_calendar_range(
-        range_start,
-        range_start + timedelta(days=MAX_CALENDAR_RANGE_DATES - 1),
-    ) == MAX_CALENDAR_RANGE_DATES
+    assert (
+        validate_calendar_range(
+            range_start,
+            range_start + timedelta(days=MAX_CALENDAR_RANGE_DATES - 1),
+        )
+        == MAX_CALENDAR_RANGE_DATES
+    )
 
 
 def test_range_validation_rejects_inverted_and_overlong_ranges_before_work():

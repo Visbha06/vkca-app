@@ -231,7 +231,12 @@ def build_quality_calendar_exception(
 
 def _mock_query_result(rows: Iterable[tuple[object, ...]]) -> Mock:
     result = Mock()
-    result.all.return_value = list(rows)
+    materialized = list(rows)
+    result.all.return_value = materialized
+    result.scalars.return_value.all.return_value = [
+        row[0] if isinstance(row, tuple) and len(row) == 1 else row
+        for row in materialized
+    ]
     return result
 
 
@@ -241,13 +246,16 @@ def build_quality_projection_session(
     """Build an async session with deterministic results for projection loaders."""
 
     session = AsyncMock(spec=AsyncSession)
-    session.execute.side_effect = [_mock_query_result(rows) for rows in row_sets]
+    expanded = [*row_sets]
+    if len(expanded) == 5:
+        expanded.extend(((), (), (), ()))
+    session.execute.side_effect = [_mock_query_result(rows) for rows in expanded]
     return session
 
 
 def assert_projection_query_count(
     session: AsyncMock,
-    expected: int = 5,
+    expected: int = 9,
 ) -> None:
     """Assert the fixed Data Quality projection-query budget."""
 

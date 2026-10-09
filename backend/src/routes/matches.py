@@ -16,6 +16,7 @@ from src.services.match_service import (
     TeamNotFoundError,
 )
 from src.services.occ import StaleVersionError
+from src.services.scoring.authorization import load_scoring_command_context
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 
@@ -51,6 +52,32 @@ async def list_matches(
 
     matches = await MatchService(session).list_matches()
     return [MatchResponse.from_match(match) for match in matches]
+
+
+@router.get("/{match_id}", response_model=MatchResponse)
+async def get_match(
+    match_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+) -> MatchResponse:
+    """Read one Match after applying current database Team scope."""
+
+    try:
+        match = await MatchService(session).get_match(match_id)
+    except MatchNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    context = await load_scoring_command_context(session, current_user[0])
+    context.require_read_scope(
+        {
+            team_id
+            for team_id in (match.home_team_id, match.away_team_id)
+            if team_id is not None
+        }
+    )
+    return MatchResponse.from_match(match)
 
 
 @router.put("/{match_id}", response_model=MatchResponse)

@@ -26,7 +26,7 @@ export default function DataQualityFilters({ filters, onChange, onClear }: DataQ
         <label className="grid min-w-0 gap-2 text-sm font-semibold text-slate-800">
           Domain
           <select aria-label="Domain" className={controlClass} value={filters.domain ?? ''} onChange={(event) => onChange('domain', event.target.value)}>
-            <option value="">All domains</option><option value="players">Players</option><option value="teams">Teams</option><option value="rosters">Rosters</option><option value="coaches">Coaches</option><option value="calendar">Calendar</option>
+            <option value="">All domains</option><option value="players">Players</option><option value="teams">Teams</option><option value="rosters">Rosters</option><option value="coaches">Coaches</option><option value="calendar">Calendar</option><option value="scoring">Scoring</option>
           </select>
         </label>
         <label className="grid min-w-0 gap-2 text-sm font-semibold text-slate-800">

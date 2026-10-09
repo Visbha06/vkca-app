@@ -110,6 +110,7 @@ function responseFor(
     rosters: 0,
     coaches: 0,
     calendar: 0,
+    scoring: 0,
   }
   for (const finding of findings) domainCounts[finding.domain] += 1
   const summary = {

@@ -2,7 +2,7 @@ import { useId, useState } from 'react'
 import { formatBusinessAuditTimestamp } from '../utils/businessAuditTime'
 import type { BusinessAuditEvent } from '../types/businessAudit'
 
-const categoryIcons: Record<BusinessAuditEvent['action_category'], string> = { coach: 'C', player: 'P', team: 'T', roster: 'R', calendar: 'K' }
+const categoryIcons: Record<BusinessAuditEvent['action_category'], string> = { coach: 'C', player: 'P', team: 'T', roster: 'R', calendar: 'K', scoring: 'S' }
 
 function categoryLabel(category: string) { return `${category.slice(0, 1).toUpperCase()}${category.slice(1)}` }
 

@@ -50,6 +50,7 @@ const populatedResponse = {
       rosters: 0,
       coaches: 1,
       calendar: 0,
+      scoring: 0,
     },
   },
   page: 1,

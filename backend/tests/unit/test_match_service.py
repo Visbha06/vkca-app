@@ -6,12 +6,13 @@ from uuid import uuid4
 
 import pytest
 
-from src.enums import MatchFormat, MatchParticipantType
+from src.enums import MatchFormat, MatchParticipantType, ScoringAuthority
 from src.models.match import Match
 from src.models.team import Team
 from src.schemas.match import MatchCreate, MatchUpdate
 from src.services.match_service import MatchService, TeamNotFoundError
 from src.services.occ import StaleVersionError
+from src.services.scoring.errors import ScoringAuthorityError
 
 
 def external_payload() -> MatchCreate:
@@ -155,6 +156,32 @@ async def test_update_rolls_back_stale_match_without_audit_write(mocker) -> None
     with pytest.raises(StaleVersionError):
         await MatchService(session).update_match(match_id, payload)
 
+    session.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_legacy_match_update_cannot_replace_locked_scoring_identity() -> None:
+    match_id = uuid4()
+    payload = MatchUpdate.model_validate(
+        {**external_payload().model_dump(mode="json"), "version_number": 1}
+    )
+    session = mock_session_with_teams()
+    session.get.return_value = Match(
+        id=match_id,
+        match_date=date(2026, 7, 1),
+        format=MatchFormat.T20,
+        participant_type=MatchParticipantType.EXTERNAL,
+        home_team_id=payload.participants.academy_team_id,
+        external_opponent_name="Locked CC",
+        venue="Ground",
+        result="Scheduled",
+        scoring_authority=ScoringAuthority.DELIVERY_HISTORY,
+    )
+
+    with pytest.raises(ScoringAuthorityError):
+        await MatchService(session).update_match(match_id, payload)
+
+    session.scalars.assert_not_awaited()
     session.rollback.assert_awaited_once()
 
 

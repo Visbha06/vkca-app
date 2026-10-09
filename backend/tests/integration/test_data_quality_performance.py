@@ -61,8 +61,8 @@ async def test_seeded_scan_is_bounded_batched_and_deterministic(
         data_quality_query_counter,
     )
     assert baseline.page_size == 20
-    assert baseline_counter.select_count == 5
-    baseline_counter.assert_at_most(6)
+    assert baseline_counter.select_count == 9
+    baseline_counter.assert_at_most(10)
 
     async with AsyncSessionFactory() as session:
         teams = [
@@ -159,10 +159,10 @@ async def test_seeded_scan_is_bounded_batched_and_deterministic(
     assert first.total_findings > first.page_size
     assert first.has_next is True
     assert first.model_dump(mode="json") == second.model_dump(mode="json")
-    assert first_counter.select_count == baseline_counter.select_count == 5
-    assert second_counter.select_count == 5
-    first_counter.assert_at_most(6)
-    second_counter.assert_at_most(6)
+    assert first_counter.select_count == baseline_counter.select_count == 9
+    assert second_counter.select_count == 9
+    first_counter.assert_at_most(10)
+    second_counter.assert_at_most(10)
     normalized_statements = [
         " ".join(statement.lower().split()) for statement in first_counter.statements
     ]

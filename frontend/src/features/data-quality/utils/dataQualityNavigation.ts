@@ -1,10 +1,10 @@
 import type { DataQualityFinding } from '../api/dataQualityApi'
 import type { DataQualityWorkflowPath } from '../types/dataQuality'
 
-const workflowTargets: Record<
+const workflowTargets: Partial<Record<
   DataQualityFinding['rule_id'],
   DataQualityWorkflowPath
-> = {
+>> = {
   'player.active_unassigned': '/players',
   'player.inactive_rostered': '/teams',
   'player.normalized_identity_duplicate': '/players',
@@ -27,10 +27,24 @@ const workflowTargets: Record<
 const manualReviewRules = new Set<DataQualityFinding['rule_id']>([
   'coach.sole_head_coach_integrity',
   'coach.assignment_invalid_role',
+  'scoring.projection_mismatch',
+  'scoring.active_revision_conflict',
+  'scoring.sequence_conflict',
+  'scoring.participant_identity_invalid',
+  'scoring.lifecycle_invalid',
+  'scoring.over_quota_invalid',
+  'scoring.wicket_cardinality_invalid',
+  'scoring.reconciliation_required',
+  'scoring.legacy_divergence',
+  'scoring.historical_state_malformed',
 ])
 
 export function getWorkflowTarget(ruleId: DataQualityFinding['rule_id']) {
-  return workflowTargets[ruleId]
+  const target = workflowTargets[ruleId]
+  if (target === undefined) {
+    throw new Error(`Rule ${ruleId} requires manual review.`)
+  }
+  return target
 }
 
 export function requiresManualReview(ruleId: DataQualityFinding['rule_id']) {

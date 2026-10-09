@@ -2,18 +2,32 @@
 
 from __future__ import annotations
 
-from datetime import date
-from typing import TYPE_CHECKING
+from datetime import date, datetime
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, Date, ForeignKey, Index, String
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Index, String, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.enums import MatchFormat, MatchParticipantType
+from src.enums import (
+    MatchFormat,
+    MatchLifecycleState,
+    MatchParticipantType,
+    MatchResultCode,
+    ScoringAuthority,
+)
 from src.models.base import Base, TimestampMixin, UUIDMixin, VersionMixin
 
 if TYPE_CHECKING:
+    from src.models.scoring.innings import Innings
+    from src.models.scoring.match_participant_performance import (
+        MatchParticipantPerformance,
+    )
+    from src.models.scoring.match_side import MatchSide
+    from src.models.scoring.participant import MatchParticipant
+    from src.models.scoring.scoring_policy import ScoringPolicy
     from src.models.team import Team
 
 
@@ -29,6 +43,33 @@ class Match(UUIDMixin, TimestampMixin, VersionMixin, Base):
         CheckConstraint(
             "participant_type IN ('external', 'internal')",
             name="ck_matches_participant_type",
+        ),
+        CheckConstraint(
+            "lifecycle_state IN ('scheduled', 'in_progress', 'completed', "
+            "'abandoned', 'correction_reprocessing')",
+            name="ck_matches_lifecycle_state",
+        ),
+        CheckConstraint(
+            "scoring_authority IN ('legacy_aggregate', 'delivery_history')",
+            name="ck_matches_scoring_authority",
+        ),
+        CheckConstraint(
+            "result_code IN ('pending', 'win_by_runs', 'win_by_wickets', "
+            "'tie', 'draw', 'no_result', 'declared', 'manual')",
+            name="ck_matches_result_code",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(result_details) = 'object'",
+            name="ck_matches_result_details_object",
+        ),
+        CheckConstraint(
+            "octet_length(result_details::text) <= 4096",
+            name="ck_matches_result_details_bounded",
+        ),
+        CheckConstraint(
+            "(scoring_authority = 'legacy_aggregate' AND configured_at IS NULL) OR "
+            "(scoring_authority = 'delivery_history' AND configured_at IS NOT NULL)",
+            name="ck_matches_scoring_configuration_state",
         ),
         CheckConstraint(
             "(participant_type = 'external' "
@@ -55,6 +96,7 @@ class Match(UUIDMixin, TimestampMixin, VersionMixin, Base):
             "away_team_id",
             "id",
         ),
+        Index("ix_matches_lifecycle_state", "lifecycle_state"),
     )
 
     match_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -79,9 +121,64 @@ class Match(UUIDMixin, TimestampMixin, VersionMixin, Base):
     )
     venue: Mapped[str] = mapped_column(String(200), nullable=False)
     result: Mapped[str] = mapped_column(String(200), nullable=False)
+    lifecycle_state: Mapped[MatchLifecycleState] = mapped_column(
+        String(32),
+        nullable=False,
+        default=MatchLifecycleState.SCHEDULED,
+        server_default=text("'scheduled'"),
+    )
+    scoring_authority: Mapped[ScoringAuthority] = mapped_column(
+        String(24),
+        nullable=False,
+        default=ScoringAuthority.LEGACY_AGGREGATE,
+        server_default=text("'legacy_aggregate'"),
+    )
+    result_code: Mapped[MatchResultCode] = mapped_column(
+        String(24),
+        nullable=False,
+        default=MatchResultCode.PENDING,
+        server_default=text("'pending'"),
+    )
+    result_details: Mapped[dict[str, Any]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=text("'{}'::jsonb"),
+    )
+    configured_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     home_team: Mapped[Team | None] = relationship(
         foreign_keys=[home_team_id],
     )
     away_team: Mapped[Team | None] = relationship(
         foreign_keys=[away_team_id],
+    )
+    scoring_sides: Mapped[list[MatchSide]] = relationship(
+        back_populates="match",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    scoring_policy: Mapped[ScoringPolicy | None] = relationship(
+        back_populates="match",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        single_parent=True,
+        uselist=False,
+    )
+    scoring_participants: Mapped[list[MatchParticipant]] = relationship(
+        back_populates="match",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    scoring_innings: Mapped[list[Innings]] = relationship(
+        back_populates="match",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    scoring_performances: Mapped[list[MatchParticipantPerformance]] = relationship(
+        back_populates="match",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

@@ -1,5 +1,6 @@
 """Atomic match performance persistence and aggregate recalculation."""
 
+from collections import defaultdict
 from collections.abc import Mapping
 from decimal import Decimal
 from typing import Any
@@ -7,8 +8,14 @@ from uuid import UUID
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from src.enums import DismissalType, MatchFormat
+from src.enums import (
+    DismissalType,
+    MatchFormat,
+    ScoringAuthority,
+    ScoringDismissalType,
+)
 from src.models.match import Match
 from src.models.match_batting_performance import MatchBattingPerformance
 from src.models.match_bowling_performance import MatchBowlingPerformance
@@ -16,7 +23,22 @@ from src.models.match_fielding_performance import MatchFieldingPerformance
 from src.models.player import Player
 from src.models.player_batting_stats import PlayerBattingStats
 from src.models.player_bowling_stats import PlayerBowlingStats
-from src.schemas.performance import BatchPerformanceResponse, PlayerPerformance
+from src.models.scoring.innings import Innings
+from src.models.scoring.match_participant_performance import (
+    MatchParticipantPerformance,
+)
+from src.models.scoring.over import InningsOver
+from src.models.scoring.participant import MatchParticipant
+from src.models.user import User
+from src.schemas.performance import (
+    BatchPerformanceResponse,
+    DerivedParticipantPerformanceResponse,
+    LegacyBattingPerformanceResponse,
+    LegacyBowlingPerformanceResponse,
+    LegacyFieldingPerformanceResponse,
+    MatchPerformanceResponse,
+    PlayerPerformance,
+)
 from src.services.occ import StaleVersionError
 from src.services.rag.contracts import (
     RagMutationImpact,
@@ -63,6 +85,169 @@ class PlayerNotFoundError(Exception):
         super().__init__(f"Player not found: {player_id}.")
 
 
+_DELIVERY_DERIVED_NOTE = "[delivery_derived] synchronized scoring projection"
+
+
+def _legacy_dismissal(value: ScoringDismissalType | None) -> DismissalType:
+    if value is None:
+        return DismissalType.NOT_OUT
+    return {
+        ScoringDismissalType.CAUGHT: DismissalType.CAUGHT,
+        ScoringDismissalType.CAUGHT_AND_BOWLED: DismissalType.CAUGHT,
+        ScoringDismissalType.BOWLED: DismissalType.BOWLED,
+        ScoringDismissalType.LBW: DismissalType.LBW,
+        ScoringDismissalType.RUN_OUT: DismissalType.RUN_OUT,
+        ScoringDismissalType.STUMPED: DismissalType.STUMPED,
+    }.get(value, DismissalType.OTHER)
+
+
+async def sync_delivery_derived_legacy_performances(
+    session: AsyncSession,
+    *,
+    match_id: UUID,
+    over_length_legal_balls: int,
+) -> None:
+    """Synchronize academy-only compatibility rows without creating scoring truth."""
+
+    query_result = await session.execute(
+        select(MatchParticipant, MatchParticipantPerformance)
+        .join(
+            MatchParticipantPerformance,
+            MatchParticipantPerformance.participant_id == MatchParticipant.id,
+        )
+        .where(
+            MatchParticipant.match_id == match_id,
+            MatchParticipant.player_id.is_not(None),
+        )
+        .order_by(
+            MatchParticipant.player_id,
+            MatchParticipantPerformance.innings_id,
+        )
+    )
+    rows = query_result.all()
+    if hasattr(rows, "__await__"):
+        rows = await rows
+    rows = list(rows)
+    grouped: defaultdict[UUID, list[MatchParticipantPerformance]] = defaultdict(list)
+    for participant, performance in rows:
+        if participant.player_id is not None:
+            grouped[participant.player_id].append(performance)
+    if not grouped:
+        return
+
+    player_ids = set(grouped)
+    batting_by_player = {
+        row.player_id: row
+        for row in (
+            await session.scalars(
+                select(MatchBattingPerformance).where(
+                    MatchBattingPerformance.match_id == match_id,
+                    MatchBattingPerformance.player_id.in_(player_ids),
+                )
+            )
+        ).all()
+    }
+    bowling_by_player = {
+        row.player_id: row
+        for row in (
+            await session.scalars(
+                select(MatchBowlingPerformance).where(
+                    MatchBowlingPerformance.match_id == match_id,
+                    MatchBowlingPerformance.player_id.in_(player_ids),
+                )
+            )
+        ).all()
+    }
+    fielding_by_player = {
+        row.player_id: row
+        for row in (
+            await session.scalars(
+                select(MatchFieldingPerformance).where(
+                    MatchFieldingPerformance.match_id == match_id,
+                    MatchFieldingPerformance.player_id.in_(player_ids),
+                )
+            )
+        ).all()
+    }
+    maiden_rows = (
+        await session.execute(
+            select(MatchParticipant.player_id, func.count(InningsOver.id))
+            .join(
+                InningsOver,
+                InningsOver.bowler_participant_id == MatchParticipant.id,
+            )
+            .join(Innings, Innings.id == InningsOver.innings_id)
+            .where(
+                Innings.match_id == match_id,
+                InningsOver.is_complete.is_(True),
+                InningsOver.runs_conceded == 0,
+                MatchParticipant.player_id.is_not(None),
+            )
+            .group_by(MatchParticipant.player_id)
+        )
+    ).all()
+    maidens = {player_id: int(count) for player_id, count in maiden_rows}
+
+    def writable(record: object | None) -> bool:
+        return record is None or str(getattr(record, "notes", "") or "").startswith(
+            "[delivery_derived]"
+        )
+
+    for player_id, performances in grouped.items():
+        dismissal = next(
+            (
+                item.dismissal_type
+                for item in reversed(performances)
+                if item.dismissal_type is not None
+            ),
+            None,
+        )
+        batting_values = {
+            "runs_scored": sum(item.batting_runs for item in performances),
+            "balls_faced": sum(item.balls_faced for item in performances),
+            "dismissal": _legacy_dismissal(dismissal),
+            "fours": sum(item.fours for item in performances),
+            "sixes": sum(item.sixes for item in performances),
+            "notes": _DELIVERY_DERIVED_NOTE,
+        }
+        bowling_legal_balls = sum(item.bowling_legal_balls for item in performances)
+        bowling_values = {
+            "overs_bowled": Decimal(
+                f"{bowling_legal_balls // over_length_legal_balls}."
+                f"{bowling_legal_balls % over_length_legal_balls}"
+            ),
+            "maidens": maidens.get(player_id, 0),
+            "runs_conceded": sum(item.runs_conceded for item in performances),
+            "wickets_taken": sum(item.bowling_wickets for item in performances),
+            "wides": sum(item.wides for item in performances),
+            "notes": _DELIVERY_DERIVED_NOTE,
+        }
+        fielding_values = {
+            "catches": sum(item.catches for item in performances),
+            "stumpings": sum(item.stumpings for item in performances),
+            "run_outs": sum(item.run_out_involvements for item in performances),
+            "dropped_catches": 0,
+            "notes": _DELIVERY_DERIVED_NOTE,
+        }
+        for model, existing, values in (
+            (MatchBattingPerformance, batting_by_player.get(player_id), batting_values),
+            (MatchBowlingPerformance, bowling_by_player.get(player_id), bowling_values),
+            (
+                MatchFieldingPerformance,
+                fielding_by_player.get(player_id),
+                fielding_values,
+            ),
+        ):
+            if not writable(existing):
+                continue
+            if existing is None:
+                session.add(model(match_id=match_id, player_id=player_id, **values))
+            else:
+                for field, value in values.items():
+                    setattr(existing, field, value)
+                existing.version_number += 1
+
+
 class PerformanceService:
     """Write performance batches and derived career totals atomically."""
 
@@ -73,6 +258,7 @@ class PerformanceService:
         self,
         match_id: UUID,
         performances: list[PlayerPerformance],
+        authenticated_user: User | UUID | None = None,
     ) -> BatchPerformanceResponse:
         """Persist one validated batch and recalculate affected aggregate rows."""
 
@@ -90,9 +276,32 @@ class PerformanceService:
         )
         try:
             async with transaction:
-                match = await self.session.get(Match, match_id)
+                match = await self.session.scalar(
+                    select(Match)
+                    .options(selectinload(Match.scoring_sides))
+                    .where(Match.id == match_id)
+                )
                 if match is None:
                     raise MatchNotFoundError
+                if ScoringAuthority(match.scoring_authority) is (
+                    ScoringAuthority.DELIVERY_HISTORY
+                ):
+                    from src.services.scoring.errors import ScoringAuthorityError
+
+                    raise ScoringAuthorityError(
+                        "Direct aggregate performance writes are disabled for a "
+                        "delivery-history Match."
+                    )
+                if authenticated_user is not None:
+                    from src.services.scoring.authorization import (
+                        ScoringAuthorizationAdapter,
+                        require_scoring_mutation_scope,
+                    )
+
+                    context = await ScoringAuthorizationAdapter(
+                        self.session
+                    ).load_context(authenticated_user)
+                    require_scoring_mutation_scope(context, match)
 
                 requested_player_ids = {item.player_id for item in performances}
                 existing_player_ids = set(
@@ -202,6 +411,141 @@ class PerformanceService:
             bowling_records=bowling_records,
             fielding_records=fielding_records,
             players_stats_updated=len(stats_players),
+        )
+
+    async def get_match_performances(
+        self,
+        match_id: UUID,
+        authenticated_user: User | UUID,
+    ) -> MatchPerformanceResponse:
+        """Read legacy aggregates or canonical delivery-derived projections."""
+
+        from src.services.scoring.authorization import (
+            ScoringAuthorizationAdapter,
+            require_scoring_read_scope,
+        )
+
+        match = await self.session.scalar(
+            select(Match)
+            .options(selectinload(Match.scoring_sides))
+            .where(Match.id == match_id)
+        )
+        if match is None:
+            raise MatchNotFoundError
+        context = await ScoringAuthorizationAdapter(self.session).load_context(
+            authenticated_user
+        )
+        require_scoring_read_scope(context, match)
+        authority = ScoringAuthority(match.scoring_authority)
+        if authority is ScoringAuthority.DELIVERY_HISTORY:
+            rows = list(
+                (
+                    await self.session.scalars(
+                        select(MatchParticipantPerformance)
+                        .where(MatchParticipantPerformance.match_id == match_id)
+                        .order_by(
+                            MatchParticipantPerformance.innings_id,
+                            MatchParticipantPerformance.participant_id,
+                        )
+                    )
+                ).all()
+            )
+            participant_ids = {row.participant_id for row in rows}
+            participants = {
+                item.id: item
+                for item in (
+                    await self.session.scalars(
+                        select(MatchParticipant).where(
+                            MatchParticipant.id.in_(participant_ids)
+                        )
+                    )
+                ).all()
+            }
+            return MatchPerformanceResponse(
+                match_id=match_id,
+                scoring_authority=authority,
+                derived=[
+                    DerivedParticipantPerformanceResponse(
+                        participant_id=row.participant_id,
+                        innings_id=row.innings_id,
+                        player_id=participants[row.participant_id].player_id,
+                        display_name=participants[
+                            row.participant_id
+                        ].display_name_snapshot,
+                        **{
+                            field: getattr(row, field)
+                            for field in (
+                                "batting_runs",
+                                "balls_faced",
+                                "fours",
+                                "sixes",
+                                "dismissal_type",
+                                "bowling_legal_balls",
+                                "runs_conceded",
+                                "bowling_wickets",
+                                "wides",
+                                "no_balls",
+                                "extras_conceded",
+                                "catches",
+                                "stumpings",
+                                "run_out_involvements",
+                                "projection_revision",
+                                "provenance",
+                            )
+                        },
+                    )
+                    for row in rows
+                ],
+            )
+
+        batting = list(
+            (
+                await self.session.scalars(
+                    select(MatchBattingPerformance)
+                    .where(MatchBattingPerformance.match_id == match_id)
+                    .order_by(MatchBattingPerformance.player_id)
+                )
+            ).all()
+        )
+        bowling = list(
+            (
+                await self.session.scalars(
+                    select(MatchBowlingPerformance)
+                    .where(MatchBowlingPerformance.match_id == match_id)
+                    .order_by(MatchBowlingPerformance.player_id)
+                )
+            ).all()
+        )
+        fielding = list(
+            (
+                await self.session.scalars(
+                    select(MatchFieldingPerformance)
+                    .where(MatchFieldingPerformance.match_id == match_id)
+                    .order_by(MatchFieldingPerformance.player_id)
+                )
+            ).all()
+        )
+        return MatchPerformanceResponse(
+            match_id=match_id,
+            scoring_authority=authority,
+            legacy_batting=[
+                LegacyBattingPerformanceResponse.model_validate(
+                    row, from_attributes=True
+                )
+                for row in batting
+            ],
+            legacy_bowling=[
+                LegacyBowlingPerformanceResponse.model_validate(
+                    row, from_attributes=True
+                )
+                for row in bowling
+            ],
+            legacy_fielding=[
+                LegacyFieldingPerformanceResponse.model_validate(
+                    row, from_attributes=True
+                )
+                for row in fielding
+            ],
         )
 
     async def _recalculate_batting_stats(

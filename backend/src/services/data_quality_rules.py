@@ -111,6 +111,17 @@ class CalendarExceptionProjection:
 
 
 @dataclass(frozen=True, slots=True)
+class ScoringQualityProjection:
+    """One read-only scoring boundary with precomputed consistency violations."""
+
+    match_id: UUID
+    entity_id: UUID
+    entity_type: QualityEntityType
+    entity_label: str
+    issues: tuple[tuple[QualityRuleId, str], ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True, slots=True)
 class EvaluationContext:
     """Shared request-scoped projections consumed by every registered rule."""
 
@@ -127,6 +138,7 @@ class EvaluationContext:
     calendar_exceptions: tuple[CalendarExceptionProjection, ...] = field(
         default_factory=tuple
     )
+    scoring: tuple[ScoringQualityProjection, ...] = field(default_factory=tuple)
 
 
 type RemediationPolicy = Literal["navigate", "direct", "manual"]
@@ -921,6 +933,36 @@ def _stale_occurrence_exceptions(
     return findings
 
 
+def _scoring_consistency_findings(
+    context: EvaluationContext,
+) -> list[DataQualityFinding]:
+    """Expose bounded scoring inconsistencies without attaching remediation."""
+
+    findings: list[DataQualityFinding] = []
+    for projection in context.scoring:
+        for rule_id, explanation in projection.issues:
+            findings.append(
+                _finding(
+                    rule_id,
+                    identifiers=(projection.match_id, projection.entity_id),
+                    entity_type=projection.entity_type,
+                    entity_id=projection.entity_id,
+                    entity_label=projection.entity_label,
+                    explanation=explanation,
+                    related_entities=(
+                        _related_entity(
+                            QualityEntityType.MATCH,
+                            projection.match_id,
+                            f"Match {projection.match_id}",
+                        ),
+                    )
+                    if projection.entity_type is not QualityEntityType.MATCH
+                    else (),
+                )
+            )
+    return findings
+
+
 def _rule(
     rule_id: QualityRuleId,
     domain: QualityDomain,
@@ -1124,6 +1166,126 @@ _RULES = (
         "Open Calendar and use the confirmation-aware series workflow.",
         "navigate",
         _stale_occurrence_exceptions,
+    ),
+    _rule(
+        QualityRuleId.SCORING_PROJECTION_MISMATCH,
+        QualityDomain.SCORING,
+        QualitySeverity.CRITICAL,
+        "Scoring projection differs from active history",
+        "Review the Match and correct the authoritative delivery through scoring.",
+        "manual",
+        _select_rule(
+            _scoring_consistency_findings,
+            QualityRuleId.SCORING_PROJECTION_MISMATCH,
+        ),
+    ),
+    _rule(
+        QualityRuleId.SCORING_ACTIVE_REVISION_CONFLICT,
+        QualityDomain.SCORING,
+        QualitySeverity.CRITICAL,
+        "Delivery has conflicting active revisions",
+        "Review the revision chain and use the scoring correction boundary.",
+        "manual",
+        _select_rule(
+            _scoring_consistency_findings,
+            QualityRuleId.SCORING_ACTIVE_REVISION_CONFLICT,
+        ),
+    ),
+    _rule(
+        QualityRuleId.SCORING_SEQUENCE_CONFLICT,
+        QualityDomain.SCORING,
+        QualitySeverity.CRITICAL,
+        "Scoring sequence is duplicated or unordered",
+        "Review the Match history and preserve stable attempted delivery identities.",
+        "manual",
+        _select_rule(
+            _scoring_consistency_findings,
+            QualityRuleId.SCORING_SEQUENCE_CONFLICT,
+        ),
+    ),
+    _rule(
+        QualityRuleId.SCORING_PARTICIPANT_IDENTITY_INVALID,
+        QualityDomain.SCORING,
+        QualitySeverity.CRITICAL,
+        "Scoring event references an invalid participant",
+        "Review fixed Match participants and correct the affected delivery.",
+        "manual",
+        _select_rule(
+            _scoring_consistency_findings,
+            QualityRuleId.SCORING_PARTICIPANT_IDENTITY_INVALID,
+        ),
+    ),
+    _rule(
+        QualityRuleId.SCORING_LIFECYCLE_INVALID,
+        QualityDomain.SCORING,
+        QualitySeverity.CRITICAL,
+        "Scoring lifecycle and result are inconsistent",
+        "Review the Match lifecycle and complete or correct it through scoring.",
+        "manual",
+        _select_rule(
+            _scoring_consistency_findings,
+            QualityRuleId.SCORING_LIFECYCLE_INVALID,
+        ),
+    ),
+    _rule(
+        QualityRuleId.SCORING_OVER_QUOTA_INVALID,
+        QualityDomain.SCORING,
+        QualitySeverity.WARNING,
+        "Over or bowler quota state is inconsistent",
+        "Review the locked capability and affected delivery history.",
+        "manual",
+        _select_rule(
+            _scoring_consistency_findings,
+            QualityRuleId.SCORING_OVER_QUOTA_INVALID,
+        ),
+    ),
+    _rule(
+        QualityRuleId.SCORING_WICKET_CARDINALITY_INVALID,
+        QualityDomain.SCORING,
+        QualitySeverity.CRITICAL,
+        "Wicket or fielder cardinality is invalid",
+        "Correct the affected delivery using its ordered fielder collection.",
+        "manual",
+        _select_rule(
+            _scoring_consistency_findings,
+            QualityRuleId.SCORING_WICKET_CARDINALITY_INVALID,
+        ),
+    ),
+    _rule(
+        QualityRuleId.SCORING_RECONCILIATION_REQUIRED,
+        QualityDomain.SCORING,
+        QualitySeverity.CRITICAL,
+        "Innings requires scoring reconciliation",
+        "Use the normal authorized delivery-correction workflow to clear it.",
+        "manual",
+        _select_rule(
+            _scoring_consistency_findings,
+            QualityRuleId.SCORING_RECONCILIATION_REQUIRED,
+        ),
+    ),
+    _rule(
+        QualityRuleId.SCORING_LEGACY_DIVERGENCE,
+        QualityDomain.SCORING,
+        QualitySeverity.WARNING,
+        "Legacy performance view differs from scoring truth",
+        "Treat delivery-derived projections as authoritative and review compatibility.",
+        "manual",
+        _select_rule(
+            _scoring_consistency_findings,
+            QualityRuleId.SCORING_LEGACY_DIVERGENCE,
+        ),
+    ),
+    _rule(
+        QualityRuleId.SCORING_HISTORICAL_STATE_MALFORMED,
+        QualityDomain.SCORING,
+        QualitySeverity.CRITICAL,
+        "Historical scoring state is malformed",
+        "Review the persisted scoring history before accepting further changes.",
+        "manual",
+        _select_rule(
+            _scoring_consistency_findings,
+            QualityRuleId.SCORING_HISTORICAL_STATE_MALFORMED,
+        ),
     ),
 )
 

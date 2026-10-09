@@ -170,6 +170,61 @@ ACTION_REGISTRY: dict[AuditActionType, AuditActionDefinition] = {
         "{actor} deleted an occurrence of {target}",
         frozenset({"original_date"}),
     ),
+    AuditActionType.SCORING_INITIALIZED: AuditActionDefinition(
+        AuditActionCategory.SCORING,
+        AuditEntityType.MATCH,
+        "{actor} initialized scoring for {target}",
+        frozenset(
+            {
+                "capability_profile",
+                "capability_version",
+                "innings_sequence",
+                "participant_count",
+            }
+        ),
+    ),
+    AuditActionType.SCORING_INNINGS_STARTED: AuditActionDefinition(
+        AuditActionCategory.SCORING,
+        AuditEntityType.MATCH,
+        "{actor} started an innings for {target}",
+        frozenset(
+            {
+                "innings_id",
+                "innings_number",
+                "batting_side_id",
+                "fielding_side_id",
+            }
+        ),
+    ),
+    AuditActionType.SCORING_INNINGS_COMPLETED: AuditActionDefinition(
+        AuditActionCategory.SCORING,
+        AuditEntityType.MATCH,
+        "{actor} completed an innings for {target}",
+        frozenset({"innings_id", "innings_number", "completion_kind", "reason"}),
+    ),
+    AuditActionType.SCORING_MATCH_COMPLETED: AuditActionDefinition(
+        AuditActionCategory.SCORING,
+        AuditEntityType.MATCH,
+        "{actor} completed {target}",
+        frozenset({"result_code", "lifecycle_state", "reason"}),
+    ),
+    AuditActionType.SCORING_DELIVERY_CORRECTED: AuditActionDefinition(
+        AuditActionCategory.SCORING,
+        AuditEntityType.MATCH,
+        "{actor} corrected a delivery for {target}",
+        frozenset(
+            {
+                "innings_id",
+                "delivery_id",
+                "prior_revision_id",
+                "revision_id",
+                "revision_number",
+                "reason",
+                "prior_lifecycle",
+                "final_lifecycle",
+            }
+        ),
+    ),
 }
 
 

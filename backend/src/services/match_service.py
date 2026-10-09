@@ -6,14 +6,24 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.enums import MatchParticipantType
+from src.enums import MatchParticipantType, ScoringAuthority
 from src.models.match import Match
 from src.models.team import Team
+from src.models.user import User
 from src.schemas.match import (
     ExternalMatchParticipantRequest,
     MatchCreate,
     MatchParticipantRequest,
     MatchUpdate,
+)
+from src.schemas.scoring import (
+    InningsCompletionRequest,
+    InningsResponse,
+    MatchCompletionRequest,
+    MatchCompletionResponse,
+    MatchConfigurationRequest,
+    MatchConfigurationResponse,
+    ScorecardResponse,
 )
 from src.services.occ import check_and_increment_version
 from src.services.rag.contracts import (
@@ -22,6 +32,7 @@ from src.services.rag.contracts import (
     RagMutationRef,
     RagMutationSource,
 )
+from src.services.scoring.errors import ScoringAuthorityError
 
 
 async def _stage_match_impact(session: AsyncSession, match_id: UUID) -> None:
@@ -111,7 +122,13 @@ class MatchService:
 
         statement = (
             select(Match)
-            .options(selectinload(Match.home_team), selectinload(Match.away_team))
+            .options(
+                selectinload(Match.home_team),
+                selectinload(Match.away_team),
+                selectinload(Match.scoring_policy),
+                selectinload(Match.scoring_sides),
+                selectinload(Match.scoring_participants),
+            )
             .where(Match.id == match_id)
         )
         match = (await self.session.scalars(statement)).one_or_none()
@@ -148,6 +165,12 @@ class MatchService:
             match = await self.session.get(Match, match_id)
             if match is None:
                 raise MatchNotFoundError
+            authority = match.scoring_authority or ScoringAuthority.LEGACY_AGGREGATE
+            if ScoringAuthority(authority) is ScoringAuthority.DELIVERY_HISTORY:
+                raise ScoringAuthorityError(
+                    "A configured scoring Match cannot be replaced through the "
+                    "legacy Match update route."
+                )
             participant_columns = await self._participant_columns(payload.participants)
             next_version = await check_and_increment_version(
                 self.session,
@@ -174,7 +197,81 @@ class MatchService:
 
         statement = (
             select(Match)
-            .options(selectinload(Match.home_team), selectinload(Match.away_team))
+            .options(
+                selectinload(Match.home_team),
+                selectinload(Match.away_team),
+                selectinload(Match.scoring_policy),
+                selectinload(Match.scoring_sides),
+                selectinload(Match.scoring_participants),
+            )
             .order_by(Match.match_date, Match.id)
         )
         return list((await self.session.scalars(statement)).all())
+
+    async def get_match(self, match_id: UUID) -> Match:
+        """Return one Match with legacy and locked scoring identities loaded."""
+
+        return await self._get_loaded_match(match_id)
+
+    async def configure_scoring(
+        self,
+        match_id: UUID,
+        payload: MatchConfigurationRequest,
+        authenticated_user,
+        *,
+        request_id: str | None = None,
+    ) -> MatchConfigurationResponse:
+        """Delegate configuration through the Match aggregate's scoring seam."""
+
+        from src.services.scoring.service import ScoringService
+
+        return await ScoringService(self.session).configure_match(
+            match_id,
+            payload,
+            authenticated_user,
+            request_id=request_id,
+        )
+
+    async def complete_innings(
+        self,
+        match_id: UUID,
+        innings_id: UUID,
+        payload: InningsCompletionRequest,
+        authenticated_user: User | UUID,
+        *,
+        request_id: str | None = None,
+    ) -> InningsResponse:
+        """Delegate completion to the transactional scoring boundary."""
+        from src.services.scoring.service import ScoringService
+
+        return await ScoringService(self.session).complete_innings(
+            match_id, innings_id, payload, authenticated_user, request_id=request_id
+        )
+
+    async def get_scorecard(
+        self,
+        match_id: UUID,
+        authenticated_user: User | UUID,
+    ) -> ScorecardResponse:
+        """Delegate protected scorecard reads to the scoring query boundary."""
+
+        from src.services.scoring.service import ScoringService
+
+        return await ScoringService(self.session).get_scorecard(
+            match_id, authenticated_user
+        )
+
+    async def complete_match(
+        self,
+        match_id: UUID,
+        payload: MatchCompletionRequest,
+        authenticated_user: User | UUID,
+        *,
+        request_id: str | None = None,
+    ) -> MatchCompletionResponse:
+        """Delegate completion to the transactional scoring boundary."""
+        from src.services.scoring.service import ScoringService
+
+        return await ScoringService(self.session).complete_match(
+            match_id, payload, authenticated_user, request_id=request_id
+        )

@@ -23,7 +23,7 @@ from src.models.team import Team
 from src.models.team_player import TeamPlayer
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(loop_scope="session")
 async def db_session() -> AsyncSession:
     """Provide the real database session used by the quickstart client."""
 
@@ -32,7 +32,7 @@ async def db_session() -> AsyncSession:
         await session.rollback()
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(loop_scope="session")
 async def client():
     """Run requests through the complete FastAPI route and service stack."""
 
