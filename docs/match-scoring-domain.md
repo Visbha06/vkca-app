@@ -6,6 +6,22 @@ history, deterministic innings replay, and persisted read projections. It is a
 domain and API reference, not a scorer UI guide. The executable acceptance
 journey is [the Match Scoring Quickstart](../specs/014-match-scoring-domain/quickstart.md).
 
+## Database setup
+
+Alembic revision `016` adds the Match lifecycle/result fields and scoring tables
+used by Match reads and the Data Quality report. Apply pending migrations before
+starting the updated backend:
+
+```bash
+cd backend
+uv run alembic upgrade head
+```
+
+If Data Quality fails with `column matches.lifecycle_state does not exist`,
+check `uv run alembic current`: a database at revision `015` still needs revision
+`016`. The local `./scripts/start.sh` launcher applies migrations before starting
+either application process and stops startup if a migration fails.
+
 ## Capability profiles
 
 The wire, domain, policy, and persisted format identifier is the same exact

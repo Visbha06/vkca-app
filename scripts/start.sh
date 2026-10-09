@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Apply pending migrations before starting either application process.
+if ! (cd backend && source .venv/bin/activate && alembic upgrade head); then
+    echo "Database migrations failed; application startup stopped." >&2
+    exit 1
+fi
+
 # Start backend and frontend in background
 (cd backend && source .venv/bin/activate && uvicorn src.main:app --reload) &
 BACKEND_PID=$!
