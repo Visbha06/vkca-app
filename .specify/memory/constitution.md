@@ -1,21 +1,22 @@
   <!--
     Sync Impact Report
     ==================
-    Version change: 1.2.0 → 1.3.0 (MINOR — materially expanded guidance under
-    VIII. UX Completeness in Specs + wording clarification under V. Testing
-    Discipline)
-    Modified principles:
-      - V. Testing Discipline — narrowed Quickstart validation scope to backend
-        operations only
-      - VIII. UX Completeness in Specs — added mandatory frontend design
-        references (PRODUCT.md + DESIGN.md)
-    Added sections: N/A
+    Version change: 1.3.0 → 1.4.0 (MINOR — added a new principle for using
+    Context7 to retrieve current external documentation)
+    Modified principles: None; all existing principles are preserved.
+    Added sections:
+      - XIII. Current External Documentation under Core Principles
     Removed sections: N/A
     Templates requiring updates:
-      - .specify/templates/plan-template.md: ✅ aligned (no change needed)
+      - .specify/templates/plan-template.md: ✅ updated (Context7 guidance added
+        to the Constitution Check)
       - .specify/templates/spec-template.md: ✅ aligned (no change needed)
-      - .specify/templates/tasks-template.md: ✅ aligned (quickstart task already
-        scoped to backend path)
+      - .specify/templates/tasks-template.md: ✅ aligned (no new task category
+        required)
+    Workflow references:
+      - .specify/integrations/speckit.manifest.json: ✅ updated (template
+        checksum)
+    Command files: N/A (no .specify/templates/commands/*.md files exist)
     Follow-up TODOs: None
   -->
 
@@ -181,6 +182,24 @@ Every new feature MUST include its own documentation markdown file in `docs/`.
 - Documentation MUST be kept up to date when the feature is significantly
   modified in subsequent work.
 
+### XIII. Current External Documentation
+
+When a task depends on external framework, library, SDK, API, or CLI behavior
+that cannot be confidently established from existing repository context,
+agents MUST use Context7 MCP when available to retrieve current,
+version-specific documentation. This requirement applies especially to
+implementing unfamiliar APIs, resolving version-specific behavior, upgrading
+dependencies, and making architectural decisions that depend on external
+libraries. Agents MUST prefer official documentation retrieved through
+Context7 over assumptions or outdated model knowledge.
+
+- Context7 is not required for routine changes that follow established
+  repository patterns or tasks that can be completed confidently from local
+  codebase context.
+- If Context7 is unavailable, agents MUST proceed using existing repository
+  conventions and clearly document any uncertainty in relevant planning or
+  implementation notes.
+
 ## Technical Standards
 
 **Technology Stack**: React 18+ with TypeScript (frontend), Python 3.12+ with
@@ -223,4 +242,4 @@ applicable principles. The Constitution Check gate in each implementation
 plan MUST reference this document. Complexity or principle violations MUST be
 documented and justified in the plan's Complexity Tracking table.
 
-**Version**: 1.3.0 | **Ratified**: 2026-07-05 | **Last Amended**: 2026-07-19
+**Version**: 1.4.0 | **Ratified**: 2026-07-05 | **Last Amended**: 2026-10-11

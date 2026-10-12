@@ -42,6 +42,14 @@
 
 [Gates determined based on constitution file]
 
+- For plan decisions that depend on external framework, library, SDK, or API
+  behavior not confidently established by repository context, verify
+  assumptions against current, version-specific official documentation through
+  Context7 when available, as required by principle XIII. Skip this check for
+  routine work that follows established repository patterns or is fully
+  supported by local code context. If Context7 is unavailable, document any
+  uncertainty.
+
 ## Project Structure
 
 ### Documentation (this feature)
